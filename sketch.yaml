@@ -1,0 +1,2 @@
+default_fqbn: espressif:esp:nologo_esp32c3_super_mini
+default_port: /dev/ttyACM0

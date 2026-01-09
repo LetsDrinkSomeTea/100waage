@@ -1,0 +1,131 @@
+const String trinksprueche[] = {
+  "Prost! Auf alles, was uns heute noch erwartet",
+  "Zum Wohl und auf einen gelungenen Abend",
+  "Hoch die Glaeser, tief die Hemmungen",
+  "Jetzt wird nicht geredet, jetzt wird getrunken",
+  "Ein Schluck fuer den Durst, zwei fuer die Stimmung",
+  "Auf uns, auf euch und auf den Rest im Glas",
+  "Auf dich! Ohne dich waer es nur halb so lustig",
+  "Zack zack, der Pegel wartet nicht",
+  "Hopp hopp, das Getraenk wird sonst warm",
+  "Abfahrt! Der Abend hat gerade erst begonnen",
+  "Nicht zoegern, das Glas schaut schon traurig",
+  "Keine Ausreden, wir sind hier nicht zum Nippen",
+  "Einer geht noch, sagen alle und haben recht",
+  "Feuer frei! Die Leber ist ein Muskel",
+  "Nicht reden, das Glas will Aufmerksamkeit",
+  "Zieh durch, wir glauben fest an dich",
+  "Hau weg, das Getraenk hat keine Gefuehle",
+  "Ziel trinken statt ziellos nippen",
+  "Gleich nochmal, zur Sicherheit",
+  "Durst loeschen auf professionelle Art",
+  "Beweis es, das Glas zweifelt an dir",
+  "Das Glas ist voll, tu etwas dagegen",
+  "Zeit fuer einen mutigen Schluck",
+  "Wer zaehlt schon mit, wir nicht",
+  "Leber sagt nein, wir sagen ja",
+  "Der Pegel muss stimmen",
+  "Trinken ist auch Teamarbeit",
+  "Das Glas fuehlt sich unbeachtet",
+  "Auf alles, was wir morgen vergessen",
+  "Jetzt wird Ernst gemacht",
+  "Zeit den Fuellstand zu aendern",
+  "Das ist keine Bitte, und auch kein Vorschlag: Trink!",
+  "Der Abend verlangt Opfer",
+  "Ein Schluck fuer den Mut",
+  "Wer langsam trinkt, trinkt zweimal",
+  "Nicht diskutieren, demonstrieren",
+  "Prost, weil wir es koennen",
+  "Nicht nachdenken, ansetzen",
+  "Ein Schluck fuer den guten Zweck",
+  "Jetzt ist keine Zeit fuer Vernunft",
+  "Ein Schluck fuer alle Anwesenden",
+  "Nicht schuechtern sein",
+  "Das Glas hat es verdient",
+  "Jetzt oder nie",
+  "Die Runde zaehlt auf dich",
+  "Einmal ansetzen, bitte",
+};
+
+void printCenteredText(String text, int lineNumber, int totalLines) {
+
+  int16_t x1, y1;
+  uint16_t width, height;
+  display.getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
+  display.setCursor((SCREEN_WIDTH - width) / 2, (SCREEN_HEIGHT / totalLines) * lineNumber + ((SCREEN_HEIGHT / totalLines) - height) / 2);
+  display.print(text);
+}
+
+void displayText(String line, String line2, String line3) {
+  String lines[3];
+  lines[0] = line;
+  lines[1] = line2;
+  lines[2] = line3;
+  display.setTextSize(2);
+
+  if (line.length() > 10 && line.length() <= 20) {
+    for (int i = 10; i > 0; i--) {
+      if (line.charAt(i) == ' ') {
+        lines[1] = lines[0].substring(i + 1);
+        lines[0] = lines[0].substring(0, i);
+        break;
+      }
+    }
+  }
+
+  if (lines[0].length() > 20) {
+    display.setTextSize(1);
+    for (int i = 19; i > 0; i--) {
+      if (line.charAt(i) == ' ') {
+        lines[1] = lines[0].substring(i + 1);
+        lines[0] = lines[0].substring(0, i);
+        break;
+      }
+    }
+    if (lines[1].length() > 20)
+      for (int i = 19; i > 0; i--) {
+        if (lines[1].charAt(i) == ' ') {
+          lines[2] = lines[1].substring(i + 1);
+          lines[1] = lines[1].substring(0, i);
+          break;
+        }
+      }
+    if (lines[2].length() > 20) {
+      lines[0] = lines[1] = lines[2] = "Text zu lang!";
+    }
+  }
+
+  display.clearDisplay();
+  const int numLines = (lines[2] != "") ? 3 : (lines[1] != "") ? 2
+                                                               : 1;
+  for (int i = 0; i < numLines; i++) {
+    printCenteredText(lines[i], i, numLines);
+  }
+  display.display();
+}
+
+String getTrinkspruch() {
+  int index = random(0, sizeof(trinksprueche) / sizeof(trinksprueche[0]));
+  return trinksprueche[index];
+}
+
+void displayLoadingAnimation(int frame) {
+  const int numCircles = 5;
+  const int radius = 5;
+  const int spacing = radius * 3;
+  const int startX = (SCREEN_WIDTH - (numCircles - 1) * spacing) / 2;
+  const int centerY = SCREEN_HEIGHT / 2;
+
+  int filledCircle = frame % numCircles;
+
+  display.clearDisplay();
+  for (int i = 0; i < numCircles; i++) {
+    int x = startX + i * spacing;
+    if (i == filledCircle) {
+      display.fillCircle(x, centerY, radius, SSD1306_WHITE);
+    } else {
+      display.drawCircle(x, centerY, radius, SSD1306_WHITE);
+    }
+  }
+  display.display();
+}
