@@ -1,7 +1,10 @@
 #include <Adafruit_SSD1306.h>
 #include <cstring>
+#include <WiFi.h>
+#include "types.h"
 
-void displayText(String line, String line2 = "", String line3 = "");
+void displayText(String line, String line2, String line3 = "", boolean border = false);
+void displayText(String line, boolean border = false);
 void displayLoadingAnimation(int frame);
 String getTrinkspruch();
 
@@ -20,15 +23,16 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define HX711_DAT 21
 #define HX711_CLK 20
 
-#define scaleFactor 708.0  // Kalibrierungsfaktor für die Waage
-#define knownWeight 50.0   // Bekanntes Gewicht in Gramm für die Kalibrierung
-
-#define tolerance 10.0
 #define timeToSettle 500  // Zeit in ms zum Warten, bis sich das Gewicht stabilisiert hat
-#define goal 100          // Zielgewicht in Gramm
 
 HX711 hx711;
 #define BTN_PIN 0
+
+// Config aus webconfig.ino - werden im setup() geladen
+float scaleFactor = 708.0;
+long tareOffset = 0;
+float goal = 100.0;
+float tolerance = 10.0;
 
 enum States { Idle,
               Tare,
@@ -55,19 +59,6 @@ void updateWeight() {
   weight = hx711.get_units(10);
 }
 
-void calibrate() {
-  hx711.set_scale();
-  hx711.tare(10);
-
-  displayText("P" + String(knownWeight) + " g");
-  delay(5000);  // Zeit zum Platzieren des Gewichts
-
-  hx711.calibrate_scale(knownWeight);
-
-  displayText("F" + String(hx711.get_scale()));
-  while (true) {}
-}
-
 void setup() {
   Serial.begin(115200);
   Wire.begin(OLED_SDA, OLED_SCL);
@@ -79,18 +70,42 @@ void setup() {
   display.setTextColor(SSD1306_WHITE);
   display.cp437();
 
+  // Lade Konfiguration aus EEPROM
+  WaageConfig cfg = getConfig();
+  if (cfg.valid) {
+    scaleFactor = cfg.scaleFactor;
+    tareOffset = cfg.tareOffset;
+    goal = cfg.goal;
+    tolerance = cfg.tolerance;
+    Serial.println("Konfiguration geladen:");
+    Serial.print("  AP SSID: ");
+    Serial.println(cfg.apSSID);
+    Serial.print("  Scale Factor: ");
+    Serial.println(scaleFactor);
+    Serial.print("  Tare Offset: ");
+    Serial.println(tareOffset);
+    Serial.print("  Goal: ");
+    Serial.println(goal);
+    Serial.print("  Tolerance: ");
+    Serial.println(tolerance);
+  } else {
+    Serial.println("Keine Konfiguration - Config Mode aktiv");
+    displayText("Config Mode", "Waage-Config");
+  }
+
+  // Starte Web-Config im Hintergrund (immer, unabhängig von valid)
+  startWebConfig();
+
   hx711.begin(HX711_DAT, HX711_CLK);
 
   if (abs(scaleFactor) > 1e-6) {
-    hx711.set_scale(scaleFactor);  // Setze den Kalibrierungsfaktor basierend auf dem bekannten Gewicht
-  } else {
-    calibrate();
+    hx711.set_scale(scaleFactor);
   }
   hx711.tare(10);
 }
 
 void stateIdle() {
-  displayText("Durst?", String(int(weight)) + "g");
+  displayText("Durst auf " + String(goal, 2) + "g?", int(weight) != 0);
   if (weight < goal) {
     return;
   }
@@ -133,16 +148,17 @@ void stateResult() {
     return;
   }
   int result = (full_weight - final_weight) * 100;
+  int goal_int = int(goal * 100);
   String result_formatted = String((full_weight - final_weight), 2) + "g";
   if (result == goal * 100) {
     displayText(result_formatted, "Perfekt!");
-  } else if (result / 10 == goal * 10) {
+  } else if (result / 10 == goal_int * 10) {
     displayText(result_formatted, "Not Bad!");
-  } else if (result / 100 == goal) {
+  } else if (result / 100 == goal_int) {
     displayText(result_formatted, "Ganz ok!");
-  } else if (result / 100 < goal) {
+  } else if (result / 100 < goal_int) {
     displayText(result_formatted, "schuchtern");
-  } else if (result / 100 > goal) {
+  } else if (result / 100 > goal_int) {
     displayText(result_formatted, "Zu gierig!");
   } else {
     displayText(result_formatted);
