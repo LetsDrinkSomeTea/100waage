@@ -56,11 +56,11 @@ void printCenteredText(String text, int lineNumber, int totalLines) {
   display.print(text);
 }
 
-void displayText(String line, String line2, String line3) {
+void displayText(String line, String line2, String line3, boolean border) {
   String lines[3];
   lines[0] = line;
   lines[1] = line2;
-  lines[2] = line3;
+  lines[2] = "";
   display.setTextSize(2);
 
   if (line.length() > 10 && line.length() <= 20) {
@@ -101,7 +101,14 @@ void displayText(String line, String line2, String line3) {
   for (int i = 0; i < numLines; i++) {
     printCenteredText(lines[i], i, numLines);
   }
+  if (border) {
+    display.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
+  }
   display.display();
+}
+
+void displayText(String line, boolean border) {
+  displayText(line, "", "", border);
 }
 
 String getTrinkspruch() {
