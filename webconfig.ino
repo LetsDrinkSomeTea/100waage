@@ -107,8 +107,8 @@ void handleSave() {
   }
 
   if (webServer->hasArg("goal") && webServer->arg("goal").length() > 0) {
-      config.goal = webServer->arg("goal").toFloat();
-    }
+    config.goal = webServer->arg("goal").toFloat();
+  }
 
   if (webServer->hasArg("tolerance") && webServer->arg("tolerance").length() > 0) {
     config.tolerance = webServer->arg("tolerance").toFloat();
@@ -305,12 +305,12 @@ button:hover {
     
     <div class="form-group">
       <label>Zielgewicht (Goal) [g]:</label>
-      <input type="number" step="0.1" name="goal" placeholder="z.B. 100.0">
+      <input type="number" step="0.01" name="goal" placeholder="z.B. 100.0">
     </div>
     
     <div class="form-group">
       <label>Toleranz [g]:</label>
-      <input type="number" step="0.1" name="tolerance" placeholder="z.B. 10.0">
+      <input type="number" step="1" name="tolerance" placeholder="z.B. 10.0">
     </div>
     
     <div class="form-group">

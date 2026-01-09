@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include "types.h"
 
-void displayText(String line, String line2, String line3 = "", boolean border = false);
+void displayLines(String line, String line2 = "", String line3 = "", boolean border = false);
 void displayText(String line, boolean border = false);
 void displayLoadingAnimation(int frame);
 String getTrinkspruch();
@@ -90,7 +90,7 @@ void setup() {
     Serial.println(tolerance);
   } else {
     Serial.println("Keine Konfiguration - Config Mode aktiv");
-    displayText("Config Mode", "Waage-Config");
+    displayLines("Config Mode", "Waage-Config");
   }
 
   // Starte Web-Config im Hintergrund (immer, unabhängig von valid)
@@ -150,15 +150,15 @@ void stateResult() {
   int result = (full_weight - final_weight) * 100;
   int goal_int = int(goal * 100);
   String result_formatted = String((full_weight - final_weight), 2) + "g";
-  if (result == goal * 100) {
-    displayText(result_formatted, "Perfekt!");
-  } else if (result / 10 == goal_int * 10) {
-    displayText(result_formatted, "Not Bad!");
-  } else if (result / 100 == goal_int) {
-    displayText(result_formatted, "Ganz ok!");
-  } else if (result / 100 < goal_int) {
-    displayText(result_formatted, "schuchtern");
-  } else if (result / 100 > goal_int) {
+  if (result == goal) {
+    displayLines(result_formatted, "Perfekt!");
+  } else if (result / 10 == goal_int / 10) {
+    displayLines(result_formatted, "Not Bad!");
+  } else if (result / 100 == goal_int / 100) {
+    displayLines(result_formatted, "Ganz ok!");
+  } else if (result / 100 < goal_int / 100) {
+    displayLines(result_formatted, "schuchtern");
+  } else if (result / 100 > goal_int / 100) {
     displayText(result_formatted, "Zu gierig!");
   } else {
     displayText(result_formatted);

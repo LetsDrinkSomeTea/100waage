@@ -56,7 +56,7 @@ void printCenteredText(String text, int lineNumber, int totalLines) {
   display.print(text);
 }
 
-void displayText(String line, String line2, String line3, boolean border) {
+void displayLines(String line, String line2, String line3, boolean border) {
   String lines[3];
   lines[0] = line;
   lines[1] = line2;
@@ -108,7 +108,7 @@ void displayText(String line, String line2, String line3, boolean border) {
 }
 
 void displayText(String line, boolean border) {
-  displayText(line, "", "", border);
+  displayLines(line, "", "", border);
 }
 
 String getTrinkspruch() {
