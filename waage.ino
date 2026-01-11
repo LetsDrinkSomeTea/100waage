@@ -33,6 +33,11 @@ float scaleFactor = 708.0;
 long tareOffset = 0;
 float goal = 100.0;
 float tolerance = 10.0;
+unsigned long timeStarted = 0;
+unsigned long timeEnd = 0;
+enum DisplayMode { ShowResult,
+                   ShowTime };
+volatile DisplayMode displayMode = ShowResult;
 
 enum States { Idle,
               Tare,
@@ -44,14 +49,16 @@ float weight = 0.0;
 float full_weight = 0.0;
 float empty_weight = 0.0;
 float final_weight = 0.0;
-boolean resultDisplayed = false;
+unsigned long lastResultUpdate = millis();
+#define resultUpdateInterval 3000
 boolean rdyDisplayed = false;
 
 void IRAM_ATTR handleInterrupt() {
   // Interrupt-Service-Routine (ISR) placeholder
   state = Idle;
   weight = full_weight = empty_weight = final_weight = 0.;
-  resultDisplayed = rdyDisplayed = false;
+  rdyDisplayed = false;
+  displayMode = ShowResult;
   hx711.tare(10);
 }
 
@@ -126,6 +133,7 @@ void stateTare() {
     return;
   }
   delay(timeToSettle);
+  timeStarted = millis();
   updateWeight();
   empty_weight = weight;
   state = Drinking;
@@ -138,23 +146,39 @@ void stateDrinking() {
     return;
   }
   delay(timeToSettle);
+  timeEnd = millis();
   updateWeight();
   final_weight = weight;
   state = Result;
 }
 
 void stateResult() {
-  if (resultDisplayed) {
+  if (millis() - lastResultUpdate < resultUpdateInterval) {
     return;
   }
+  String duration = String((timeEnd - timeStarted) / 1000.0, 2) + "s";
   int result = (full_weight - final_weight) * 100;
   int goal_int = int(goal * 100);
-  String result_formatted = String((full_weight - final_weight), 2) + "g";
+  String result_formatted;
+
+  Serial.print("Result: ");
+  Serial.print(result);
+  Serial.print(" Goal: ");
+  Serial.println(goal_int);
+
+  if (displayMode == ShowTime) {
+    result_formatted = duration;
+  }else if (displayMode == ShowResult) {
+    result_formatted = String((full_weight - final_weight), 2) + "g";
+  }
+
   if (result == goal) {
     displayLines(result_formatted, "Perfekt!");
-  } else if (result / 10 == goal_int / 10) {
+  } else if (abs(result - goal_int) <= 10) {
+    // Display when within 0.1g
     displayLines(result_formatted, "Not Bad!");
-  } else if (result / 100 == goal_int / 100) {
+  } else if (abs(result - goal_int) <= 100) {
+    // Display when within 1g
     displayLines(result_formatted, "Ganz ok!");
   } else if (result / 100 < goal_int / 100) {
     displayLines(result_formatted, "schuchtern");
@@ -163,8 +187,12 @@ void stateResult() {
   } else {
     displayText(result_formatted);
   }
-  resultDisplayed = true;
-  delay(200);
+  lastResultUpdate = millis();
+  if (displayMode == ShowResult) {
+    displayMode = ShowTime;
+  } else {
+    displayMode = ShowResult;
+  }
 }
 
 void loop() {
