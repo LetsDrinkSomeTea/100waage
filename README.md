@@ -15,7 +15,7 @@ An ESP32-based drinking scale that challenges you to drink a specific amount fro
 - OLED SCL: GPIO 9
 - HX711 DAT: GPIO 21
 - HX711 CLK: GPIO 20
-- Button: GPIO 0
+- Button: GPIO 5
 
 ## Features
 
@@ -35,6 +35,7 @@ An ESP32-based drinking scale that challenges you to drink a specific amount fro
 ## Configuration
 
 Access the web configuration interface via WiFi to set:
+
 - Scale calibration factor
 - Tare offset
 - Drinking goal (grams)

@@ -26,7 +26,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define timeToSettle 500  // Zeit in ms zum Warten, bis sich das Gewicht stabilisiert hat
 
 HX711 hx711;
-#define BTN_PIN 0
+#define BTN_PIN 5
 
 // Config aus webconfig.ino - werden im setup() geladen
 float scaleFactor = 708.0;
