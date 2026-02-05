@@ -14,7 +14,8 @@
 #define EEPROM_TARE_OFFSET_ADDR 68
 #define EEPROM_GOAL_ADDR 72
 #define EEPROM_TOLERANCE_ADDR 76
-#define EEPROM_VALID_FLAG_ADDR 80
+#define EEPROM_DISPLAY_ROTATION_ADDR 80
+#define EEPROM_VALID_FLAG_ADDR 81
 
 // Globale Variablen
 WebServer* webServer = nullptr;
@@ -48,6 +49,9 @@ void loadConfig() {
 
     // Tolerance laden
     EEPROM.get(EEPROM_TOLERANCE_ADDR, config.tolerance);
+
+    // Display Rotation laden
+    config.displayRotation = EEPROM.read(EEPROM_DISPLAY_ROTATION_ADDR);
   } else {
     // Standardwerte
     strcpy(config.apSSID, AP_SSID);
@@ -55,6 +59,7 @@ void loadConfig() {
     config.tareOffset = 0;
     config.goal = 100.0;
     config.tolerance = 10.0;
+    config.displayRotation = 2;
   }
 
   EEPROM.end();
@@ -79,6 +84,9 @@ void saveConfig() {
 
   // Tolerance speichern
   EEPROM.put(EEPROM_TOLERANCE_ADDR, config.tolerance);
+
+  // Display Rotation speichern
+  EEPROM.write(EEPROM_DISPLAY_ROTATION_ADDR, config.displayRotation);
 
   // Valid Flag setzen
   EEPROM.write(EEPROM_VALID_FLAG_ADDR, 0xAA);
@@ -112,6 +120,10 @@ void handleSave() {
 
   if (webServer->hasArg("tolerance") && webServer->arg("tolerance").length() > 0) {
     config.tolerance = webServer->arg("tolerance").toFloat();
+  }
+
+  if (webServer->hasArg("displayRotation") && webServer->arg("displayRotation").length() > 0) {
+    config.displayRotation = webServer->arg("displayRotation").toInt();
   }
 
   config.valid = true;
@@ -152,6 +164,7 @@ void handleStatus() {
   json += "\"weight\":" + String(weight, 2) + ",";
   json += "\"goal\":" + String(config.goal, 2) + ",";
   json += "\"tolerance\":" + String(config.tolerance, 2) + ",";
+  json += "\"displayRotation\":" + String(config.displayRotation) + ",";
   json += "\"valid\":" + String(config.valid ? "true" : "false");
   json += "}";
 
@@ -294,6 +307,7 @@ button:hover {
     Tara-Offset: <span id="currentTare">--</span><br>
     Zielgewicht (Goal): <span id="currentGoal">--</span> g<br>
     Toleranz: <span id="currentTolerance">--</span> g<br>
+    Display-Rotation: <span id="currentRotation">--</span><br>
     Messwert: <span id="currentWeight">--</span> g
   </div>
   
@@ -323,6 +337,14 @@ button:hover {
       <input type="number" name="tareOffset" placeholder="z.B. 0">
     </div>
     
+    <div class="form-group">
+      <label>Display-Rotation:</label>
+      <select name="displayRotation" style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
+        <option value="0">Normal (0°)</option>
+        <option value="2" selected>Gedreht (180°)</option>
+      </select>
+    </div>
+    
     <button type="submit">💾 Speichern & Neustarten</button>
   </form>
   
@@ -348,6 +370,7 @@ function loadStatus() {
       document.getElementById('currentTare').textContent = d.tareOffset;
       document.getElementById('currentGoal').textContent = d.goal;
       document.getElementById('currentTolerance').textContent = d.tolerance;
+      document.getElementById('currentRotation').textContent = d.displayRotation;
     })
     .catch(() => {});
 }

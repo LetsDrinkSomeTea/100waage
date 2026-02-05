@@ -45,6 +45,13 @@ enum States { Idle,
               Result };
 volatile States state = Idle;
 
+enum ScaleMode { Game, Standard };
+volatile ScaleMode scaleMode = Game;
+
+volatile boolean buttonStateChanged = false;
+unsigned long buttonPressStartTime = 0;
+boolean buttonHoldDetected = false;
+
 float weight = 0.0;
 float full_weight = 0.0;
 float empty_weight = 0.0;
@@ -54,12 +61,8 @@ unsigned long lastResultUpdate = millis();
 boolean rdyDisplayed = false;
 
 void IRAM_ATTR handleInterrupt() {
-  // Interrupt-Service-Routine (ISR) placeholder
-  state = Idle;
-  weight = full_weight = empty_weight = final_weight = 0.;
-  rdyDisplayed = false;
-  displayMode = ShowResult;
-  hx711.tare(10);
+  // Edge-triggered ISR - sets flag for main loop
+  buttonStateChanged = true;
 }
 
 void updateWeight() {
@@ -71,14 +74,15 @@ void setup() {
   Wire.begin(OLED_SDA, OLED_SCL);
 
   pinMode(BTN_PIN, INPUT);
-  attachInterrupt(digitalPinToInterrupt(BTN_PIN), handleInterrupt, HIGH);
+  attachInterrupt(digitalPinToInterrupt(BTN_PIN), handleInterrupt, CHANGE);
 
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
-  display.setTextColor(SSD1306_WHITE);
-  display.cp437();
-
+  
   // Lade Konfiguration aus EEPROM
   WaageConfig cfg = getConfig();
+  display.setRotation(cfg.displayRotation);
+  display.setTextColor(SSD1306_WHITE);
+  display.cp437();
   if (cfg.valid) {
     scaleFactor = cfg.scaleFactor;
     tareOffset = cfg.tareOffset;
@@ -112,14 +116,18 @@ void setup() {
 }
 
 void stateIdle() {
-  displayText("Durst auf " + String(goal, 2) + "g?", int(weight) != 0);
-  if (weight < goal) {
-    return;
+  if (scaleMode == Standard) {
+    displayText(String(weight, 1) + "g", false);
+  } else {
+    displayText("Durst auf " + String(goal, 2) + "g?", int(weight) != 0);
   }
-  delay(timeToSettle);
-  updateWeight();
-  full_weight = weight;
-  state = Tare;
+  
+  if (scaleMode == Game && weight >= goal) {
+    delay(timeToSettle);
+    updateWeight();
+    full_weight = weight;
+    state = Tare;
+  }
 }
 
 void stateTare() {
@@ -195,20 +203,76 @@ void stateResult() {
   }
 }
 
-void loop() {
-  switch (state) {
-    case Idle:
-      stateIdle();
-      break;
-    case Tare:
-      stateTare();
-      break;
-    case Drinking:
-      stateDrinking();
-      break;
-    case Result:
-      stateResult();
-      break;
+void handleButtonPress() {
+  // Check if ISR detected a state change
+  if (buttonStateChanged) {
+    buttonStateChanged = false;
+    int buttonState = digitalRead(BTN_PIN);
+    
+    if (buttonState == HIGH && buttonPressStartTime == 0) {
+      // Button pressed - start timer
+      buttonPressStartTime = millis();
+      buttonHoldDetected = false;
+    } else if (buttonState == LOW && buttonPressStartTime > 0) {
+      // Button released
+      unsigned long holdDuration = millis() - buttonPressStartTime;
+      if (holdDuration < 3000) {
+        // Short press - reset/tare (works in both modes)
+        state = Idle;
+        weight = full_weight = empty_weight = final_weight = 0.;
+        rdyDisplayed = false;
+        displayMode = ShowResult;
+        hx711.tare(10);
+      }
+      buttonPressStartTime = 0;
+      buttonHoldDetected = false;
+    }
   }
+  
+  // Check for long hold (button still pressed)
+  if (buttonPressStartTime > 0 && !buttonHoldDetected) {
+    unsigned long holdDuration = millis() - buttonPressStartTime;
+    if (holdDuration >= 3000) {
+      // Held for 3 seconds - toggle mode
+      buttonHoldDetected = true;
+      scaleMode = (scaleMode == Game) ? Standard : Game;
+      
+      // Reset state when switching mode
+      state = Idle;
+      weight = full_weight = empty_weight = final_weight = 0.;
+      rdyDisplayed = false;
+      displayMode = ShowResult;
+      hx711.tare(10);
+      
+      // Show mode change feedback
+      displayText(scaleMode == Game ? "Game Mode" : "Standard Mode");
+      delay(1000);
+    }
+  }
+}
+
+void loop() {
+  handleButtonPress();
+  
+  if (scaleMode == Game) {
+    switch (state) {
+      case Idle:
+        stateIdle();
+        break;
+      case Tare:
+        stateTare();
+        break;
+      case Drinking:
+        stateDrinking();
+        break;
+      case Result:
+        stateResult();
+        break;
+    }
+  } else {
+    // Standard mode - always show current weight
+    stateIdle();
+  }
+  
   updateWeight();
 }

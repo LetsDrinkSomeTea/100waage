@@ -8,6 +8,7 @@ struct WaageConfig {
   long tareOffset;
   float goal;
   float tolerance;
+  uint8_t displayRotation;
   bool valid;
 };
 
