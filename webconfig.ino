@@ -373,13 +373,16 @@ function loadStatus() {
       document.getElementById('currentTolerance').textContent = d.tolerance;
       document.getElementById('currentRotation').textContent = d.displayRotation;
       
-      // Set the dropdown to the current rotation value
+      // Set the dropdown to the current rotation value if placeholder is selected
       var rotationSelect = document.getElementById('displayRotation');
       if (rotationSelect && rotationSelect.value === '') {
-        rotationSelect.value = d.displayRotation;
-        if (rotationSelect.value !== d.displayRotation.toString()) {
-          // If the current value doesn't exist in the dropdown, reset to placeholder
-          rotationSelect.value = '';
+        var rotationValue = String(d.displayRotation);
+        // Check if this value exists in the dropdown
+        var optionExists = Array.from(rotationSelect.options).some(function(opt) {
+          return opt.value === rotationValue;
+        });
+        if (optionExists) {
+          rotationSelect.value = rotationValue;
         }
       }
     })
