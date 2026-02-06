@@ -194,7 +194,7 @@ void stateResult() {
   } else if (result / 100 < goal_int / 100) {
     displayLines(result_formatted, "schuchtern");
   } else if (result / 100 > goal_int / 100) {
-    displayText(result_formatted, "Zu gierig!");
+    displayLines(result_formatted, "Zu gierig!");
   } else {
     displayText(result_formatted);
   }

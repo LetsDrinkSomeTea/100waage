@@ -210,7 +210,7 @@ body { font-family: Arial; text-align: center; margin-top: 40px; }
   delay(100);
   hx711.set_scale();
   hx711.tare(10);
-  displayText("Kalibrierung", "Gewicht platzieren");
+  displayLines("Kalibrierung", "Gewicht platzieren");
   delay(10000);
   hx711.calibrate_scale(knownWeight);
   float newScaleFactor = hx711.get_scale();
