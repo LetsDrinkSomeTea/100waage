@@ -339,9 +339,10 @@ button:hover {
     
     <div class="form-group">
       <label>Display-Rotation:</label>
-      <select name="displayRotation" style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
+      <select name="displayRotation" id="displayRotation" style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
+        <option value="" selected>-- bitte auswählen (aktuell beibehalten) --</option>
         <option value="0">Normal (0°)</option>
-        <option value="2" selected>Gedreht (180°)</option>
+        <option value="2">Gedreht (180°)</option>
       </select>
     </div>
     
@@ -371,6 +372,19 @@ function loadStatus() {
       document.getElementById('currentGoal').textContent = d.goal;
       document.getElementById('currentTolerance').textContent = d.tolerance;
       document.getElementById('currentRotation').textContent = d.displayRotation;
+      
+      // Set the dropdown to the current rotation value if placeholder is selected
+      var rotationSelect = document.getElementById('displayRotation');
+      if (rotationSelect && rotationSelect.value === '') {
+        var rotationValue = String(d.displayRotation);
+        // Check if this value exists in the dropdown
+        var optionExists = Array.from(rotationSelect.options).some(function(opt) {
+          return opt.value === rotationValue;
+        });
+        if (optionExists) {
+          rotationSelect.value = rotationValue;
+        }
+      }
     })
     .catch(() => {});
 }
