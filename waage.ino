@@ -24,6 +24,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define HX711_CLK 20
 
 #define timeToSettle 500  // Zeit in ms zum Warten, bis sich das Gewicht stabilisiert hat
+#define zeroDisplayThreshold 0.05  // Threshold to avoid displaying signed zero in Standard mode
 
 HX711 hx711;
 #define BTN_PIN 5
@@ -117,7 +118,9 @@ void setup() {
 
 void stateIdle() {
   if (scaleMode == Standard) {
-    displayText(String(weight, 1) + "g", false);
+    // Avoid displaying signed zero (-0.0 or +0.0)
+    float displayWeight = (fabs(weight) < zeroDisplayThreshold) ? 0.0 : weight;
+    displayText(String(displayWeight, 1) + "g", false);
   } else {
     displayText("Durst auf " + String(goal, 2) + "g?", int(weight) != 0);
   }
