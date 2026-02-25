@@ -26,11 +26,11 @@ unsigned long getLastHttpActivity();
 void persistScaleMode(uint8_t mode);
 
 // ── Display ───────────────────────────────────────────────────────────────────
-#define OLED_SDA      8
-#define OLED_SCL      9
-#define SCREEN_WIDTH  128
+#define OLED_SDA 8
+#define OLED_SCL 9
+#define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
-#define OLED_RESET    -1
+#define OLED_RESET -1
 #define SCREEN_ADDRESS 0x3C
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -42,74 +42,83 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 HX711 hx711;
 
 // ── Pins ──────────────────────────────────────────────────────────────────────
-#define BTN_PIN  5
+#define BTN_PIN 5
 #define BATT_PIN 2
 
 // ── Battery (Li-ion 3.0 V–4.2 V, voltage divider on GPIO 2) ──────────────────
-#define BATT_ADC_MAX     4095.0f
+#define BATT_ADC_MAX 4095.0f
 #define BATT_REF_VOLTAGE 3.3f
 #define BATT_MIN_VOLTAGE 3.0f
 #define BATT_MAX_VOLTAGE 4.2f
 
 // ── Timing constants ─────────────────────────────────────────────────────────
-#define timeToSettle          500UL
+#define timeToSettle 500UL
 #define resultUpdateInterval 3000UL
-#define battReadInterval     5000UL
-#define weightChangeThreshold  2.0f
+#define battReadInterval 5000UL
+#define weightChangeThreshold 2.0f
 
 // ── Runtime config (loaded from EEPROM) ───────────────────────────────────────
-float   scaleFactor      = 708.0f;
-long    tareOffset       = 0;
-float   goal             = 100.0f;
-float   tolerance        = 10.0f;
-float   battDividerRatio = 2.0f;
-uint8_t autoResetRange   = 10;
-uint8_t sleepTimeoutMin  = 5;
-uint8_t wifiTimeoutMin   = 10;
+float scaleFactor = 708.0f;
+long tareOffset = 0;
+float goal = 100.0f;
+float tolerance = 10.0f;
+float battDividerRatio = 2.0f;
+uint8_t autoResetRange = 10;
+uint8_t sleepTimeoutMin = 5;
+uint8_t wifiTimeoutMin = 10;
 
 // ── State machine ─────────────────────────────────────────────────────────────
-enum States     { Idle, Tare, Drinking, Result };
-enum DisplayMode{ ShowResult, ShowTime };
-enum ScaleMode  { Game, Standard };
+enum States { Idle,
+              Tare,
+              Drinking,
+              Result };
+enum DisplayMode { ShowResult,
+                   ShowTime };
+enum ScaleMode { Game,
+                 Standard };
 
-volatile States      state       = Idle;
+volatile States state = Idle;
 volatile DisplayMode displayMode = ShowResult;
-volatile ScaleMode   scaleMode   = Game;
+volatile ScaleMode scaleMode = Game;
 
 // ── Weight ────────────────────────────────────────────────────────────────────
-float weight       = 0.0f;
-float full_weight  = 0.0f;
+float weight = 0.0f;
+float full_weight = 0.0f;
 float empty_weight = 0.0f;
 float final_weight = 0.0f;
-unsigned long timeStarted      = 0;
-unsigned long timeEnd          = 0;
+unsigned long timeStarted = 0;
+unsigned long timeEnd = 0;
 unsigned long lastResultUpdate = 0;
-boolean       rdyDisplayed     = false;
+boolean rdyDisplayed = false;
 
 // ── Button ────────────────────────────────────────────────────────────────────
-volatile boolean buttonStateChanged  = false;
-unsigned long    buttonPressStart    = 0;
-boolean          holdTriggered3s     = false;
-boolean          holdTriggered5s     = false;
+volatile boolean buttonStateChanged = false;
+unsigned long buttonPressStart = 0;
+boolean holdTriggered3s = false;
+boolean holdTriggered5s = false;
 
 // pending state set at milestones, committed on release
-ScaleMode        previewMode         = Game;
-boolean          pendingWifiToggle   = false;
+ScaleMode previewMode = Game;
+boolean pendingWifiToggle = false;
 
 // ── Power / activity tracking ─────────────────────────────────────────────────
-unsigned long lastActivityTime    = 0;
+unsigned long lastActivityTime = 0;
 unsigned long lastWeightCheckTime = 0;
-float         lastCheckedWeight   = 0.0f;
-unsigned long lastBattRead        = 0;
-int           batteryPercent      = 100;
+float lastCheckedWeight = 0.0f;
+unsigned long lastBattRead = 0;
+int batteryPercent = 100;
 
 // ── WiFi state ────────────────────────────────────────────────────────────────
 boolean wifiActive = false;
 
 // ── Display lock (prevents stateIdle from overwriting preview messages) ───────
 volatile unsigned long displayLockedUntil = 0;
-void lockDisplay(unsigned long ms) { displayLockedUntil = millis() + ms; }
-bool isDisplayLocked()             { return millis() < displayLockedUntil; }
+void lockDisplay(unsigned long ms) {
+  displayLockedUntil = millis() + ms;
+}
+bool isDisplayLocked() {
+  return millis() < displayLockedUntil;
+}
 
 // ── Auto-reset tracking ───────────────────────────────────────────────────────
 unsigned long weightReleasedSince = 0;
@@ -125,21 +134,21 @@ void updateWeight() {
 }
 
 int readBatteryPercent() {
-  int   raw   = analogRead(BATT_PIN);
-  float adcV  = (raw / BATT_ADC_MAX) * BATT_REF_VOLTAGE;
+  int raw = analogRead(BATT_PIN);
+  float adcV = (raw / BATT_ADC_MAX) * BATT_REF_VOLTAGE;
   float battV = adcV * battDividerRatio;
-  float pct   = (battV - BATT_MIN_VOLTAGE) / (BATT_MAX_VOLTAGE - BATT_MIN_VOLTAGE) * 100.0f;
+  float pct = (battV - BATT_MIN_VOLTAGE) / (BATT_MAX_VOLTAGE - BATT_MIN_VOLTAGE) * 100.0f;
   return (int)constrain(pct, 0.0f, 100.0f);
 }
 
 void resetState() {
-  state               = Idle;
-  weight              = full_weight = empty_weight = final_weight = 0.0f;
-  rdyDisplayed        = false;
-  displayMode         = ShowResult;
+  state = Idle;
+  weight = full_weight = empty_weight = final_weight = 0.0f;
+  rdyDisplayed = false;
+  displayMode = ShowResult;
   weightReleasedSince = 0;
   hx711.tare(10);
-  lastActivityTime    = millis();
+  lastActivityTime = millis();
 }
 
 void enterDeepSleep() {
@@ -188,11 +197,11 @@ void handleButtonPress() {
 
     if (btn == HIGH && buttonPressStart == 0) {
       // Press start — record initial state for preview
-      buttonPressStart  = millis();
-      holdTriggered3s   = false;
-      holdTriggered5s   = false;
+      buttonPressStart = millis();
+      holdTriggered3s = false;
+      holdTriggered5s = false;
       pendingWifiToggle = false;
-      previewMode       = scaleMode;
+      previewMode = scaleMode;
 
     } else if (btn == LOW && buttonPressStart > 0) {
       // Release — commit based on which milestones fired
@@ -200,7 +209,7 @@ void handleButtonPress() {
         // ≥ 5 s: mode unchanged, WiFi toggled
         if (pendingWifiToggle) {
           if (wifiActive) stopWiFiAP();
-          else            startWiFiAP();
+          else startWiFiAP();
         }
       } else if (holdTriggered3s) {
         // 3–5 s: commit mode change silently
@@ -220,13 +229,17 @@ void handleButtonPress() {
       holdTriggered3s = true;
       // Preview: flip mode on display, don't commit yet
       previewMode = (scaleMode == Game) ? Standard : Game;
-      displayText(previewMode == Game ? "Game Mode" : "Standard Mode");
+      if (previewMode == Game) {
+        displayText("Game Mode");
+      } else {
+        displayLines("Standard", "Mode");
+      }
       lockDisplay(1000);
     }
 
     if (held >= 5000UL && !holdTriggered5s) {
-      holdTriggered5s   = true;
-      previewMode       = scaleMode;   // revert mode preview
+      holdTriggered5s = true;
+      previewMode = scaleMode;  // revert mode preview
       pendingWifiToggle = true;
       // Preview: show what WiFi will do on release
       displayText(wifiActive ? "WiFi AUS" : "WiFi AN");
@@ -244,14 +257,16 @@ void stateIdle() {
 
   if (scaleMode == Standard) {
     String txt = String(weight, 1) + "g";
-    if (txt == "-0.0g") txt = "0.0g"; // avoid negative zero display
-    int16_t x1, y1; uint16_t w, h;
+    if (txt == "-0.0g") txt = "0.0g";  // avoid negative zero display
+    int16_t x1, y1;
+    uint16_t w, h;
     display.getTextBounds(txt, 0, 0, &x1, &y1, &w, &h);
     display.setCursor((SCREEN_WIDTH - w) / 2, (SCREEN_HEIGHT - h) / 2);
     display.print(txt);
   } else {
     String txt = String(goal, 1) + "g?";
-    int16_t x1, y1; uint16_t w, h;
+    int16_t x1, y1;
+    uint16_t w, h;
     display.getTextBounds(txt, 0, 0, &x1, &y1, &w, &h);
     display.setCursor((SCREEN_WIDTH - w) / 2, (SCREEN_HEIGHT - h) / 2);
     display.print(txt);
@@ -262,7 +277,7 @@ void stateIdle() {
   // Top-right corner: WiFi symbol when WiFi is active, battery when not
   if (wifiActive) drawWifiIcon(SCREEN_WIDTH - 14, 0);
 #ifdef BATTERY_CONNECTED
-  else            drawBatteryIcon(SCREEN_WIDTH - 14, 0, batteryPercent);
+  else drawBatteryIcon(SCREEN_WIDTH - 14, 0, batteryPercent);
 #endif
   display.display();
 
@@ -270,7 +285,7 @@ void stateIdle() {
     delay(timeToSettle);
     updateWeight();
     full_weight = weight;
-    state       = Tare;
+    state = Tare;
     lastActivityTime = millis();
   }
 }
@@ -284,10 +299,10 @@ void stateTare() {
   }
   if (weight > full_weight - tolerance) return;
   delay(timeToSettle);
-  timeStarted  = millis();
+  timeStarted = millis();
   updateWeight();
   empty_weight = weight;
-  state        = Drinking;
+  state = Drinking;
   lastActivityTime = millis();
 }
 
@@ -298,10 +313,10 @@ void stateDrinking() {
     return;
   }
   delay(timeToSettle);
-  timeEnd      = millis();
+  timeEnd = millis();
   updateWeight();
   final_weight = weight;
-  state        = Result;
+  state = Result;
   lastActivityTime = millis();
 }
 
@@ -324,11 +339,11 @@ void stateResult() {
 
   if (millis() - lastResultUpdate < resultUpdateInterval) return;
 
-  float  drankWeight = full_weight - final_weight;
-  int    result      = (int)(drankWeight * 100);
-  int    goal_int    = (int)(goal * 100);
-  String duration    = String((timeEnd - timeStarted) / 1000.0, 2) + "s";
-  String result_fmt  = (displayMode == ShowTime) ? duration : String(drankWeight, 2) + "g";
+  float drankWeight = full_weight - final_weight;
+  int result = (int)(drankWeight * 100);
+  int goal_int = (int)(goal * 100);
+  String duration = String((timeEnd - timeStarted) / 1000.0, 2) + "s";
+  String result_fmt = (displayMode == ShowTime) ? duration : String(drankWeight, 2) + "g";
 
   if (result == goal_int)
     displayLines(result_fmt, "Perfekt!");
@@ -365,7 +380,7 @@ void setup() {
     unsigned long t = millis();
     while (digitalRead(BTN_PIN) == HIGH && millis() - t < 3000) delay(10);
     if (millis() - t >= 3000) {
-      clearConfig();           // wipe valid flags → all defaults on next load
+      clearConfig();  // wipe valid flags → all defaults on next load
       displayText("Reset OK!");
       delay(1500);
     }
@@ -378,15 +393,15 @@ void setup() {
   display.cp437();
 
   if (cfg.valid) {
-    scaleFactor      = cfg.scaleFactor;
-    tareOffset       = cfg.tareOffset;
-    goal             = cfg.goal;
-    tolerance        = cfg.tolerance;
+    scaleFactor = cfg.scaleFactor;
+    tareOffset = cfg.tareOffset;
+    goal = cfg.goal;
+    tolerance = cfg.tolerance;
     battDividerRatio = cfg.battDividerRatio;
-    autoResetRange   = cfg.autoResetRange;
-    sleepTimeoutMin  = cfg.sleepTimeout;
-    wifiTimeoutMin   = cfg.wifiTimeout;
-    scaleMode        = (cfg.scaleMode == 1) ? Standard : Game;
+    autoResetRange = cfg.autoResetRange;
+    sleepTimeoutMin = cfg.sleepTimeout;
+    wifiTimeoutMin = cfg.wifiTimeout;
+    scaleMode = (cfg.scaleMode == 1) ? Standard : Game;
   }
 
   hx711.begin(HX711_DAT, HX711_CLK);
@@ -394,9 +409,9 @@ void setup() {
   hx711.tare(10);
 
   lastActivityTime = millis();
-  lastBattRead     = millis();
+  lastBattRead = millis();
 #ifdef BATTERY_CONNECTED
-  batteryPercent   = readBatteryPercent();
+  batteryPercent = readBatteryPercent();
 #endif
 }
 
@@ -408,7 +423,7 @@ void loop() {
 #ifdef BATTERY_CONNECTED
   if (millis() - lastBattRead > battReadInterval) {
     batteryPercent = readBatteryPercent();
-    lastBattRead   = millis();
+    lastBattRead = millis();
   }
 #endif
 
@@ -423,7 +438,7 @@ void loop() {
   if (!wifiActive && sleepTimeoutMin > 0 && state == Idle) {
     if (millis() - lastWeightCheckTime > 2000UL) {
       if (abs(weight - lastCheckedWeight) > weightChangeThreshold) {
-        lastActivityTime  = millis();
+        lastActivityTime = millis();
         lastCheckedWeight = weight;
       }
       lastWeightCheckTime = millis();
@@ -432,16 +447,16 @@ void loop() {
       enterDeepSleep();
     }
   } else if (state != Idle) {
-    lastActivityTime = millis(); // Keep alive during active states
+    lastActivityTime = millis();  // Keep alive during active states
   }
 
   // State machine
   if (scaleMode == Game) {
     switch (state) {
-      case Idle:     stateIdle();     break;
-      case Tare:     stateTare();     break;
+      case Idle: stateIdle(); break;
+      case Tare: stateTare(); break;
       case Drinking: stateDrinking(); break;
-      case Result:   stateResult();   break;
+      case Result: stateResult(); break;
     }
   } else {
     stateIdle();

@@ -211,17 +211,21 @@ void handleStatus() {
   extern boolean            wifiActive;
   extern volatile ScaleMode scaleMode;
   String json = "{";
-  json += "\"apSSID\":\""       + String(config.apSSID)              + "\",";
-  json += "\"scaleFactor\":"    + String(config.scaleFactor, 4)      + ",";
-  json += "\"tareOffset\":"     + String(config.tareOffset)          + ",";
-  json += "\"weight\":"         + String(weight, 2)                  + ",";
-  json += "\"goal\":"           + String(config.goal, 2)             + ",";
-  json += "\"tolerance\":"      + String(config.tolerance, 2)        + ",";
-  json += "\"displayRotation\":" + String(config.displayRotation)    + ",";
-  json += "\"batteryPercent\":" + String(batteryPercent)             + ",";
-  json += "\"wifiActive\":"     + String(wifiActive ? "true":"false") + ",";
-  json += "\"scaleMode\":"      + String(scaleMode == 0 ? "\"Game\"" : "\"Standard\"") + ",";
-  json += "\"valid\":"          + String(config.valid ? "true":"false");
+  json += "\"apSSID\":\""          + String(config.apSSID)              + "\",";
+  json += "\"scaleFactor\":"       + String(config.scaleFactor, 4)      + ",";
+  json += "\"tareOffset\":"        + String(config.tareOffset)          + ",";
+  json += "\"weight\":"            + String(weight, 2)                  + ",";
+  json += "\"goal\":"              + String(config.goal, 2)             + ",";
+  json += "\"tolerance\":"         + String(config.tolerance, 2)        + ",";
+  json += "\"displayRotation\":"   + String(config.displayRotation)     + ",";
+  json += "\"batteryPercent\":"    + String(batteryPercent)             + ",";
+  json += "\"wifiActive\":"        + String(wifiActive ? "true":"false") + ",";
+  json += "\"scaleMode\":"         + String(scaleMode == 0 ? "\"Game\"" : "\"Standard\"") + ",";
+  json += "\"wifiTimeout\":"       + String(config.wifiTimeout)         + ",";
+  json += "\"sleepTimeout\":"      + String(config.sleepTimeout)        + ",";
+  json += "\"battDividerRatio\":"  + String(config.battDividerRatio, 4) + ",";
+  json += "\"autoResetRange\":"    + String(config.autoResetRange)      + ",";
+  json += "\"valid\":"             + String(config.valid ? "true":"false");
   json += "}";
   webServer->send(200, "application/json", json);
 }
@@ -270,151 +274,204 @@ void handleCalibrateResult() {
 
 /* ===== HTML ================================================================= */
 String buildConfigHTML() {
-  return R"rawliteral(
-<!DOCTYPE html>
-<html lang="de">
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Waage Konfiguration</title>
-<style>
-body{font-family:Arial,sans-serif;max-width:500px;margin:20px auto;padding:20px}
-h2,h3{text-align:center}
-.form-group{margin-bottom:14px}
-label{display:block;margin-bottom:4px;font-weight:bold;font-size:14px}
-input,select{width:100%;padding:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:4px}
-button{width:100%;padding:12px;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:15px;margin-top:4px}
-.btn-primary{background:#4CAF50}.btn-primary:hover{background:#45a049}
-.btn-blue{background:#2196F3}.btn-blue:hover{background:#1976D2}
-.btn-admin{background:#FF9800}.btn-admin:hover{background:#F57C00}
-.info{background:#f5f5f5;padding:10px;border-radius:4px;margin-bottom:16px;font-size:13px}
-.admin-locked{opacity:.45;pointer-events:none;transition:opacity .3s}
-hr{margin:24px 0}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold}
-.badge-game{background:#e3f2fd;color:#1565c0}.badge-std{background:#fce4ec;color:#b71c1c}
-</style>
-</head>
-<body>
-<h2>&#x2696;&#xFE0F; Waage Konfiguration</h2>
+  // pre-compute rotation options
+  String rot0sel = (config.displayRotation == 0) ? " selected" : "";
+  String rot2sel = (config.displayRotation == 2) ? " selected" : "";
 
-<div class="info" id="statusDiv">
-  <strong>Status:</strong><br>
-  Gewicht: <span id="sWeight">--</span> g &nbsp;|&nbsp;
-  Akku: <span id="sBatt">--</span>%<br>
-  Modus: <span id="sMode">--</span> &nbsp;|&nbsp;
-  WiFi: <span id="sWifi">--</span><br>
-  Zielgewicht: <span id="sGoal">--</span> g &nbsp;|&nbsp;
-  Kalibrierfaktor: <span id="sScale">--</span>
-</div>
-
-<form action="/save" method="POST">
-  <h3>&#x2699;&#xFE0F; Allgemein</h3>
-
-  <div class="form-group">
-    <label>Display-Rotation:</label>
-    <select name="displayRotation">
-      <option value="0">Normal (0°)</option>
-      <option value="2" selected>Gedreht (180°)</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label>Zielgewicht [g]:</label>
-    <input type="number" step="0.1" name="goal" id="inGoal" placeholder="z.B. 100.0">
-  </div>
-
-  <hr>
-  <h3>&#x1F512; Admin</h3>
-
-  <div class="form-group">
-    <label>Admin-Passwort:</label>
-    <input type="password" name="adminPassword" id="adminPwd"
-           oninput="onPwd(this.value)" autocomplete="current-password"
-           placeholder="Passwort eingeben...">
-  </div>
-
-  <div id="adminSection" class="admin-locked">
-    <div class="form-group">
-      <label>Access Point SSID:</label>
-      <input type="text" name="apSSID" placeholder="z.B. Waage-Config">
-    </div>
-    <div class="form-group">
-      <label>Kalibrierfaktor:</label>
-      <input type="number" step="0.0001" name="scaleFactor" placeholder="z.B. 708.0">
-    </div>
-    <div class="form-group">
-      <label>Tara-Offset:</label>
-      <input type="number" name="tareOffset" placeholder="z.B. 0">
-    </div>
-    <div class="form-group">
-      <label>Toleranz [g]:</label>
-      <input type="number" step="0.1" name="tolerance" placeholder="z.B. 10.0">
-    </div>
-    <div class="form-group">
-      <label>Auto-Reset Bereich [%] (schlechte Ergebnisse):</label>
-      <input type="number" step="1" min="0" max="100" name="autoResetRange" placeholder="z.B. 10">
-    </div>
-    <div class="form-group">
-      <label>Spannungsteiler-Verhältnis (Akku):</label>
-      <input type="number" step="0.01" name="battDividerRatio" placeholder="z.B. 2.0">
-    </div>
-    <div class="form-group">
-      <label>WiFi Auto-Aus nach [min] (0 = nie):</label>
-      <input type="number" step="1" min="0" max="255" name="wifiTimeout" placeholder="z.B. 10">
-    </div>
-    <div class="form-group">
-      <label>Deep Sleep nach [min] Idle (0 = nie):</label>
-      <input type="number" step="1" min="0" max="255" name="sleepTimeout" placeholder="z.B. 5">
-    </div>
-    <div class="form-group">
-      <label>Neues Admin-Passwort (min. 4 Zeichen):</label>
-      <input type="password" name="newAdminPassword" autocomplete="new-password"
-             placeholder="Leer lassen = nicht ändern">
-    </div>
-    <button type="submit" class="btn-admin">&#x1F512; Admin-Einstellungen speichern &amp; neustarten</button>
-  </div>
-
-  <button type="submit" class="btn-primary" style="margin-top:16px">&#x1F4BE; Allgemein speichern</button>
-</form>
-
-<hr>
-<h3>&#x1F527; Kalibrierung</h3>
-<div id="calSection" class="admin-locked">
-  <form action="/calibrate" method="POST">
-    <div class="form-group">
-      <label>Bekanntes Gewicht [g]:</label>
-      <input type="number" step="0.1" name="weight" placeholder="z.B. 50.0" required>
-    </div>
-    <button type="submit" class="btn-blue">&#x1F3AF; Jetzt kalibrieren</button>
-  </form>
-</div>
-<p id="calLock" style="text-align:center;color:#999;font-size:13px">
-  &#x1F512; Admin-Passwort eingeben um Kalibrierung freizuschalten
-</p>
-
-<script>
-function onPwd(v) {
-  var unlocked = v.length >= 1;
-  document.getElementById('adminSection').className = unlocked ? '' : 'admin-locked';
-  document.getElementById('calSection').className   = unlocked ? '' : 'admin-locked';
-  document.getElementById('calLock').style.display  = unlocked ? 'none' : '';
-}
-function loadStatus() {
-  fetch('/status').then(r=>r.json()).then(d=>{
-    document.getElementById('sWeight').textContent = d.weight;
-    document.getElementById('sBatt').textContent   = d.batteryPercent;
-    document.getElementById('sGoal').textContent   = d.goal;
-    document.getElementById('sScale').textContent  = d.scaleFactor;
-    document.getElementById('sMode').textContent   = d.scaleMode;
-    document.getElementById('sWifi').textContent   = d.wifiActive ? 'An' : 'Aus';
-    document.getElementById('inGoal').placeholder  = d.goal;
-  }).catch(()=>{});
-}
-setInterval(loadStatus, 2000);
-loadStatus();
-</script>
-</body>
-</html>
-)rawliteral";
+  String html = F("<!DOCTYPE html>\n"
+    "<html lang='de'>\n"
+    "<head>\n"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>\n"
+    "<title>Waage Konfiguration</title>\n"
+    "<style>\n"
+    "body{font-family:Arial,sans-serif;max-width:500px;margin:20px auto;padding:20px}\n"
+    "h2,h3{text-align:center}\n"
+    ".form-group{margin-bottom:14px}\n"
+    "label{display:block;margin-bottom:2px;font-weight:bold;font-size:14px}\n"
+    ".hint{font-size:12px;color:#888;margin-bottom:4px}\n"
+    "input,select{width:100%;padding:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:4px}\n"
+    "button{width:100%;padding:12px;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:15px;margin-top:4px}\n"
+    ".btn-primary{background:#4CAF50}.btn-primary:hover{background:#45a049}\n"
+    ".btn-blue{background:#2196F3}.btn-blue:hover{background:#1976D2}\n"
+    ".btn-admin{background:#FF9800}.btn-admin:hover{background:#F57C00}\n"
+    ".info{background:#f5f5f5;padding:10px;border-radius:4px;margin-bottom:16px;font-size:13px}\n"
+    ".admin-locked{opacity:.45;pointer-events:none;transition:opacity .3s}\n"
+    ".section{border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px}\n"
+    ".section-admin{border-color:#FFB74D}\n"
+    "hr{margin:24px 0}\n"
+    "</style>\n"
+    "</head>\n"
+    "<body>\n"
+    "<h2>&#x2696;&#xFE0F; Waage Konfiguration</h2>\n"
+    "\n"
+    "<div class='info'>\n"
+    "  <strong>Live-Status:</strong><br>\n"
+    "  Gewicht: <span id='sWeight'>--</span> g &nbsp;|&nbsp;\n"
+    "  Akku: <span id='sBatt'>--</span>%<br>\n"
+    "  Modus: <span id='sMode'>--</span> &nbsp;|&nbsp;\n"
+    "  WiFi: <span id='sWifi'>--</span>\n"
+    "</div>\n"
+    "\n"
+    "<form action='/save' method='POST'>\n"
+    "\n"
+    "<!-- ===== PUBLIC SECTION ===== -->\n"
+    "<div class='section'>\n"
+    "<h3 style='margin-top:0'>&#x2699;&#xFE0F; Allgemein</h3>\n"
+    "\n"
+    "  <div class='form-group'>\n"
+    "    <label>Zielgewicht [g]</label>\n"
+    "    <span class='hint'>Wie viel soll getrunken werden?</span>\n"
+    "    <input type='number' step='0.1' name='goal' id='inGoal' value='");
+  html += String(config.goal, 2);
+  html += F("'>\n"
+    "  </div>\n"
+    "\n"
+    "  <div class='form-group'>\n"
+    "    <label>Display-Rotation</label>\n"
+    "    <span class='hint'>Ausrichtung des OLED-Displays</span>\n"
+    "    <select name='displayRotation'>\n"
+    "      <option value='0'");
+  html += rot0sel;
+  html += F(">Normal (0&deg;)</option>\n"
+    "      <option value='2'");
+  html += rot2sel;
+  html += F(">Gedreht (180&deg;)</option>\n"
+    "    </select>\n"
+    "  </div>\n"
+    "\n"
+    "  <button type='submit' class='btn-primary'>&#x1F4BE; Speichern</button>\n"
+    "</div>\n"
+    "\n"
+    "<!-- ===== ADMIN SECTION ===== -->\n"
+    "<div class='section section-admin'>\n"
+    "<h3 style='margin-top:0'>&#x1F512; Admin-Einstellungen</h3>\n"
+    "\n"
+    "  <div class='form-group'>\n"
+    "    <label>Admin-Passwort</label>\n"
+    "    <span class='hint'>Eingabe schaltet die Felder unten frei</span>\n"
+    "    <input type='password' name='adminPassword' id='adminPwd'\n"
+    "           oninput='onPwd(this.value)' autocomplete='current-password'\n"
+    "           placeholder='Passwort eingeben...'>\n"
+    "  </div>\n"
+    "\n"
+    "  <div id='adminSection' class='admin-locked'>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Access Point SSID</label>\n"
+    "      <span class='hint'>WLAN-Name der Waage</span>\n"
+    "      <input type='text' name='apSSID' value='");
+  html += String(config.apSSID);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Kalibrierfaktor</label>\n"
+    "      <span class='hint'>Rohwert-zu-Gramm-Umrechnungsfaktor der Wiegezelle</span>\n"
+    "      <input type='number' step='0.0001' name='scaleFactor' value='");
+  html += String(config.scaleFactor, 4);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Tara-Offset</label>\n"
+    "      <span class='hint'>Nullpunkt-Korrektur (Rohwert)</span>\n"
+    "      <input type='number' name='tareOffset' value='");
+  html += String(config.tareOffset);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Toleranz [g]</label>\n"
+    "      <span class='hint'>Messtoleranz f&uuml;r Start/Stop-Erkennung</span>\n"
+    "      <input type='number' step='0.1' name='tolerance' value='");
+  html += String(config.tolerance, 2);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Auto-Reset Bereich [%]</label>\n"
+    "      <span class='hint'>Schlechte Ergebnisse (au&szlig;erhalb dieses Bereichs) werden automatisch zur&uuml;ckgesetzt</span>\n"
+    "      <input type='number' step='1' min='0' max='100' name='autoResetRange' value='");
+  html += String(config.autoResetRange);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Spannungsteiler-Verh&auml;ltnis (Akku)</label>\n"
+    "      <span class='hint'>Teilerfaktor des Spannungsteilers am Akku-Pin</span>\n"
+    "      <input type='number' step='0.01' name='battDividerRatio' value='");
+  html += String(config.battDividerRatio, 4);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>WiFi Auto-Aus nach [min]</label>\n"
+    "      <span class='hint'>0 = nie automatisch ausschalten</span>\n"
+    "      <input type='number' step='1' min='0' max='255' name='wifiTimeout' value='");
+  html += String(config.wifiTimeout);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Deep-Sleep nach [min] Inaktivit&auml;t</label>\n"
+    "      <span class='hint'>0 = nie schlafen legen</span>\n"
+    "      <input type='number' step='1' min='0' max='255' name='sleepTimeout' value='");
+  html += String(config.sleepTimeout);
+  html += F("'>\n"
+    "    </div>\n"
+    "\n"
+    "    <div class='form-group'>\n"
+    "      <label>Neues Admin-Passwort</label>\n"
+    "      <span class='hint'>Mindestens 4 Zeichen &mdash; leer lassen um es nicht zu &auml;ndern</span>\n"
+    "      <input type='password' name='newAdminPassword' autocomplete='new-password'\n"
+    "             placeholder='Leer lassen = nicht &auml;ndern'>\n"
+    "    </div>\n"
+    "\n"
+    "    <button type='submit' class='btn-admin'>&#x1F512; Admin-Einstellungen speichern &amp; neustarten</button>\n"
+    "  </div>\n"
+    "</div>\n"
+    "\n"
+    "</form>\n"
+    "\n"
+    "<!-- ===== CALIBRATION ===== -->\n"
+    "<div class='section'>\n"
+    "<h3 style='margin-top:0'>&#x1F527; Kalibrierung</h3>\n"
+    "<div id='calSection' class='admin-locked'>\n"
+    "  <form action='/calibrate' method='POST'>\n"
+    "    <div class='form-group'>\n"
+    "      <label>Bekanntes Gewicht [g]</label>\n"
+    "      <span class='hint'>Gewicht des Kalibriergewichts eingeben, dann auf die Waage legen</span>\n"
+    "      <input type='number' step='0.1' name='weight' placeholder='z.B. 50.0' required>\n"
+    "    </div>\n"
+    "    <button type='submit' class='btn-blue'>&#x1F3AF; Jetzt kalibrieren</button>\n"
+    "  </form>\n"
+    "</div>\n"
+    "<p id='calLock' style='text-align:center;color:#999;font-size:13px'>\n"
+    "  &#x1F512; Admin-Passwort eingeben um Kalibrierung freizuschalten\n"
+    "</p>\n"
+    "</div>\n"
+    "\n"
+    "<script>\n"
+    "function onPwd(v){\n"
+    "  var u=v.length>=1;\n"
+    "  document.getElementById('adminSection').className=u?'':'admin-locked';\n"
+    "  document.getElementById('calSection').className=u?'':'admin-locked';\n"
+    "  document.getElementById('calLock').style.display=u?'none':'';\n"
+    "}\n"
+    "function loadStatus(){\n"
+    "  fetch('/status').then(r=>r.json()).then(d=>{\n"
+    "    document.getElementById('sWeight').textContent=d.weight;\n"
+    "    document.getElementById('sBatt').textContent=d.batteryPercent;\n"
+    "    document.getElementById('sMode').textContent=d.scaleMode;\n"
+    "    document.getElementById('sWifi').textContent=d.wifiActive?'An':'Aus';\n"
+    "  }).catch(()=>{});\n"
+    "}\n"
+    "setInterval(loadStatus,3000);\n"
+    "loadStatus();\n"
+    "</script>\n"
+    "</body>\n"
+    "</html>\n");
+  return html;
 }
 
 /* ===== Web Config Task ====================================================== */

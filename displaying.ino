@@ -76,47 +76,52 @@ void printCenteredText(String text, int lineNumber, int totalLines) {
 }
 
 void displayLines(String line, String line2, String line3, boolean border) {
-  String lines[3];
-  lines[0] = line;
-  lines[1] = line2;
-  lines[2] = "";
-  display.setTextSize(2);
+  String lines[3] = { line, line2, line3 };
 
-  if (line.length() > 10 && line.length() <= 20) {
-    for (int i = 10; i > 0; i--) {
-      if (line.charAt(i) == ' ') {
-        lines[1] = lines[0].substring(i + 1);
-        lines[0] = lines[0].substring(0, i);
-        break;
-      }
+  // Count non-empty lines and find the longest one
+  int numLines = 0;
+  int maxLen   = 0;
+  for (int i = 0; i < 3; i++) {
+    if (lines[i] != "") {
+      numLines = i + 1;
+      if ((int)lines[i].length() > maxLen) maxLen = lines[i].length();
     }
   }
+  if (numLines == 0) return;
 
-  if (lines[0].length() > 20) {
+  // textSize(2): 12 px/char → max ~10 chars in 128 px, 16 px tall (2 lines fill 32 px exactly)
+  // textSize(1):  6 px/char → max ~21 chars in 128 px,  8 px tall
+  // Use large text only for 1–2 short lines; anything longer/more falls back to small text.
+  if (numLines <= 2 && maxLen <= 10) {
+    display.setTextSize(2);
+  } else {
     display.setTextSize(1);
-    for (int i = 19; i > 0; i--) {
-      if (line.charAt(i) == ' ') {
-        lines[1] = lines[0].substring(i + 1);
-        lines[0] = lines[0].substring(0, i);
-        break;
-      }
-    }
-    if (lines[1].length() > 20)
-      for (int i = 19; i > 0; i--) {
-        if (lines[1].charAt(i) == ' ') {
-          lines[2] = lines[1].substring(i + 1);
-          lines[1] = lines[1].substring(0, i);
+    // If a single line is too long for size-1, try word-wrapping it
+    if (numLines == 1 && maxLen > 21) {
+      for (int i = 21; i > 0; i--) {
+        if (lines[0].charAt(i) == ' ') {
+          lines[1] = lines[0].substring(i + 1);
+          lines[0] = lines[0].substring(0, i);
+          numLines  = 2;
+          maxLen    = max((int)lines[0].length(), (int)lines[1].length());
           break;
         }
       }
-    if (lines[2].length() > 20) {
-      lines[0] = lines[1] = lines[2] = "Text zu lang!";
+      // Second line still too long? try wrapping again
+      if (numLines == 2 && (int)lines[1].length() > 21) {
+        for (int i = 21; i > 0; i--) {
+          if (lines[1].charAt(i) == ' ') {
+            lines[2] = lines[1].substring(i + 1);
+            lines[1] = lines[1].substring(0, i);
+            numLines  = 3;
+            break;
+          }
+        }
+      }
     }
   }
 
   display.clearDisplay();
-  const int numLines = (lines[2] != "") ? 3 : (lines[1] != "") ? 2
-                                                               : 1;
   for (int i = 0; i < numLines; i++) {
     printCenteredText(lines[i], i, numLines);
   }
