@@ -47,11 +47,30 @@ const String trinksprueche[] = {
   "Einmal ansetzen, bitte",
 };
 
-void printCenteredText(String text, int lineNumber, int totalLines) {
+void drawBatteryIcon(int x, int y, int percent) {
+  // Body: 12 wide × 7 tall
+  display.drawRect(x, y, 12, 7, SSD1306_WHITE);
+  // Positive nub: 2 wide × 3 tall on the right
+  display.fillRect(x + 12, y + 2, 2, 3, SSD1306_WHITE);
+  // Fill bar: max 10 px wide inside the body
+  int fill = map(constrain(percent, 0, 100), 0, 100, 0, 10);
+  if (fill > 0) display.fillRect(x + 1, y + 1, fill, 5, SSD1306_WHITE);
+}
 
-  int16_t x1, y1;
+
+void drawWifiIcon(int x, int y) {
+  // Compact WiFi symbol: 11×8 px, arcs open upward
+  int xc = x + 5, yc = y + 7;  // anchor at bottom-centre
+  display.fillRect(xc - 1, yc - 1, 2, 2, SSD1306_WHITE);                  // dot
+  display.drawCircleHelper(xc, yc, 3, 0x03, SSD1306_WHITE);               // inner arc
+  display.drawCircleHelper(xc, yc, 5, 0x03, SSD1306_WHITE);               // outer arc
+}
+
+
+void printCenteredText(String text, int lineNumber, int totalLines) {
+  int16_t tx1, ty1;
   uint16_t width, height;
-  display.getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
+  display.getTextBounds(text, 0, 0, &tx1, &ty1, &width, &height);
   display.setCursor((SCREEN_WIDTH - width) / 2, (SCREEN_HEIGHT / totalLines) * lineNumber + ((SCREEN_HEIGHT / totalLines) - height) / 2);
   display.print(text);
 }
