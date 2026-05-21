@@ -7,17 +7,17 @@
 #include "esp_sleep.h"
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
-constexpr bool BATTERY_CONNECTED = false;
+constexpr bool BATTERY_CONNECTED = true;
 constexpr bool RESET_CONFIG_ENABLED = true;
 
 // ── Pins ──────────────────────────────────────────────────────────────────────
 constexpr int PIN_OLED_SDA = 8;
 constexpr int PIN_OLED_SCL = 9;
-constexpr int PIN_BTN      = 5;
-constexpr int PIN_BATT     = 2;
+constexpr int PIN_BTN = 5;
+constexpr int PIN_BATT = 2;
 
 // ── Battery ───────────────────────────────────────────────────────────────────
-constexpr float BATT_ADC_MAX     = 4095.0f;
+constexpr float BATT_ADC_MAX = 4095.0f;
 constexpr float BATT_REF_VOLTAGE = 3.3f;
 constexpr float BATT_MIN_VOLTAGE = 3.0f;
 constexpr float BATT_MAX_VOLTAGE = 4.2f;
@@ -29,37 +29,43 @@ constexpr unsigned long WEIGHT_CHECK_INTERVAL_MS = 2000UL;
 
 // ── Runtime state ─────────────────────────────────────────────────────────────
 static WaageConfig cfg;
-static bool        wifiActive      = false;
-static int         batteryPercent  = 100;
+static bool wifiActive = false;
+static int batteryPercent = BATTERY_CONNECTED ? 100 : -1;
 
-static unsigned long lastActivityTime    = 0;
+static unsigned long lastActivityTime = 0;
 static unsigned long lastWeightCheckTime = 0;
-static unsigned long lastBattReadTime    = 0;
-static float         lastCheckedWeight   = 0.0f;
+static unsigned long lastBattReadTime = 0;
+static float lastCheckedWeight = 0.0f;
 
 // ── Display lock (prevents idle from overwriting button-preview messages) ─────
 static unsigned long displayLockedUntil = 0;
 
-static void lockDisplay(unsigned long ms) { displayLockedUntil = millis() + ms; }
-static bool isDisplayLocked()            { return millis() < displayLockedUntil; }
+static void lockDisplay(unsigned long ms) {
+  displayLockedUntil = millis() + ms;
+}
+static bool isDisplayLocked() {
+  return millis() < displayLockedUntil;
+}
 
 // ── Button state ──────────────────────────────────────────────────────────────
 static volatile bool buttonChanged = false;
 
-static unsigned long buttonPressStart  = 0;
-static bool          holdFired3s       = false;
-static bool          holdFired5s       = false;
-static bool          pendingWifiToggle = false;
-static ScaleMode     previewMode       = ScaleMode::Game;
+static unsigned long buttonPressStart = 0;
+static bool holdFired3s = false;
+static bool holdFired5s = false;
+static bool pendingWifiToggle = false;
+static ScaleMode previewMode = ScaleMode::Game;
 
-void IRAM_ATTR handleButtonISR() { buttonChanged = true; }
+void IRAM_ATTR handleButtonISR() {
+  buttonChanged = true;
+}
 
 // ── Battery ───────────────────────────────────────────────────────────────────
 static int readBatteryPercent() {
-  int   raw   = analogRead(PIN_BATT);
-  float adcV  = (raw / BATT_ADC_MAX) * BATT_REF_VOLTAGE;
+  int raw = analogRead(PIN_BATT);
+  float adcV = (raw / BATT_ADC_MAX) * BATT_REF_VOLTAGE;
   float battV = adcV * cfg.battDividerRatio;
-  float pct   = (battV - BATT_MIN_VOLTAGE) / (BATT_MAX_VOLTAGE - BATT_MIN_VOLTAGE) * 100.0f;
+  float pct = (battV - BATT_MIN_VOLTAGE) / (BATT_MAX_VOLTAGE - BATT_MIN_VOLTAGE) * 100.0f;
   return (int)constrain(pct, 0.0f, 100.0f);
 }
 
@@ -94,17 +100,17 @@ static void handleButton() {
     int level = digitalRead(PIN_BTN);
 
     if (level == HIGH && buttonPressStart == 0) {
-      buttonPressStart  = millis();
-      holdFired3s       = false;
-      holdFired5s       = false;
+      buttonPressStart = millis();
+      holdFired3s = false;
+      holdFired5s = false;
       pendingWifiToggle = false;
-      previewMode       = getCurrentScaleMode();
+      previewMode = getCurrentScaleMode();
 
     } else if (level == LOW && buttonPressStart > 0) {
       if (holdFired5s) {
         if (pendingWifiToggle) {
           if (wifiActive) stopWiFi();
-          else            startWiFi();
+          else startWiFi();
         }
       } else if (holdFired3s) {
         ScaleMode newMode = previewMode;
@@ -130,8 +136,8 @@ static void handleButton() {
     }
 
     if (held >= 5000UL && !holdFired5s) {
-      holdFired5s       = true;
-      previewMode       = getCurrentScaleMode();
+      holdFired5s = true;
+      previewMode = getCurrentScaleMode();
       pendingWifiToggle = true;
       displayText(wifiActive ? "WiFi AUS" : "WiFi AN");
       lockDisplay(1000);
@@ -143,7 +149,7 @@ static void handleButton() {
 void setup() {
   Serial.begin(115200);
   Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
-  pinMode(PIN_BTN,  INPUT);
+  pinMode(PIN_BTN, INPUT);
   pinMode(PIN_BATT, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_BTN), handleButtonISR, CHANGE);
 
@@ -183,7 +189,7 @@ void loop() {
 
   // Battery
   if (BATTERY_CONNECTED && millis() - lastBattReadTime > BATT_READ_INTERVAL_MS) {
-    batteryPercent   = readBatteryPercent();
+    batteryPercent = readBatteryPercent();
     lastBattReadTime = millis();
     setLiveBatteryPercent(batteryPercent);
   }
@@ -191,8 +197,7 @@ void loop() {
   // WiFi auto-off
   if (wifiActive) {
     handleWebRequests();
-    if (cfg.wifiTimeout > 0 &&
-        millis() - getLastHttpActivity() > (unsigned long)cfg.wifiTimeout * 60000UL) {
+    if (cfg.wifiTimeout > 0 && millis() - getLastHttpActivity() > (unsigned long)cfg.wifiTimeout * 60000UL) {
       stopWiFi();
     }
   }
@@ -202,7 +207,7 @@ void loop() {
     if (millis() - lastWeightCheckTime > WEIGHT_CHECK_INTERVAL_MS) {
       float w = getCurrentWeight();
       if (abs(w - lastCheckedWeight) > WEIGHT_CHANGE_THRESHOLD) {
-        lastActivityTime  = millis();
+        lastActivityTime = millis();
         lastCheckedWeight = w;
       }
       lastWeightCheckTime = millis();

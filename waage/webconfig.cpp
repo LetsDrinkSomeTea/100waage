@@ -20,7 +20,7 @@ static WaageConfig*  liveConfig = nullptr;
 // Calibration state
 static bool  calRunning      = false;
 static bool  calDone         = false;
-static int   liveBattPercent = 0;
+static int   liveBattPercent = -1;
 
 static void touchActivity() { lastActivity = millis(); }
 
@@ -34,7 +34,7 @@ static bool isAuthenticated() {
 }
 
 static void requireAuth() {
-  webServer->sendHeader("Location", "/admin", true);
+  webServer->sendHeader("Location", "/login", true);
   webServer->send(302, "text/plain", "");
 }
 
@@ -80,7 +80,7 @@ static String statusBar() {
            "<script>"
            "function upd(){fetch('/status').then(r=>r.json()).then(d=>{"
            "document.getElementById('sW').textContent=d.weight;"
-           "document.getElementById('sB').textContent=d.batteryPercent;"
+           "document.getElementById('sB').textContent=d.batteryPercent!==null?d.batteryPercent:'N/A';"
            "document.getElementById('sM').textContent=d.scaleMode;"
            "}).catch(()=>{});}"
            "setInterval(upd,3000);upd();"
@@ -336,7 +336,7 @@ static void handleStatus() {
   touchActivity();
   String json = "{";
   json += "\"weight\":"        + String(getCurrentWeight(), 2) + ",";
-  json += "\"batteryPercent\":" + String(liveBattPercent)       + ",";
+  json += "\"batteryPercent\":" + (liveBattPercent >= 0 ? String(liveBattPercent) : "null") + ",";
   json += "\"scaleMode\":\""   + String(getCurrentScaleMode() == ScaleMode::Game ? "Game" : "Standard") + "\",";
   json += "\"wifiActive\":true";
   json += "}";

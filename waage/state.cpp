@@ -20,6 +20,7 @@ static unsigned long timeEnd       = 0;
 static unsigned long lastResultUpdate = 0;
 static unsigned long weightReleasedSince = 0;
 static unsigned long autoZeroStableSince = 0;
+static unsigned long autoZeroLastTare    = 0;
 
 static bool rdyDisplayed = false;
 
@@ -66,6 +67,7 @@ void resetState() {
   weight = fullWeight = emptyWeight = finalWeight = 0.0f;
   weightReleasedSince = 0;
   autoZeroStableSince = 0;
+  autoZeroLastTare    = 0;
   hx711.tare(HX711_OVERSAMPLE);
 }
 
@@ -73,10 +75,13 @@ void resetState() {
 
 static void handleAutoZero(const WaageConfig& cfg) {
   if (!cfg.autoZeroEnabled) return;
+  unsigned long cooldown = (unsigned long)cfg.autoZeroDelay * 3000UL;
+  if (millis() - autoZeroLastTare < cooldown) { autoZeroStableSince = 0; return; }
   if (abs(weight) < cfg.autoZeroThreshold) {
     if (autoZeroStableSince == 0) autoZeroStableSince = millis();
     if (millis() - autoZeroStableSince >= (unsigned long)cfg.autoZeroDelay * 1000UL) {
       hx711.tare(HX711_OVERSAMPLE);
+      autoZeroLastTare    = millis();
       autoZeroStableSince = 0;
     }
   } else {
@@ -94,7 +99,8 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
   display.setTextSize(2);
 
   if (currentMode == ScaleMode::Standard) {
-    String txt = String(weight, 1) + "g";
+    float displayWeight = (cfg.autoZeroEnabled && abs(weight) < cfg.autoZeroThreshold) ? 0.0f : weight;
+    String txt = String(displayWeight, 1) + "g";
     if (txt == "-0.0g") txt = "0.0g";
     int16_t x1, y1; uint16_t w, h;
     display.getTextBounds(txt, 0, 0, &x1, &y1, &w, &h);
@@ -110,8 +116,8 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
       display.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
   }
 
-  if (wifiActive) drawWifiIcon(SCREEN_WIDTH - 14, 0);
-  else            drawBatteryIcon(SCREEN_WIDTH - 14, 0, batteryPercent);
+  if (wifiActive)               drawWifiIcon(SCREEN_WIDTH - 14, 0);
+  else if (batteryPercent >= 0) drawBatteryIcon(SCREEN_WIDTH - 14, 0, batteryPercent);
   display.display();
 
   if (currentMode == ScaleMode::Game && weight >= cfg.goal) {
