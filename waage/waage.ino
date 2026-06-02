@@ -5,10 +5,12 @@
 #include "state.h"
 #include "webconfig.h"
 #include "esp_sleep.h"
+#include "duell.h"
+
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
 constexpr bool BATTERY_CONNECTED = true;
-constexpr bool RESET_CONFIG_ENABLED = true;
+constexpr bool RESET_CONFIG_ENABLED = false;
 
 // ── Pins ──────────────────────────────────────────────────────────────────────
 constexpr int PIN_OLED_SDA = 8;
@@ -73,6 +75,7 @@ static int readBatteryPercent() {
 static void startWiFi() {
   if (wifiActive) return;
   startWebServer(cfg);
+  duell_init();
   wifiActive = true;
   lastActivityTime = millis();
 }
@@ -220,5 +223,8 @@ void loop() {
   }
 
   updateWeight();
+  if (wifiActive && getCurrentScaleMode() == ScaleMode::Game) {
+    duell_update(cfg.goal);
+  }
   updateState(cfg, wifiActive, batteryPercent);
 }

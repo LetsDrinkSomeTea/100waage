@@ -5,6 +5,8 @@ constexpr uint8_t CONFIG_MAGIC = 0xCC;
 
 enum class State     { Idle, Tare, Drinking, Result };
 enum class ScaleMode { Game, Standard };
+enum class MultiplayerState { Offline, Idle, WaitReady, WaitStart, WaitResult, Result };
+
 
 struct WaageConfig {
   uint8_t magic;              // CONFIG_MAGIC wenn gültig

@@ -1,8 +1,8 @@
 #include "display.h"
 #include <Wire.h>
 
-constexpr uint8_t OLED_RESET   = -1;
-constexpr uint8_t SCREEN_ADDR  = 0x3C;
+constexpr uint8_t OLED_RESET = -1;
+constexpr uint8_t SCREEN_ADDR = 0x3C;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -29,6 +29,15 @@ void drawWifiIcon(int x, int y) {
   display.drawCircleHelper(xc, yc, 5, 0x03, SSD1306_WHITE);
 }
 
+void drawDuellIcon(int x, int y, int peers) {
+  // Draw the number of peers
+  display.setTextSize(1);
+  display.setCursor(x, y);
+  display.print("Vs");
+  display.setCursor(10, y);
+  display.print(peers);
+}
+
 // ── Text helpers ──────────────────────────────────────────────────────────────
 
 static void printCentered(const String& text, int lineIndex, int totalLines) {
@@ -44,7 +53,7 @@ void displayLines(const String& l1, const String& l2, const String& l3, bool bor
   String lines[3] = { l1, l2, l3 };
 
   int numLines = 0;
-  int maxLen   = 0;
+  int maxLen = 0;
   for (int i = 0; i < 3; i++) {
     if (lines[i].length() > 0) {
       numLines = i + 1;
@@ -62,8 +71,8 @@ void displayLines(const String& l1, const String& l2, const String& l3, bool bor
         if (lines[0].charAt(i) == ' ') {
           lines[1] = lines[0].substring(i + 1);
           lines[0] = lines[0].substring(0, i);
-          numLines  = 2;
-          maxLen    = max((int)lines[0].length(), (int)lines[1].length());
+          numLines = 2;
+          maxLen = max((int)lines[0].length(), (int)lines[1].length());
           break;
         }
       }
@@ -72,7 +81,7 @@ void displayLines(const String& l1, const String& l2, const String& l3, bool bor
           if (lines[1].charAt(i) == ' ') {
             lines[2] = lines[1].substring(i + 1);
             lines[1] = lines[1].substring(0, i);
-            numLines  = 3;
+            numLines = 3;
             break;
           }
         }
@@ -94,17 +103,17 @@ void displayText(const String& line, bool border) {
 
 void displayLoadingAnimation(int frame) {
   constexpr int NUM_CIRCLES = 5;
-  constexpr int RADIUS      = 5;
-  constexpr int SPACING     = RADIUS * 3;
-  constexpr int START_X     = (SCREEN_WIDTH - (NUM_CIRCLES - 1) * SPACING) / 2;
-  constexpr int CENTER_Y    = SCREEN_HEIGHT / 2;
+  constexpr int RADIUS = 5;
+  constexpr int SPACING = RADIUS * 3;
+  constexpr int START_X = (SCREEN_WIDTH - (NUM_CIRCLES - 1) * SPACING) / 2;
+  constexpr int CENTER_Y = SCREEN_HEIGHT / 2;
 
   int filled = frame % NUM_CIRCLES;
   display.clearDisplay();
   for (int i = 0; i < NUM_CIRCLES; i++) {
     int x = START_X + i * SPACING;
     if (i == filled) display.fillCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
-    else             display.drawCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
+    else display.drawCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
   }
   display.display();
 }

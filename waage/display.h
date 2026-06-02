@@ -14,5 +14,6 @@ void displayLoadingAnimation(int frame);
 
 void drawBatteryIcon(int x, int y, int percent);
 void drawWifiIcon(int x, int y);
+void drawDuellIcon(int x, int y, int peers);
 
 String getRandomTrinkspruch();
