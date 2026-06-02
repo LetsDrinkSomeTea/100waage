@@ -11,7 +11,7 @@ WaageConfig defaultConfig() {
   cfg.scaleFactor      = 708.0f;
   cfg.goal             = 100.0f;
   cfg.tolerance        = 10.0f;
-  cfg.displayRotation  = 2;
+  cfg.displayRotation  = 0;
   strncpy(cfg.adminPassword, "admin", sizeof(cfg.adminPassword));
   cfg.wifiTimeout      = 10;
   cfg.sleepTimeout     = 5;
