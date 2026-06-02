@@ -139,7 +139,7 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
   }
 
   if (wifiActive) {
-    if (duell_is_active()) {
+    if (currentMode == ScaleMode::Game && duell_is_active()) {
       drawDuellIcon(SCREEN_WIDTH - 14, 0, duell_get_peers_count());
     } else {
       drawWifiIcon(SCREEN_WIDTH - 14, 0);
