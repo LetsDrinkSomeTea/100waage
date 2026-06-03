@@ -21,6 +21,8 @@ WaageConfig defaultConfig() {
   cfg.autoZeroEnabled  = true;
   cfg.autoZeroThreshold = 2.0f;
   cfg.autoZeroDelay    = 5;
+  cfg.randomModeEnabled = false;
+  cfg.randomMin        = 20.0f;
   return cfg;
 }
 

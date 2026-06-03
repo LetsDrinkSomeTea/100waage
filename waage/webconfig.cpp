@@ -111,7 +111,19 @@ static void handleRoot() {
   html += String(liveConfig->goal, 1);
   html += F("'></div>"
             "<div class='form-group'>"
+            "<label style='font-weight:normal'>"
+            "<input type='checkbox' name='randomModeEnabled' value='1'");
+  if (liveConfig->randomModeEnabled) html += F(" checked");
+  html += F("> Zuf&auml;lliges Zielgewicht</label></div>"
+            "<div class='form-group'>"
+            "<label>Zufall Minimum [g]</label>"
+            "<span class='hint'>Maximum ist das Zielgewicht</span>"
+            "<input type='number' step='0.1' name='randomMin' value='");
+  html += String(liveConfig->randomMin, 1);
+  html += F("'></div>"
+            "<div class='form-group'>"
             "<label>Display-Rotation</label>"
+
             "<select name='displayRotation'>"
             "<option value='0'");
   if (liveConfig->displayRotation == 0)
@@ -140,6 +152,12 @@ static void handleSave() {
     liveConfig->displayRotation =
         (uint8_t)webServer->arg("displayRotation").toInt();
     display.setRotation(liveConfig->displayRotation);
+  }
+  liveConfig->randomModeEnabled = webServer->hasArg("randomModeEnabled");
+  if (webServer->hasArg("randomMin") && webServer->arg("randomMin").length() > 0) {
+    liveConfig->randomMin = webServer->arg("randomMin").toFloat();
+    if (liveConfig->randomMin < liveConfig->tolerance) liveConfig->randomMin = liveConfig->tolerance;
+    if (liveConfig->randomMin > liveConfig->goal) liveConfig->randomMin = liveConfig->goal;
   }
   saveConfig(*liveConfig);
   webServer->sendHeader("Location", "/", true);

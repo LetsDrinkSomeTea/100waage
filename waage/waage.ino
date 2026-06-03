@@ -118,11 +118,11 @@ static void handleButton() {
       } else if (holdFired3s) {
         ScaleMode newMode = previewMode;
         setScaleMode(newMode);
-        resetState();
+        resetState(cfg);
         cfg.scaleMode = (newMode == ScaleMode::Standard) ? 1 : 0;
         saveConfig(cfg);
       } else {
-        resetState();
+        resetState(cfg);
       }
       buttonPressStart = 0;
     }
@@ -158,6 +158,7 @@ void setup() {
 
   loadConfig(cfg);
   initDisplay(cfg.displayRotation);
+  randomSeed(esp_random());
 
   if (RESET_CONFIG_ENABLED && digitalRead(PIN_BTN) == HIGH) {
     displayText("Reset? Halten...");
@@ -178,6 +179,8 @@ void setup() {
   lastBattReadTime = millis();
 
   if (BATTERY_CONNECTED) batteryPercent = readBatteryPercent();
+
+  resetState(cfg);
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
@@ -224,7 +227,7 @@ void loop() {
 
   updateWeight();
   if (wifiActive && getCurrentScaleMode() == ScaleMode::Game) {
-    duell_update(cfg.goal);
+    duell_update(getLocalGameGoal());
   }
   updateState(cfg, wifiActive, batteryPercent);
 }

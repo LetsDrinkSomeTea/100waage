@@ -12,8 +12,9 @@ void displayText(const String& line, bool border = false);
 void displayLines(const String& l1, const String& l2 = "", const String& l3 = "", bool border = false);
 void displayLoadingAnimation(int frame);
 
-void drawBatteryIcon(int x, int y, int percent);
-void drawWifiIcon(int x, int y);
-void drawDuellIcon(int x, int y, int peers);
+void drawBatteryIcon(int16_t x, int16_t y, int percentage);
+void drawWifiIcon(int16_t x, int16_t y);
+void drawDuellIcon(int16_t x, int16_t y, int peerCount);
+void drawShuffleIcon(int16_t x, int16_t y);
 
 String getRandomTrinkspruch();

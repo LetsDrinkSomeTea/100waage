@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-constexpr uint8_t CONFIG_MAGIC = 0xCC;
+constexpr uint8_t CONFIG_MAGIC = 0xCD;
 
 enum class State     { Idle, Tare, Drinking, Result };
 enum class ScaleMode { Game, Standard };
@@ -27,4 +27,7 @@ struct WaageConfig {
   bool    autoZeroEnabled;
   float   autoZeroThreshold;  // Gramm
   uint8_t autoZeroDelay;      // Sekunden
+
+  bool    randomModeEnabled;
+  float   randomMin;          // Gramm
 };

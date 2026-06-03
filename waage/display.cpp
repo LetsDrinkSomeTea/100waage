@@ -15,27 +15,38 @@ void initDisplay(uint8_t rotation) {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-void drawBatteryIcon(int x, int y, int percent) {
+void drawBatteryIcon(int16_t x, int16_t y, int percent) {
   display.drawRect(x, y, 12, 7, SSD1306_WHITE);
   display.fillRect(x + 12, y + 2, 2, 3, SSD1306_WHITE);
   int fill = map(constrain(percent, 0, 100), 0, 100, 0, 10);
   if (fill > 0) display.fillRect(x + 1, y + 1, fill, 5, SSD1306_WHITE);
 }
 
-void drawWifiIcon(int x, int y) {
+void drawWifiIcon(int16_t x, int16_t y) {
   int xc = x + 5, yc = y + 7;
   display.fillRect(xc - 1, yc - 1, 2, 2, SSD1306_WHITE);
   display.drawCircleHelper(xc, yc, 3, 0x03, SSD1306_WHITE);
   display.drawCircleHelper(xc, yc, 5, 0x03, SSD1306_WHITE);
 }
 
-void drawDuellIcon(int x, int y, int peers) {
+void drawDuellIcon(int16_t x, int16_t y, int peers) {
   // Draw the number of peers
   display.setTextSize(1);
   display.setCursor(x, y);
   display.print("Vs");
-  display.setCursor(10, y);
+  display.setCursor(x + 14, y);
   display.print(peers);
+}
+
+void drawShuffleIcon(int16_t x, int16_t y) {
+  // Cross arrow 1 (top-left to bottom-right)
+  display.drawLine(x, y + 2, x + 8, y + 10, SSD1306_WHITE);
+  display.drawLine(x + 8, y + 10, x + 8, y + 7, SSD1306_WHITE);
+  display.drawLine(x + 8, y + 10, x + 5, y + 10, SSD1306_WHITE);
+  // Cross arrow 2 (bottom-left to top-right)
+  display.drawLine(x, y + 10, x + 8, y + 2, SSD1306_WHITE);
+  display.drawLine(x + 8, y + 2, x + 5, y + 2, SSD1306_WHITE);
+  display.drawLine(x + 8, y + 2, x + 8, y + 5, SSD1306_WHITE);
 }
 
 // ── Text helpers ──────────────────────────────────────────────────────────────

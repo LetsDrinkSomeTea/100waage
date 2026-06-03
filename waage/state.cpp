@@ -17,6 +17,7 @@ static float fullWeight = 0.0f;
 static float emptyWeight = 0.0f;
 static float finalWeight = 0.0f;
 static float duellTarget = 0.0f;
+static float localGameGoal = 0.0f;
 
 static unsigned long timeStarted = 0;
 static unsigned long timeEnd = 0;
@@ -72,9 +73,13 @@ void setScaleMode(ScaleMode mode) {
   currentMode = mode;
 }
 
+float getLocalGameGoal() {
+  return localGameGoal;
+}
+
 // ── Reset ─────────────────────────────────────────────────────────────────────
 
-void resetState() {
+void resetState(const WaageConfig& cfg) {
   currentState = State::Idle;
   mpState = MultiplayerState::Offline;
   displayMode = DisplayMode::Result;
@@ -85,6 +90,16 @@ void resetState() {
   autoZeroLastTare = 0;
   hx711.tare(HX711_OVERSAMPLE);
   duell_reset_state();
+
+  if (currentMode == ScaleMode::Game) {
+    if (cfg.randomModeEnabled) {
+      float minG = max(cfg.randomMin, cfg.tolerance);
+      float maxG = max(cfg.goal, minG);
+      localGameGoal = random((int)minG, (int)maxG + 1);
+    } else {
+      localGameGoal = cfg.goal;
+    }
+  }
 }
 
 
@@ -128,7 +143,7 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
     display.setCursor((SCREEN_WIDTH - w) / 2, (SCREEN_HEIGHT - h) / 2);
     display.print(txt);
   } else {
-    String txt = String(cfg.goal, 1) + "g?";
+    String txt = String(localGameGoal, 1) + "g?";
     int16_t x1, y1;
     uint16_t w, h;
     display.getTextBounds(txt, 0, 0, &x1, &y1, &w, &h);
@@ -136,18 +151,22 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
     display.print(txt);
     if (abs(weight) > cfg.tolerance)
       display.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
+
+    if (cfg.randomModeEnabled) {
+      drawShuffleIcon(0, 0);
+    }
   }
 
   if (wifiActive) {
     if (currentMode == ScaleMode::Game && duell_is_active()) {
-      drawDuellIcon(SCREEN_WIDTH - 14, 0, duell_get_peers_count());
+      drawDuellIcon(SCREEN_WIDTH - 26, 0, duell_get_peers_count());
     } else {
       drawWifiIcon(SCREEN_WIDTH - 14, 0);
     }
   } else if (batteryPercent >= 0) drawBatteryIcon(SCREEN_WIDTH - 14, 0, batteryPercent);
   display.display();
 
-  if (currentMode == ScaleMode::Game && weight >= cfg.goal) {
+  if (currentMode == ScaleMode::Game && weight >= localGameGoal) {
     delay(SETTLE_MS);
     updateWeight();
     fullWeight = weight;
@@ -225,10 +244,11 @@ static void stateResult(const WaageConfig& cfg) {
     if (weightReleasedSince == 0) weightReleasedSince = millis();
     if (millis() - weightReleasedSince > 1000UL) {
       float drank = fullWeight - finalWeight;
-      float pctDiff = (cfg.goal > 0.0f) ? abs(drank - cfg.goal) / cfg.goal * 100.0f : 100.0f;
+      float refGoal = (currentMode == ScaleMode::Game) ? localGameGoal : cfg.goal;
+      float pctDiff = (refGoal > 0.0f) ? abs(drank - refGoal) / refGoal * 100.0f : 100.0f;
       if (pctDiff > (float)cfg.autoResetRange || mpState != MultiplayerState::Offline) {
         weightReleasedSince = 0;
-        resetState();
+        resetState(cfg);
         return;
       }
     }
@@ -240,7 +260,8 @@ static void stateResult(const WaageConfig& cfg) {
 
   float drank = fullWeight - finalWeight;
   int drankInt = (int)(drank * 100);
-  int goalInt = (int)(cfg.goal * 100);
+  float refGoal = (currentMode == ScaleMode::Game) ? localGameGoal : cfg.goal;
+  int goalInt = (int)(refGoal * 100);
   String duration = String((timeEnd - timeStarted) / 1000.0f, 2) + "s";
 
   if (mpState == MultiplayerState::Result) {
