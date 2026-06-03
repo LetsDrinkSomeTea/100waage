@@ -5,6 +5,7 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <Update.h>
 
 constexpr char AP_PASSWORD[] = "";
 constexpr uint8_t DNS_PORT = 53;
@@ -308,6 +309,16 @@ static void handleAdmin() {
       "Neustarten</button>"
       "</form></div>"
 
+      "<div class='section section-admin'>"
+      "<h3 style='margin-top:0'>&#x1F4E4; Firmware Update</h3>"
+      "<form action='/admin/update' method='POST' enctype='multipart/form-data'>"
+      "<div class='form-group'>"
+      "<label>Firmware (.bin)</label>"
+      "<input type='file' name='update' accept='.bin' required>"
+      "</div>"
+      "<button type='submit' class='btn-blue'>&#x2B06;&#xFE0F; Update starten</button>"
+      "</form></div>"
+
       "<div class='section'>"
       "<h3 style='margin-top:0'>&#x1F527; Kalibrierung</h3>"
       "<div id='calForm'>"
@@ -405,6 +416,56 @@ static void handleAdminSave() {
             "</body></html>"));
   delay(2000);
   ESP.restart();
+}
+
+// ── OTA Update
+// ───────────────────────────────────────────────────────────────
+
+static void handleUpdateEnd() {
+  touchActivity();
+  if (!isAuthenticated()) {
+    requireAuth();
+    return;
+  }
+  webServer->sendHeader("Connection", "close");
+  if (Update.hasError()) {
+    String html = pageHead("Update Fehler");
+    html += F("<h3 style='color:red'>Update fehlgeschlagen!</h3>");
+    html += F("<p>Fehlercode: ");
+    html += String(Update.getError());
+    html += F("</p><a href='/admin' class='btn btn-green'>Zur&uuml;ck</a></body></html>");
+    webServer->send(200, "text/html", html);
+  } else {
+    String html = pageHead("Update Erfolgreich");
+    html += F("<h3 style='color:green'>Update erfolgreich!</h3>");
+    html += F("<p>Die Waage startet nun neu...</p></body></html>");
+    webServer->send(200, "text/html", html);
+    delay(1000);
+    ESP.restart();
+  }
+}
+
+static void handleUpdateUpload() {
+  if (!isAuthenticated()) return;
+  touchActivity();
+  HTTPUpload& upload = webServer->upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    displayLines("Update...", "Bitte warten");
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) {
+      displayLines("Update OK!", "Neustart");
+    } else {
+      displayLines("Update", "Fehlgeschlagen");
+      Update.printError(Serial);
+    }
+  }
 }
 
 // ── Status JSON
@@ -507,6 +568,7 @@ void startWebServer(const WaageConfig &cfg) {
   webServer->on("/save", HTTP_POST, handleSave);
   webServer->on("/admin", HTTP_GET, handleAdmin);
   webServer->on("/admin/save", HTTP_POST, handleAdminSave);
+  webServer->on("/admin/update", HTTP_POST, handleUpdateEnd, handleUpdateUpload);
   webServer->on("/login", HTTP_GET, handleAdminLogin);
   webServer->on("/login", HTTP_POST, handleLogin);
   webServer->on("/logout", HTTP_GET, handleLogout);
