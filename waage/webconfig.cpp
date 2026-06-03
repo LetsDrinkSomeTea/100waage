@@ -6,6 +6,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <Update.h>
+#include <ESPmDNS.h>
 
 constexpr char AP_PASSWORD[] = "";
 constexpr uint8_t DNS_PORT = 53;
@@ -314,7 +315,7 @@ static void handleAdmin() {
       "<form action='/admin/update' method='POST' enctype='multipart/form-data'>"
       "<div class='form-group'>"
       "<label>Firmware (.bin)</label>"
-      "<input type='file' name='update' accept='.bin' required>"
+      "<input type='file' name='update' required>"
       "</div>"
       "<button type='submit' class='btn-blue'>&#x2B06;&#xFE0F; Update starten</button>"
       "</form></div>"
@@ -580,6 +581,10 @@ void startWebServer(const WaageConfig &cfg) {
     webServer->send(302, "text/plain", "");
   });
   webServer->begin();
+
+  if (MDNS.begin("waage")) {
+    MDNS.addService("http", "tcp", 80);
+  }
 
   lastActivity = millis();
   running = true;
