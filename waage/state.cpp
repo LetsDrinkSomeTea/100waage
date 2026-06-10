@@ -7,8 +7,15 @@
 constexpr int HX711_DAT = 21;
 constexpr int HX711_CLK = 20;
 constexpr int HX711_OVERSAMPLE = 10;
-constexpr unsigned long SETTLE_MS = 500UL;
+constexpr int WEIGHT_AVG_N = 10;
+// Muss laenger sein als das Mittelungsfenster (10 Samples @ 10 SPS = 1 s),
+// damit der gleitende Mittelwert beim Uebernehmen nur Werte nach dem
+// Gewichtswechsel enthaelt.
+constexpr unsigned long SETTLE_MS = 1500UL;
 constexpr unsigned long RESULT_INTERVAL_MS = 3000UL;
+constexpr unsigned long ANIM_FRAME_MS = 150UL;
+constexpr unsigned long WAITREADY_TIMEOUT_MS = 60000UL;
+constexpr unsigned long WAITRESULT_TIMEOUT_MS = 20000UL;
 
 static HX711 hx711;
 
@@ -26,23 +33,49 @@ static unsigned long weightReleasedSince = 0;
 static unsigned long autoZeroStableSince = 0;
 static unsigned long autoZeroLastTare = 0;
 
+// Settle-Fenster: Zustandswechsel erst, wenn die Bedingung SETTLE_MS lang haelt
+static unsigned long settleIdle = 0;
+static unsigned long settleTare = 0;
+static unsigned long settleDrink = 0;
+static unsigned long tareMsgShownAt = 0;
+static unsigned long lastAnimFrame = 0;
+
 static bool rdyDisplayed = false;
+static bool wasDuell = false;  // Runde lief im Duell — auch nach Solo-Fallback resetten
 
 static State currentState = State::Idle;
 static ScaleMode currentMode = ScaleMode::Game;
 static MultiplayerState mpState = MultiplayerState::Offline;
+static unsigned long mpStateSince = 0;
 
 enum class DisplayMode { Result,
                          Time };
 
 static DisplayMode displayMode = DisplayMode::Result;
 
+static void setMpState(MultiplayerState s) {
+  mpState = s;
+  mpStateSince = millis();
+}
+
 // ── HX711 ─────────────────────────────────────────────────────────────────────
+
+static float weightSamples[WEIGHT_AVG_N];
+static int weightSampleIdx = 0;
+static int weightSampleCount = 0;
+
+// Nach jedem tare() aufrufen, sonst verfaelschen alte Samples den Mittelwert
+static void resetWeightFilter() {
+  weightSampleIdx = 0;
+  weightSampleCount = 0;
+  weight = 0.0f;
+}
 
 void initScale(float scaleFactor) {
   hx711.begin(HX711_DAT, HX711_CLK);
   if (scaleFactor > 1e-6f || scaleFactor < -1e-6f) hx711.set_scale(scaleFactor);
   hx711.tare(HX711_OVERSAMPLE);
+  resetWeightFilter();
 }
 
 float calibrateScale(float knownWeight) {
@@ -50,11 +83,21 @@ float calibrateScale(float knownWeight) {
   hx711.tare(HX711_OVERSAMPLE);
   delay(10000);
   hx711.calibrate_scale(knownWeight);
+  resetWeightFilter();
   return hx711.get_scale();
 }
 
+// Nicht-blockierend: pro Aufruf hoechstens ein Sample lesen, gleitender
+// Mittelwert ueber WEIGHT_AVG_N Samples (gleiche Glaettung wie frueher
+// get_units(10), aber ohne den Loop ~1 s zu blockieren).
 void updateWeight() {
-  weight = hx711.get_units(HX711_OVERSAMPLE);
+  if (!hx711.is_ready()) return;
+  weightSamples[weightSampleIdx] = hx711.get_units(1);
+  weightSampleIdx = (weightSampleIdx + 1) % WEIGHT_AVG_N;
+  if (weightSampleCount < WEIGHT_AVG_N) weightSampleCount++;
+  float sum = 0.0f;
+  for (int i = 0; i < weightSampleCount; i++) sum += weightSamples[i];
+  weight = sum / weightSampleCount;
 }
 
 float getCurrentWeight() {
@@ -81,14 +124,19 @@ float getLocalGameGoal() {
 
 void resetState(const WaageConfig& cfg) {
   currentState = State::Idle;
-  mpState = MultiplayerState::Offline;
+  setMpState(MultiplayerState::Offline);
   displayMode = DisplayMode::Result;
   rdyDisplayed = false;
+  wasDuell = false;
   weight = fullWeight = emptyWeight = finalWeight = 0.0f;
   weightReleasedSince = 0;
   autoZeroStableSince = 0;
   autoZeroLastTare = 0;
+  settleIdle = settleTare = settleDrink = 0;
+  tareMsgShownAt = 0;
+  lastResultUpdate = 0;
   hx711.tare(HX711_OVERSAMPLE);
+  resetWeightFilter();
   duell_reset_state();
 
   if (currentMode == ScaleMode::Game) {
@@ -116,6 +164,7 @@ static void handleAutoZero(const WaageConfig& cfg) {
     if (autoZeroStableSince == 0) autoZeroStableSince = millis();
     if (millis() - autoZeroStableSince >= (unsigned long)cfg.autoZeroDelay * 1000UL) {
       hx711.tare(HX711_OVERSAMPLE);
+      resetWeightFilter();
       autoZeroLastTare = millis();
       autoZeroStableSince = 0;
     }
@@ -167,46 +216,69 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
   display.display();
 
   if (currentMode == ScaleMode::Game && weight >= localGameGoal) {
-    delay(SETTLE_MS);
-    updateWeight();
-    fullWeight = weight;
+    if (settleIdle == 0) settleIdle = millis();
+    if (millis() - settleIdle >= SETTLE_MS) {
+      settleIdle = 0;
+      fullWeight = weight;
 
-    if (wifiActive && duell_is_active()) {
-      mpState = MultiplayerState::WaitReady;
-      duell_send_ready();
-      currentState = State::Tare;  // We hijack State::Tare for multiplayer flow
-    } else {
-      currentState = State::Tare;
+      if (wifiActive && duell_is_active()) {
+        setMpState(MultiplayerState::WaitReady);
+        wasDuell = true;
+        duell_send_ready();
+        currentState = State::Tare;  // We hijack State::Tare for multiplayer flow
+      } else {
+        currentState = State::Tare;
+      }
     }
+  } else {
+    settleIdle = 0;
   }
 }
 
 
 static void stateTare(const WaageConfig& cfg) {
   if (mpState == MultiplayerState::WaitReady) {
-    displayText("Warte auf Gegner...");
     if (duell_has_start_signal(&duellTarget)) {
-      mpState = MultiplayerState::WaitStart;
+      setMpState(MultiplayerState::WaitStart);
+    } else if (!duell_is_active()
+               || millis() - mpStateSince > WAITREADY_TIMEOUT_MS
+               || weight < fullWeight - cfg.tolerance) {
+      // Gegner weg, Timeout oder Glas trotzdem abgehoben → solo weiterspielen
+      setMpState(MultiplayerState::Offline);
+      duell_reset_state();
+    } else {
+      displayText("Warte auf Gegner...");
+      return;
     }
-    return;
   }
 
   if (!rdyDisplayed) {
-    displayText("Bereit?");
-    delay(500);
-    if (mpState == MultiplayerState::WaitStart) {
-      displayLines("Ziel", String(duellTarget, 1) + "g");
-    } else {
-      displayText(getRandomTrinkspruch());
+    if (tareMsgShownAt == 0) {
+      tareMsgShownAt = millis();
+      displayText("Bereit?");
+    } else if (millis() - tareMsgShownAt >= 500UL) {
+      if (mpState == MultiplayerState::WaitStart) {
+        displayLines("Ziel", String(duellTarget, 1) + "g");
+      } else {
+        displayText(getRandomTrinkspruch());
+      }
+      rdyDisplayed = true;
     }
-    rdyDisplayed = true;
   }
 
-  if (weight > fullWeight - cfg.tolerance) return;
-  delay(SETTLE_MS);
-  updateWeight();
+  if (weight > fullWeight - cfg.tolerance) {
+    settleTare = 0;
+    return;
+  }
+  if (settleTare == 0) {
+    settleTare = millis();
+    timeStarted = settleTare;
+    return;
+  }
+  if (millis() - settleTare < SETTLE_MS) return;
+  settleTare = 0;
   emptyWeight = weight;
-  timeStarted = millis();
+  if (mpState != MultiplayerState::Offline) duell_set_phase(DuellPhase::Drinking);
   currentState = State::Drinking;
 }
 
@@ -214,39 +286,42 @@ static void stateTare(const WaageConfig& cfg) {
 static void stateDrinking(const WaageConfig& cfg) {
   static int frame = 0;
   if (weight < emptyWeight + cfg.tolerance) {
-    displayLoadingAnimation(frame++);
+    settleDrink = 0;
+    if (millis() - lastAnimFrame >= ANIM_FRAME_MS) {
+      displayLoadingAnimation(frame++);
+      lastAnimFrame = millis();
+    }
     return;
   }
-  delay(SETTLE_MS);
-  timeEnd = millis();
-  updateWeight();
+  if (settleDrink == 0) {
+    settleDrink = millis();
+    timeEnd = settleDrink;
+    return;
+  }
+  if (millis() - settleDrink < SETTLE_MS) return;
+  settleDrink = 0;
   finalWeight = weight;
 
   if (mpState != MultiplayerState::Offline) {
-    mpState = MultiplayerState::WaitResult;
+    setMpState(MultiplayerState::WaitResult);
     duell_send_result(fullWeight - finalWeight);
   }
   currentState = State::Result;
 }
 
 static void stateResult(const WaageConfig& cfg) {
-  if (mpState == MultiplayerState::WaitResult) {
-    int rank;
-    if (duell_has_ranking(&rank)) {
-      mpState = MultiplayerState::Result;
-    } else {
-      displayText("Auswertung...");
-      return;
-    }
-  }
-
+  // Glas-entfernt-Auto-Reset zuerst pruefen — muss auch greifen, wenn das
+  // Ranking nie ankommt, sonst haengt die Waage in "Auswertung..." fest.
+  // Im WaitResult etwas laenger warten, damit ein gleich eintreffendes
+  // Ranking noch angezeigt werden kann.
+  unsigned long releaseHold = (mpState == MultiplayerState::WaitResult) ? 5000UL : 1000UL;
   if (abs(weight) < cfg.tolerance) {
     if (weightReleasedSince == 0) weightReleasedSince = millis();
-    if (millis() - weightReleasedSince > 1000UL) {
+    if (millis() - weightReleasedSince > releaseHold) {
       float drank = fullWeight - finalWeight;
       float refGoal = (currentMode == ScaleMode::Game) ? localGameGoal : cfg.goal;
       float pctDiff = (refGoal > 0.0f) ? abs(drank - refGoal) / refGoal * 100.0f : 100.0f;
-      if (pctDiff > (float)cfg.autoResetRange || mpState != MultiplayerState::Offline) {
+      if (pctDiff > (float)cfg.autoResetRange || mpState != MultiplayerState::Offline || wasDuell) {
         weightReleasedSince = 0;
         resetState(cfg);
         return;
@@ -256,7 +331,26 @@ static void stateResult(const WaageConfig& cfg) {
     weightReleasedSince = 0;
   }
 
-  if (millis() - lastResultUpdate < RESULT_INTERVAL_MS) return;
+  if (mpState == MultiplayerState::WaitResult) {
+    int rank;
+    if (duell_has_ranking(&rank)) {
+      setMpState(MultiplayerState::Result);
+      duell_set_phase(DuellPhase::ShowingResult);  // Master hoert auf zu wiederholen
+      lastResultUpdate = 0;
+      weightReleasedSince = 0;  // Rang mindestens kurz anzeigen
+    } else if (millis() - mpStateSince > WAITRESULT_TIMEOUT_MS) {
+      // Ranking kommt nicht mehr (Master weg?) → Solo-Auswertung ohne Rang
+      setMpState(MultiplayerState::Offline);
+      duell_reset_state();
+      lastResultUpdate = 0;
+      weightReleasedSince = 0;
+    } else {
+      displayText("Auswertung...");
+      return;
+    }
+  }
+
+  if (lastResultUpdate != 0 && millis() - lastResultUpdate < RESULT_INTERVAL_MS) return;
 
   float drank = fullWeight - finalWeight;
   int drankInt = (int)(drank * 100);
@@ -265,7 +359,7 @@ static void stateResult(const WaageConfig& cfg) {
   String duration = String((timeEnd - timeStarted) / 1000.0f, 2) + "s";
 
   if (mpState == MultiplayerState::Result) {
-    int rank;
+    int rank = 0;
     duell_has_ranking(&rank);
     String resultFmt = String(drank, 1) + "g";
     String rankFmt = String(rank) + ". Platz!";

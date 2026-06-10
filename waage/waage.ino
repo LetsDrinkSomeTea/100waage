@@ -85,7 +85,7 @@ static void stopWiFi() {
   stopWebServer();
   wifiActive = false;
   displayText("WiFi AUS");
-  delay(1000);
+  lockDisplay(1000);
   lastActivityTime = millis();
 }
 

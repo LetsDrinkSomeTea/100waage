@@ -247,3 +247,63 @@ Kalibrierung (auf Admin-Seite):
 ### Nicht konfigurierbar im Web-UI (Hardcode)
 - `battDividerRatio` — bleibt 2.0 (hardwareabhängig, selten geändert)
 - `scaleFactor` — wird nur über Kalibrierungsflow gesetzt, kein freies Eingabefeld
+
+---
+
+## Duell-Modus (Multiplayer-Protokoll)
+
+Mehrere Waagen spielen gemeinsam über **ESP-NOW-Broadcast** (kein Pairing,
+funktioniert nur bei aktivem WiFi im Game-Mode). Das Protokoll ist
+**level-getriggert**: Zustände werden periodisch wiederholt statt einmalig
+gesendet — verlorene Pakete heilen sich von selbst.
+
+> **Wichtig:** Bei Protokolländerungen wird `DUELL_MAGIC` (aktuell `0xD2`)
+> erhöht. Alte und neue Firmware ignorieren sich dann gegenseitig —
+> **alle Waagen müssen zusammen geflasht werden.**
+
+### Nachrichten
+
+| Nachricht  | Sender      | Intervall                  | Inhalt                                              |
+|------------|-------------|----------------------------|-----------------------------------------------------|
+| `StateMsg` | jede Waage  | 2 s (idle), 400 ms (aktiv), sofort bei Phasenwechsel | Phase, Runden-ID, eigenes Ziel, eigenes Ergebnis |
+| `RoundMsg` | nur Master  | 500 ms solange Runde läuft | Runden-ID, Zielgewicht, finished-Flag, Teilnehmerliste mit Rängen |
+
+Phasen: `Idle → Ready → Drinking → HasResult → ShowingResult`.
+
+### Ablauf einer Runde
+
+1. Jede Waage meldet ihren Zustand per `StateMsg` (Heartbeat).
+2. Glas ≥ Ziel aufgestellt → Phase `Ready`.
+3. Der **Master** (höchste MAC unter den aktiven Waagen) startet die Runde,
+   wenn alle aktiven Waagen 3 s lang `Ready` sind: Er friert die
+   Teilnehmerliste ein, würfelt das Ziel aus den gemeldeten Zielen und
+   broadcastet die `RoundMsg` alle 500 ms.
+4. Waagen treten bei, wenn ihre MAC in der Teilnehmerliste steht
+   (Runden-ID schützt vor veralteten Starts).
+5. Ergebnisse werden über die `StateMsg`-Phase `HasResult` eingesammelt.
+6. Sind alle Ergebnisse da (oder nach 45 s), vergibt der Master Ränge nach
+   Abstand zum Ziel und sendet die fertige `RoundMsg` (`finished=1`) weiter,
+   bis jeder Teilnehmer per Phase `ShowingResult` quittiert hat (max. 15 s).
+
+### Robustheit
+
+| Mechanismus | Wert |
+|---|---|
+| Peer gilt als aktiv | letzte Nachricht < 5 s |
+| Peer wird vergessen | keine Nachricht > 10 s |
+| Teilnehmer-Forfeit (mitten in Runde verschwunden) | 10 s unsichtbar oder zurück auf `Idle` |
+| Runden-Zwangsauswertung (Master) | 45 s nach Start |
+| `WaitReady`-Timeout (Waage) | 60 s, außerdem Abbruch wenn Gegner weg oder Glas abgehoben → Solo-Spiel |
+| `WaitResult`-Timeout (Waage) | 20 s ohne Ranking → Solo-Auswertung |
+| Auto-Reset | greift im Duell immer nach Glas-Abheben — auch wenn das Ranking nie ankam (5 s Karenz in `WaitResult`, sonst 1 s) |
+
+Der ESP-NOW-Empfang läuft im WiFi-Task und legt Pakete nur in eine Queue;
+verarbeitet wird ausschließlich im Main Loop (keine Race Conditions).
+
+### Gewichtsmessung (nicht-blockierend)
+
+`updateWeight()` liest pro Loop höchstens ein HX711-Sample und mittelt über
+die letzten 10 (gleiche Glättung wie früher `get_units(10)`, blockiert aber
+nicht mehr ~1 s). Zustandsübergänge nutzen ein Settle-Fenster von 1,5 s —
+länger als das Mittelungsfenster, damit der übernommene Wert sauber ist.
+Die Standard-Mode-Anzeige bleibt damit auf 0,1 g genau.

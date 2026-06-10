@@ -55,6 +55,10 @@ arduino-cli upload
 
 Default FQBN: `espressif:esp:nologo_esp32c3_super_mini`
 
+> **Multiplayer note:** The duel protocol carries a magic/version byte
+> (`DUELL_MAGIC` in `duell.cpp`). Scales with different protocol versions
+> ignore each other, so flash **all** scales together when updating.
+
 ## Dependencies
 
 - Adafruit_SSD1306
