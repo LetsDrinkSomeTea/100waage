@@ -544,6 +544,8 @@ void startWebServer(const WaageConfig &cfg) {
   liveConfig = const_cast<WaageConfig *>(&cfg);
 
   WiFi.onEvent(onWifiEvent);
+  WiFi.disconnect(true);
+  delay(10);
   WiFi.mode(WIFI_AP_STA);
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   delay(100);

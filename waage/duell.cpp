@@ -52,7 +52,7 @@ constexpr unsigned long PEER_ACTIVE_MS = 5000UL;
 constexpr unsigned long PEER_FORGET_MS = 10000UL;
 constexpr unsigned long ROUND_TX_MS = 500UL;
 constexpr unsigned long READY_GRACE_MS = 3000UL;
-constexpr unsigned long RESULT_TIMEOUT_MS = 45000UL;   // Runde spaetestens dann auswerten
+constexpr unsigned long RESULT_TIMEOUT_MS = 120000UL;   // Runde spaetestens dann auswerten
 constexpr unsigned long FORFEIT_MS = 10000UL;          // Teilnehmer so lange unsichtbar = aufgegeben
 constexpr unsigned long FINISHED_TX_MAX_MS = 15000UL;  // fertige Runde hoechstens so lange wiederholen
 
@@ -402,7 +402,7 @@ void duell_init() {
   esp_now_peer_info_t peerInfo;
   memset(&peerInfo, 0, sizeof(peerInfo));
   for (int i = 0; i < 6; i++) peerInfo.peer_addr[i] = 0xFF;
-  peerInfo.channel = 0;
+  peerInfo.channel = 1;
   peerInfo.encrypt = false;
   esp_now_add_peer(&peerInfo);  // Broadcast Peer
   initialized = true;

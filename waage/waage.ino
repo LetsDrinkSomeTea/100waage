@@ -75,6 +75,7 @@ static int readBatteryPercent() {
 static void startWiFi() {
   if (wifiActive) return;
   startWebServer(cfg);
+  lockDisplay(3000);
   duell_init();
   wifiActive = true;
   lastActivityTime = millis();

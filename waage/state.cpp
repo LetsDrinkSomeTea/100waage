@@ -13,7 +13,7 @@ constexpr int WEIGHT_AVG_N = 10;
 // Gewichtswechsel enthaelt.
 constexpr unsigned long SETTLE_MS = 1500UL;
 constexpr unsigned long RESULT_INTERVAL_MS = 3000UL;
-constexpr unsigned long ANIM_FRAME_MS = 150UL;
+constexpr unsigned long ANIM_FRAME_MS = 300UL;
 constexpr unsigned long WAITREADY_TIMEOUT_MS = 60000UL;
 constexpr unsigned long WAITRESULT_TIMEOUT_MS = 20000UL;
 
