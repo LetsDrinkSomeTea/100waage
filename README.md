@@ -56,8 +56,18 @@ arduino-cli upload
 Default FQBN: `espressif:esp:nologo_esp32c3_super_mini`
 
 > **Multiplayer note:** The duel protocol carries a magic/version byte
-> (`DUELL_MAGIC` in `duell.cpp`). Scales with different protocol versions
-> ignore each other, so flash **all** scales together when updating.
+> (`duell::MAGIC` in `duell_core.h`, currently protocol v3). Scales with
+> different protocol versions ignore each other, so flash **all** scales
+> together when updating.
+
+### Tests
+
+The duel logic (`waage/duell_core.*`) has no Arduino dependencies and is
+tested on the host, including a multi-scale simulation with packet loss:
+
+```bash
+./test/run.sh
+```
 
 ## Dependencies
 

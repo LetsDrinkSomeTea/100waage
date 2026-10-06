@@ -7,7 +7,7 @@ constexpr int EEPROM_SIZE = 512;
 WaageConfig defaultConfig() {
   WaageConfig cfg{};
   cfg.magic            = CONFIG_MAGIC;
-  strncpy(cfg.apSSID, "100-Waage-Config", sizeof(cfg.apSSID));
+  strncpy(cfg.apSSID, DEFAULT_AP_SSID, sizeof(cfg.apSSID));
   cfg.scaleFactor      = 708.0f;
   cfg.goal             = 100.0f;
   cfg.tolerance        = 10.0f;

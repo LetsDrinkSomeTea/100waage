@@ -15,7 +15,7 @@ constexpr unsigned long SETTLE_MS = 1500UL;
 constexpr unsigned long RESULT_INTERVAL_MS = 3000UL;
 constexpr unsigned long ANIM_FRAME_MS = 300UL;
 constexpr unsigned long WAITREADY_TIMEOUT_MS = 60000UL;
-constexpr unsigned long WAITRESULT_TIMEOUT_MS = 20000UL;
+constexpr unsigned long FINAL_MIN_SHOW_MS = 5000UL;  // finaler Rang mindestens so lange sichtbar
 
 static HX711 hx711;
 
@@ -41,7 +41,11 @@ static unsigned long tareMsgShownAt = 0;
 static unsigned long lastAnimFrame = 0;
 
 static bool rdyDisplayed = false;
-static bool wasDuell = false;  // Runde lief im Duell — auch nach Solo-Fallback resetten
+static bool wasDuell = false;        // Waage wollte duellieren — Solo-Fallback immer resetten
+static bool duellTargetSet = false;  // Ziel kam aus einer Duell-Runde
+static bool glassRemovedArmed = false;
+static unsigned long finalSince = 0;
+static uint32_t lastViewSig = 0xFFFFFFFFUL;
 
 static State currentState = State::Idle;
 static ScaleMode currentMode = ScaleMode::Game;
@@ -122,22 +126,28 @@ float getLocalGameGoal() {
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
 
-void resetState(const WaageConfig& cfg) {
+void resetState(const WaageConfig& cfg, bool tare) {
   currentState = State::Idle;
   setMpState(MultiplayerState::Offline);
   displayMode = DisplayMode::Result;
   rdyDisplayed = false;
   wasDuell = false;
-  weight = fullWeight = emptyWeight = finalWeight = 0.0f;
+  duellTargetSet = false;
+  glassRemovedArmed = false;
+  finalSince = 0;
+  lastViewSig = 0xFFFFFFFFUL;
+  fullWeight = emptyWeight = finalWeight = 0.0f;
   weightReleasedSince = 0;
   autoZeroStableSince = 0;
   autoZeroLastTare = 0;
   settleIdle = settleTare = settleDrink = 0;
   tareMsgShownAt = 0;
   lastResultUpdate = 0;
-  hx711.tare(HX711_OVERSAMPLE);
-  resetWeightFilter();
-  duell_reset_state();
+  if (tare) {
+    hx711.tare(HX711_OVERSAMPLE);
+    resetWeightFilter();
+  }
+  duell_leave();
 
   if (currentMode == ScaleMode::Game) {
     if (cfg.randomModeEnabled) {
@@ -175,7 +185,7 @@ static void handleAutoZero(const WaageConfig& cfg) {
 
 // ── State handlers ────────────────────────────────────────────────────────────
 
-static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercent) {
+static void stateIdle(const WaageConfig& cfg, bool radioOn, int batteryPercent) {
   handleAutoZero(cfg);
 
   display.clearDisplay();
@@ -206,7 +216,7 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
     }
   }
 
-  if (wifiActive) {
+  if (radioOn) {
     if (currentMode == ScaleMode::Game && duell_is_active()) {
       drawDuellIcon(SCREEN_WIDTH - 26, 0, duell_get_peers_count());
     } else {
@@ -221,10 +231,10 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
       settleIdle = 0;
       fullWeight = weight;
 
-      if (wifiActive && duell_is_active()) {
+      if (radioOn && duell_is_active()) {
         setMpState(MultiplayerState::WaitReady);
         wasDuell = true;
-        duell_send_ready();
+        duell_set_ready();
         currentState = State::Tare;  // We hijack State::Tare for multiplayer flow
       } else {
         currentState = State::Tare;
@@ -239,17 +249,23 @@ static void stateIdle(const WaageConfig& cfg, bool wifiActive, int batteryPercen
 static void stateTare(const WaageConfig& cfg) {
   if (mpState == MultiplayerState::WaitReady) {
     if (duell_has_start_signal(&duellTarget)) {
+      duellTargetSet = true;
       setMpState(MultiplayerState::WaitStart);
     } else if (!duell_is_active()
                || millis() - mpStateSince > WAITREADY_TIMEOUT_MS
                || weight < fullWeight - cfg.tolerance) {
       // Gegner weg, Timeout oder Glas trotzdem abgehoben → solo weiterspielen
       setMpState(MultiplayerState::Offline);
-      duell_reset_state();
+      duell_leave();
     } else {
-      displayText("Warte auf Gegner...");
+      int ready, total;
+      duell_ready_count(&ready, &total);
+      displayLines("Warte...", String(ready) + "/" + String(total) + " bereit");
       return;
     }
+  } else if (mpState == MultiplayerState::WaitStart && !duell_get_view().inRound) {
+    // Funk aus o.ae. → Runde weg, solo mit dem Duell-Ziel weiterspielen
+    setMpState(MultiplayerState::Offline);
   }
 
   if (!rdyDisplayed) {
@@ -278,7 +294,6 @@ static void stateTare(const WaageConfig& cfg) {
   if (millis() - settleTare < SETTLE_MS) return;
   settleTare = 0;
   emptyWeight = weight;
-  if (mpState != MultiplayerState::Offline) duell_set_phase(DuellPhase::Drinking);
   currentState = State::Drinking;
 }
 
@@ -303,25 +318,91 @@ static void stateDrinking(const WaageConfig& cfg) {
   finalWeight = weight;
 
   if (mpState != MultiplayerState::Offline) {
-    setMpState(MultiplayerState::WaitResult);
-    duell_send_result(fullWeight - finalWeight);
+    if (duell_get_view().inRound) {
+      duell_submit_result(fullWeight - finalWeight, timeEnd - timeStarted);
+      setMpState(MultiplayerState::Live);
+    } else {
+      setMpState(MultiplayerState::Offline);
+    }
   }
   currentState = State::Result;
 }
 
+// Ziel fuer die Solo-Bewertung: kam ein Duell-Ziel, zaehlt das (Runde ging verloren)
+static float soloGoal(const WaageConfig& cfg) {
+  if (duellTargetSet) return duellTarget;
+  return (currentMode == ScaleMode::Game) ? localGameGoal : cfg.goal;
+}
+
+// Duell: Rang live anzeigen, bis die Runde final ist; danach bleibt er stehen,
+// bis Taster oder neues Glas (erst abheben, dann volles Glas aufstellen).
+static void stateResultDuell(const WaageConfig& cfg) {
+  duell::View v = duell_get_view();
+  if (!v.inRound) {
+    // Funk aus o.ae. → ohne Rang solo weiter
+    setMpState(MultiplayerState::Offline);
+    lastResultUpdate = 0;
+    return;
+  }
+
+  if (abs(weight) < cfg.tolerance) glassRemovedArmed = true;
+  if (v.isFinal && finalSince == 0) finalSince = millis();
+  if (v.isFinal && glassRemovedArmed && millis() - finalSince >= FINAL_MIN_SHOW_MS
+      && weight >= localGameGoal) {
+    resetState(cfg, false);  // Glas steht drauf — nicht nullen, Idle meldet gleich wieder bereit
+    return;
+  }
+
+  // Bei jeder Aenderung (neuer Rang, weiterer Spieler fertig) sofort neu zeichnen
+  uint32_t sig = (uint32_t)v.rank | ((uint32_t)v.settled << 8) | ((uint32_t)v.isFinal << 16)
+                 | ((uint32_t)v.myStatus << 24);
+  if (sig != lastViewSig) {
+    lastViewSig = sig;
+    lastResultUpdate = 0;
+    displayMode = DisplayMode::Result;
+  }
+  if (lastResultUpdate != 0 && millis() - lastResultUpdate < RESULT_INTERVAL_MS) return;
+
+  String grams = String(fullWeight - finalWeight, 1) + "g";
+  String duration = String((timeEnd - timeStarted) / 1000.0f, 2) + "s";
+
+  if (v.myStatus == duell::Status::Forfeit) {
+    displayLines(grams, "Zu spaet!");  // harter Rundentimeout vor dem eigenen Ergebnis
+  } else if (v.rank == 0) {
+    displayLines(grams, "Auswertung");
+  } else if (!v.isFinal) {
+    if (displayMode == DisplayMode::Result) {
+      displayLines(grams, "~" + String(v.rank) + ". Platz");
+    } else {
+      displayLines(String(v.settled) + "/" + String(v.total) + " fertig", duration);
+    }
+  } else {
+    if (displayMode == DisplayMode::Result) {
+      displayLines(grams, String(v.rank) + ". Platz!");
+    } else {
+      displayLines(grams, duration);
+    }
+  }
+
+  lastResultUpdate = millis();
+  displayMode = (displayMode == DisplayMode::Result) ? DisplayMode::Time : DisplayMode::Result;
+}
+
 static void stateResult(const WaageConfig& cfg) {
-  // Glas-entfernt-Auto-Reset zuerst pruefen — muss auch greifen, wenn das
-  // Ranking nie ankommt, sonst haengt die Waage in "Auswertung..." fest.
-  // Im WaitResult etwas laenger warten, damit ein gleich eintreffendes
-  // Ranking noch angezeigt werden kann.
-  unsigned long releaseHold = (mpState == MultiplayerState::WaitResult) ? 5000UL : 1000UL;
+  if (mpState == MultiplayerState::Live) {
+    stateResultDuell(cfg);
+    return;
+  }
+
+  float drank = fullWeight - finalWeight;
+  float refGoal = soloGoal(cfg);
+
+  // Glas entfernt → Auto-Reset bei schlechtem Ergebnis bzw. nach Duell-Fallback
   if (abs(weight) < cfg.tolerance) {
     if (weightReleasedSince == 0) weightReleasedSince = millis();
-    if (millis() - weightReleasedSince > releaseHold) {
-      float drank = fullWeight - finalWeight;
-      float refGoal = (currentMode == ScaleMode::Game) ? localGameGoal : cfg.goal;
+    if (millis() - weightReleasedSince > 1000UL) {
       float pctDiff = (refGoal > 0.0f) ? abs(drank - refGoal) / refGoal * 100.0f : 100.0f;
-      if (pctDiff > (float)cfg.autoResetRange || mpState != MultiplayerState::Offline || wasDuell) {
+      if (pctDiff > (float)cfg.autoResetRange || wasDuell) {
         weightReleasedSince = 0;
         resetState(cfg);
         return;
@@ -331,52 +412,18 @@ static void stateResult(const WaageConfig& cfg) {
     weightReleasedSince = 0;
   }
 
-  if (mpState == MultiplayerState::WaitResult) {
-    int rank;
-    if (duell_has_ranking(&rank)) {
-      setMpState(MultiplayerState::Result);
-      duell_set_phase(DuellPhase::ShowingResult);  // Master hoert auf zu wiederholen
-      lastResultUpdate = 0;
-      weightReleasedSince = 0;  // Rang mindestens kurz anzeigen
-    } else if (millis() - mpStateSince > WAITRESULT_TIMEOUT_MS) {
-      // Ranking kommt nicht mehr (Master weg?) → Solo-Auswertung ohne Rang
-      setMpState(MultiplayerState::Offline);
-      duell_reset_state();
-      lastResultUpdate = 0;
-      weightReleasedSince = 0;
-    } else {
-      displayText("Auswertung...");
-      return;
-    }
-  }
-
   if (lastResultUpdate != 0 && millis() - lastResultUpdate < RESULT_INTERVAL_MS) return;
 
-  float drank = fullWeight - finalWeight;
   int drankInt = (int)(drank * 100);
-  float refGoal = (currentMode == ScaleMode::Game) ? localGameGoal : cfg.goal;
   int goalInt = (int)(refGoal * 100);
   String duration = String((timeEnd - timeStarted) / 1000.0f, 2) + "s";
+  String resultFmt = (displayMode == DisplayMode::Time) ? duration : String(drank, 2) + "g";
 
-  if (mpState == MultiplayerState::Result) {
-    int rank = 0;
-    duell_has_ranking(&rank);
-    String resultFmt = String(drank, 1) + "g";
-    String rankFmt = String(rank) + ". Platz!";
-    if (displayMode == DisplayMode::Time) {
-      displayLines(resultFmt, duration);
-    } else {
-      displayLines(resultFmt, rankFmt);
-    }
-  } else {
-    String resultFmt = (displayMode == DisplayMode::Time) ? duration : String(drank, 2) + "g";
-
-    if (drankInt == goalInt) displayLines(resultFmt, "Perfekt!");
-    else if (abs(drankInt - goalInt) <= 10) displayLines(resultFmt, "Not Bad!");
-    else if (abs(drankInt - goalInt) <= 100) displayLines(resultFmt, "Ganz ok!");
-    else if (drankInt < goalInt) displayLines(resultFmt, "Schuchtern");
-    else displayLines(resultFmt, "Zu gierig!");
-  }
+  if (drankInt == goalInt) displayLines(resultFmt, "Perfekt!");
+  else if (abs(drankInt - goalInt) <= 10) displayLines(resultFmt, "Not Bad!");
+  else if (abs(drankInt - goalInt) <= 100) displayLines(resultFmt, "Ganz ok!");
+  else if (drankInt < goalInt) displayLines(resultFmt, "Schuchtern");
+  else displayLines(resultFmt, "Zu gierig!");
 
   lastResultUpdate = millis();
   displayMode = (displayMode == DisplayMode::Result) ? DisplayMode::Time : DisplayMode::Result;
@@ -385,13 +432,13 @@ static void stateResult(const WaageConfig& cfg) {
 
 // ── Main update ───────────────────────────────────────────────────────────────
 
-void updateState(const WaageConfig& cfg, bool wifiActive, int batteryPercent) {
+void updateState(const WaageConfig& cfg, bool radioOn, int batteryPercent) {
   if (currentMode == ScaleMode::Standard) {
-    stateIdle(cfg, wifiActive, batteryPercent);
+    stateIdle(cfg, radioOn, batteryPercent);
     return;
   }
   switch (currentState) {
-    case State::Idle: stateIdle(cfg, wifiActive, batteryPercent); break;
+    case State::Idle: stateIdle(cfg, radioOn, batteryPercent); break;
     case State::Tare: stateTare(cfg); break;
     case State::Drinking: stateDrinking(cfg); break;
     case State::Result: stateResult(cfg); break;
