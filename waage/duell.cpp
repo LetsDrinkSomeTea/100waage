@@ -1,4 +1,5 @@
 #include "duell.h"
+#include "version.h"
 #include <esp_now.h>
 #include <WiFi.h>
 #include <string.h>
@@ -65,8 +66,25 @@ void duell_init() {
   initialized = true;
 }
 
+// Ausstieg sofort mehrfach senden (Broadcast ohne ACK), damit die anderen nicht
+// 30 s bis zum Forfeit warten. Blockiert ca. FLUSH_COUNT * FLUSH_GAP_MS.
+constexpr int FLUSH_COUNT = 3;
+constexpr uint32_t FLUSH_GAP_MS = 25;
+
+void duell_flush_burst() {
+  if (!initialized) return;
+  for (int i = 0; i < FLUSH_COUNT; i++) {
+    core.flush(millis());
+    delay(FLUSH_GAP_MS);
+  }
+}
+
 void duell_deinit() {
   if (!initialized) return;
+  if (core.phase() != duell::Phase::Idle || core.busy(millis())) {
+    core.leave(millis());
+    duell_flush_burst();  // esp_now_send ist asynchron: Luecke danach laesst es raus
+  }
   initialized = false;
   esp_now_unregister_recv_cb();
   esp_now_deinit();
@@ -119,6 +137,26 @@ duell::View duell_get_view() {
 
 bool duell_busy() {
   return initialized && core.busy(millis());
+}
+
+// ── Anbindung an die Spiellogik ───────────────────────────────────────────────
+
+namespace {
+class EspDuelPort final : public game::DuelPort {
+public:
+  bool active() override { return duell_is_active(); }
+  void readyCount(int *ready, int *total) override { duell_ready_count(ready, total); }
+  void setReady() override { duell_set_ready(); }
+  bool startSignal(float *target) override { return duell_has_start_signal(target); }
+  duell::View view() override { return duell_get_view(); }
+  void submit(float grams, uint32_t durationMs) override { duell_submit_result(grams, durationMs); }
+  void leave() override { duell_leave(); }
+};
+EspDuelPort port;
+}  // namespace
+
+game::DuelPort &duell_port() {
+  return port;
 }
 
 // ── Debug-JSON fuer das Web-UI ────────────────────────────────────────────────
@@ -179,6 +217,7 @@ static String roundJson(const duell::Round &r, uint32_t elapsedMs) {
 String duell_status_json() {
   uint32_t now = millis();
   String j = "{\"proto\":" + String(duell::MAGIC);
+  j += ",\"fw\":\"" + String(FW_VERSION) + "\"";
   j += ",\"radio\":" + String(initialized ? "true" : "false");
   if (!initialized) return j + "}";
   j += ",\"mac\":\"" + macStr(core.mac()) + "\"";
