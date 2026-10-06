@@ -25,11 +25,11 @@ constexpr int RECENT_ROUNDS = 4;
 
 // ── Timing ────────────────────────────────────────────────────────────────────
 constexpr uint32_t HEARTBEAT_IDLE_MS = 1000;
-constexpr uint32_t HEARTBEAT_ACTIVE_MS = 400;
+constexpr uint32_t HEARTBEAT_ACTIVE_MS = 250;
 constexpr uint32_t PEER_ACTIVE_MS = 5000;
 constexpr uint32_t PEER_FORGET_MS = 10000;
 constexpr uint32_t STARTUP_GUARD_MS = 5000;       // so lange nach Funkstart nicht Leader sein
-constexpr uint32_t READY_GRACE_MS = 3000;         // alle bereit so lange, dann Start
+constexpr uint32_t READY_GRACE_MS = 1500;         // alle bereit so lange, dann Start
 constexpr uint32_t JOIN_WINDOW_MS = 10000;        // Beitritt nur so lange nach Rundenstart
 constexpr uint32_t INVISIBLE_FORFEIT_MS = 30000;  // Teilnehmer so lange nicht gehoert = aufgegeben
 constexpr uint32_t ROUND_MAX_MS = 180000;         // danach gilt jeder Pending als aufgegeben
@@ -119,6 +119,10 @@ public:
   void setReady();
   void submitResult(float grams, uint32_t durationMs);
   void leave(uint32_t now);
+
+  // Sofort senden, unabhaengig vom Heartbeat (z. B. Ausstieg vor Funk-aus:
+  // leave() und dann mehrmals flush(), weil Broadcasts ohne ACK verloren gehen).
+  void flush(uint32_t now) { send(now); }
 
   int activePeers(uint32_t now) const;
   int readyCount(uint32_t now) const;  // bereite Waagen inkl. mir
