@@ -5,7 +5,9 @@ constexpr uint8_t CONFIG_MAGIC = 0xCD;
 
 enum class State     { Idle, Tare, Drinking, Result };
 enum class ScaleMode { Game, Standard };
-enum class MultiplayerState { Offline, Idle, WaitReady, WaitStart, WaitResult, Result };
+// Duell-Ablauf aus Sicht der State-Machine. Live = eigenes Ergebnis gemeldet,
+// Rang wird live angezeigt und ist final, sobald alle fertig sind.
+enum class MultiplayerState { Offline, WaitReady, WaitStart, Live };
 
 
 struct WaageConfig {

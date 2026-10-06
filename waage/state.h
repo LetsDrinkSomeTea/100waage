@@ -6,8 +6,9 @@ void  updateWeight();
 float getCurrentWeight();
 float calibrateScale(float knownWeight);  // blocks ~10s, returns new scaleFactor
 
-void resetState(const WaageConfig& cfg);
-void updateState(const WaageConfig& cfg, bool wifiActive, int batteryPercent);
+// tare=false: Glas steht auf der Waage (neues Glas nach Duell) — nicht nullen
+void resetState(const WaageConfig& cfg, bool tare = true);
+void updateState(const WaageConfig& cfg, bool radioOn, int batteryPercent);
 
 State     getCurrentState();
 ScaleMode getCurrentScaleMode();

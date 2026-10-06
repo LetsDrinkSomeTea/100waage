@@ -2,14 +2,18 @@
 #include "config.h"
 #include "display.h"
 #include "state.h"
+#include "duell.h"
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <Update.h>
 #include <ESPmDNS.h>
+#include <esp_wifi.h>
+#include <string.h>
 
 constexpr char AP_PASSWORD[] = "";
 constexpr uint8_t DNS_PORT = 53;
+constexpr int AP_MAX_CLIENTS = 4;
 constexpr char SESSION_COOKIE[] = "waage_session";
 constexpr char SESSION_TOKEN[] = "authenticated";
 
@@ -18,6 +22,8 @@ static DNSServer *dnsServer = nullptr;
 static bool running = false;
 static unsigned long lastActivity = 0;
 static WaageConfig *liveConfig = nullptr;
+static char apName[33] = "";
+static bool wifiEventRegistered = false;
 
 // Calibration state
 static bool calRunning = false;
@@ -96,6 +102,21 @@ static String statusBar() {
            "</script>");
 }
 
+// Duell-Status: Peers und Rundentabelle, pollt /duell (zur Fehlersuche)
+static const char DUELL_SECTION[] PROGMEM = R"html(
+<div class='section'><h3 style='margin-top:0'>&#x2694;&#xFE0F; Duell</h3><div id='du'>--</div></div>
+<script>
+function duRound(r,t){if(!r)return '';let h='<p><b>'+t+'</b> #'+r.id+' &middot; Ziel '+r.target+' g &middot; '+(r.final?'final':'l&auml;uft ('+r.elapsed+' s)')+'</p><table>';
+for(const p of r.players){h+='<tr'+(p.me?' style="font-weight:bold"':'')+'><td>'+(p.rank?p.rank+'.':'-')+'</td><td>'+p.mac.slice(-5)+'</td><td>'+(p.status=='Done'?p.result+' g / '+p.time+' s':p.status)+'</td></tr>';}
+return h+'</table>';}
+function du(){fetch('/duell').then(r=>r.json()).then(d=>{let h;
+if(!d.radio){h='Funk aus';}else{h='<p>Diese Waage: '+d.mac.slice(-5)+' ('+d.phase+'), Protokoll '+d.proto+'</p><p>Peers: ';
+h+=d.peers.length?d.peers.map(p=>p.mac.slice(-5)+' '+p.phase+' ('+p.ago+' s)').join(', '):'keine';h+='</p>';
+h+=duRound(d.round,'Runde')+duRound(d.last,'Letzte Runde');}
+document.getElementById('du').innerHTML=h;}).catch(()=>{});}
+setInterval(du,2000);du();
+</script>)html";
+
 // ── Public page: /
 // ────────────────────────────────────────────────────────────
 
@@ -103,6 +124,7 @@ static void handleRoot() {
   touchActivity();
   String html = pageHead("Einstellungen");
   html += statusBar();
+  html += FPSTR(DUELL_SECTION);
   html += F("<div class='section'>"
             "<h3 style='margin-top:0'>Einstellungen</h3>"
             "<form action='/save' method='POST'>"
@@ -234,6 +256,8 @@ static void handleAdmin() {
 
             "<div class='form-group'>"
             "<label>Access-Point SSID</label>"
+            "<span class='hint'>Standard '100-Waage-Config' = automatisch "
+            "eindeutig (100-Waage-XXXX)</span>"
             "<input type='text' name='apSSID' value='");
   html += String(liveConfig->apSSID);
   html +=
@@ -351,8 +375,9 @@ static void handleAdmin() {
       "document.getElementById('calProgress').style.display='';"
       "fetch('/calibrate',{method:'POST',headers:{'Content-Type':'application/"
       "x-www-form-urlencoded'},"
-      "body:'weight='+encodeURIComponent(w)});"
-      "pollCal();}"
+      "body:'weight='+encodeURIComponent(w)}).then(r=>{"
+      "if(r.ok){pollCal();}else{r.text().then(t=>{alert(t);location.reload();});}"
+      "}).catch(()=>pollCal());}"
       "function pollCal(){"
       "fetch('/calibrate/status').then(r=>r.json()).then(d=>{"
       "if(d.state==='done'){"
@@ -501,6 +526,13 @@ static void handleCalibrateStart() {
     return;
   }
 
+  if (duell_busy()) {
+    // Kalibrierung blockiert den Loop >10 s — die anderen Waagen wuerden
+    // diese Waage sonst aus der laufenden Runde werfen
+    webServer->send(409, "text/plain", "Duell-Runde laeuft - bitte danach kalibrieren");
+    return;
+  }
+
   float knownWeight = webServer->arg("weight").toFloat();
   webServer->send(200, "text/plain", "ok");
 
@@ -525,13 +557,34 @@ static void handleCalibrateStatus() {
   webServer->send(200, "application/json", json);
 }
 
+// ── Duell JSON
+// ───────────────────────────────────────────────────────────────
+
+static void handleDuell() {
+  touchActivity();
+  webServer->send(200, "application/json", duell_status_json());
+}
+
 // ── AP event handler
 // ──────────────────────────────────────────────────────────
 
+// Laeuft im WiFi-Event-Task. Wird nur einmal registriert und greift nur bei
+// laufendem AP — beim Abschalten (softAPdisconnect) feuert das Event ebenfalls.
 static void onWifiEvent(WiFiEvent_t event) {
-  if (event == ARDUINO_EVENT_WIFI_AP_STADISCONNECTED) {
+  if (event == ARDUINO_EVENT_WIFI_AP_STADISCONNECTED && running) {
     delay(100);
-    WiFi.softAP(liveConfig->apSSID, AP_PASSWORD);
+    if (running) WiFi.softAP(apName, AP_PASSWORD, DUELL_CHANNEL, 0, AP_MAX_CLIENTS);
+  }
+}
+
+static void buildApName() {
+  if (strcmp(liveConfig->apSSID, DEFAULT_AP_SSID) == 0) {
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    snprintf(apName, sizeof(apName), "100-Waage-%02X%02X", mac[4], mac[5]);
+  } else {
+    strncpy(apName, liveConfig->apSSID, sizeof(apName) - 1);
+    apName[sizeof(apName) - 1] = '\0';
   }
 }
 
@@ -542,24 +595,27 @@ void startWebServer(const WaageConfig &cfg) {
   if (running)
     return;
   liveConfig = const_cast<WaageConfig *>(&cfg);
+  buildApName();
 
-  WiFi.onEvent(onWifiEvent);
-  WiFi.disconnect(true);
-  delay(10);
+  if (!wifiEventRegistered) {
+    WiFi.onEvent(onWifiEvent);
+    wifiEventRegistered = true;
+  }
+  // Funk (STA + ESP-NOW) laeuft bereits auf DUELL_CHANNEL, AP kommt dazu
   WiFi.mode(WIFI_AP_STA);
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   delay(100);
-  WiFi.softAP(liveConfig->apSSID, AP_PASSWORD, 1, 0, 4);
+  WiFi.softAP(apName, AP_PASSWORD, DUELL_CHANNEL, 0, AP_MAX_CLIENTS);
 
   delay(500);
 
   IPAddress ip = WiFi.softAPIP();
   Serial.print("AP: ");
-  Serial.print(liveConfig->apSSID);
+  Serial.print(apName);
   Serial.print("  IP: ");
   Serial.println(ip);
 
-  displayText(String(liveConfig->apSSID));
+  displayText(String(apName));
 
   dnsServer = new DNSServer();
   dnsServer->start(DNS_PORT, "*", ip);
@@ -578,6 +634,7 @@ void startWebServer(const WaageConfig &cfg) {
   webServer->on("/status", HTTP_GET, handleStatus);
   webServer->on("/calibrate", HTTP_POST, handleCalibrateStart);
   webServer->on("/calibrate/status", HTTP_GET, handleCalibrateStatus);
+  webServer->on("/duell", HTTP_GET, handleDuell);
   webServer->onNotFound([]() {
     webServer->sendHeader("Location", "/", true);
     webServer->send(302, "text/plain", "");
@@ -592,9 +649,11 @@ void startWebServer(const WaageConfig &cfg) {
   running = true;
 }
 
+// Stoppt nur AP und Server — der Funk (STA + ESP-NOW) bleibt auf DUELL_CHANNEL.
 void stopWebServer() {
   if (!running)
     return;
+  running = false;  // zuerst, damit der Event-Handler den AP nicht neu startet
   if (webServer) {
     webServer->stop();
     delete webServer;
@@ -605,10 +664,10 @@ void stopWebServer() {
     delete dnsServer;
     dnsServer = nullptr;
   }
+  MDNS.end();
   WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_OFF);
-  running = false;
-  liveConfig = nullptr;
+  WiFi.mode(WIFI_STA);
+  esp_wifi_set_channel(DUELL_CHANNEL, WIFI_SECOND_CHAN_NONE);
 }
 
 void handleWebRequests() {

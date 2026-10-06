@@ -1,4 +1,6 @@
 #include <Wire.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
 #include "types.h"
 #include "config.h"
 #include "display.h"
@@ -31,7 +33,10 @@ constexpr unsigned long WEIGHT_CHECK_INTERVAL_MS = 2000UL;
 
 // ── Runtime state ─────────────────────────────────────────────────────────────
 static WaageConfig cfg;
-static bool wifiActive = false;
+// Funk (ESP-NOW fuers Duell) und Config-AP sind getrennt: Der WLAN-Timeout
+// schaltet nur den AP ab, das Duell laeuft weiter.
+static bool radioOn = false;
+static bool apOn = false;
 static int batteryPercent = BATTERY_CONNECTED ? 100 : -1;
 
 static unsigned long lastActivityTime = 0;
@@ -71,27 +76,43 @@ static int readBatteryPercent() {
   return (int)constrain(pct, 0.0f, 100.0f);
 }
 
-// ── WiFi management ───────────────────────────────────────────────────────────
-static void startWiFi() {
-  if (wifiActive) return;
-  startWebServer(cfg);
-  lockDisplay(3000);
+// ── Funk / WiFi management ────────────────────────────────────────────────────
+static void startRadio() {
+  if (radioOn) return;
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();     // nie mit einem gespeicherten Netz verbinden (Kanalwechsel)
+  WiFi.setSleep(false);  // Modem-Sleep wuerde ESP-NOW-Pakete verschlucken
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  esp_wifi_set_channel(DUELL_CHANNEL, WIFI_SECOND_CHAN_NONE);
   duell_init();
-  wifiActive = true;
-  lastActivityTime = millis();
+  radioOn = true;
 }
 
-static void stopWiFi() {
-  if (!wifiActive) return;
+static void stopAP() {
+  if (!apOn) return;
   stopWebServer();
-  wifiActive = false;
-  displayText("WiFi AUS");
-  lockDisplay(1000);
-  lastActivityTime = millis();
+  apOn = false;
+}
+
+static void stopRadio() {
+  if (!radioOn) return;
+  stopAP();
+  duell_deinit();
+  WiFi.mode(WIFI_OFF);
+  radioOn = false;
+}
+
+static void startAP() {
+  if (apOn) return;
+  startRadio();
+  startWebServer(cfg);
+  lockDisplay(3000);
+  apOn = true;
 }
 
 // ── Deep sleep ────────────────────────────────────────────────────────────────
 static void enterDeepSleep() {
+  stopRadio();
   display.ssd1306_command(SSD1306_DISPLAYOFF);
   esp_deep_sleep_enable_gpio_wakeup(1ULL << PIN_BTN, ESP_GPIO_WAKEUP_GPIO_HIGH);
   esp_deep_sleep_start();
@@ -113,8 +134,14 @@ static void handleButton() {
     } else if (level == LOW && buttonPressStart > 0) {
       if (holdFired5s) {
         if (pendingWifiToggle) {
-          if (wifiActive) stopWiFi();
-          else startWiFi();
+          if (apOn) {
+            stopRadio();
+            displayText("WiFi AUS");
+            lockDisplay(1000);
+          } else {
+            startAP();
+          }
+          lastActivityTime = millis();
         }
       } else if (holdFired3s) {
         ScaleMode newMode = previewMode;
@@ -143,7 +170,7 @@ static void handleButton() {
       holdFired5s = true;
       previewMode = getCurrentScaleMode();
       pendingWifiToggle = true;
-      displayText(wifiActive ? "WiFi AUS" : "WiFi AN");
+      displayText(apOn ? "WiFi AUS" : "WiFi AN");
       lockDisplay(1000);
     }
   }
@@ -188,9 +215,12 @@ void setup() {
 void loop() {
   handleButton();
 
+  bool duellOn = radioOn && getCurrentScaleMode() == ScaleMode::Game;
+
   if (isDisplayLocked()) {
     updateWeight();
-    if (wifiActive) handleWebRequests();
+    if (apOn) handleWebRequests();
+    if (duellOn) duell_update(getLocalGameGoal());
     return;
   }
 
@@ -201,16 +231,16 @@ void loop() {
     setLiveBatteryPercent(batteryPercent);
   }
 
-  // WiFi auto-off
-  if (wifiActive) {
+  // AP auto-off: nur der Config-AP geht aus, der Duell-Funk bleibt an
+  if (apOn) {
     handleWebRequests();
     if (cfg.wifiTimeout > 0 && millis() - getLastHttpActivity() > (unsigned long)cfg.wifiTimeout * 60000UL) {
-      stopWiFi();
+      stopAP();
     }
   }
 
-  // Activity tracking + deep sleep (only in Idle, WiFi off)
-  if (!wifiActive && cfg.sleepTimeout > 0 && getCurrentState() == State::Idle) {
+  // Activity tracking + deep sleep (only in Idle, AP off, keine Duell-Runde)
+  if (!apOn && cfg.sleepTimeout > 0 && getCurrentState() == State::Idle && !duell_busy()) {
     if (millis() - lastWeightCheckTime > WEIGHT_CHECK_INTERVAL_MS) {
       float w = getCurrentWeight();
       if (abs(w - lastCheckedWeight) > WEIGHT_CHANGE_THRESHOLD) {
@@ -222,13 +252,11 @@ void loop() {
     if (millis() - lastActivityTime > (unsigned long)cfg.sleepTimeout * 60000UL) {
       enterDeepSleep();
     }
-  } else if (getCurrentState() != State::Idle) {
+  } else {
     lastActivityTime = millis();
   }
 
   updateWeight();
-  if (wifiActive && getCurrentScaleMode() == ScaleMode::Game) {
-    duell_update(getLocalGameGoal());
-  }
-  updateState(cfg, wifiActive, batteryPercent);
+  if (duellOn) duell_update(getLocalGameGoal());
+  updateState(cfg, radioOn, batteryPercent);
 }
