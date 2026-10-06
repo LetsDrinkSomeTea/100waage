@@ -1,28 +1,25 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/root/bin:${PATH}"
 
-RUN apt-get update && apt-get install -y \
-    curl python3 python3-serial \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git python3 python3-serial \
     && rm -rf /var/lib/apt/lists/*
 
-# Install arduino-cli
-RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+# arduino-cli fest gepinnt: Release-Archiv mit Pruefsumme statt curl | sh von master
+ARG ARDUINO_CLI_VERSION=1.3.1
+ARG ARDUINO_CLI_SHA256=376428d7d45be640c00812a71612e1742edc2f5f9ee3742a2d6da7870e079588
+RUN curl -fsSL -o /tmp/arduino-cli.tgz \
+      "https://github.com/arduino/arduino-cli/releases/download/v${ARDUINO_CLI_VERSION}/arduino-cli_${ARDUINO_CLI_VERSION}_Linux_64bit.tar.gz" \
+ && echo "${ARDUINO_CLI_SHA256}  /tmp/arduino-cli.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/arduino-cli.tgz -C /usr/local/bin arduino-cli \
+ && rm /tmp/arduino-cli.tgz
 
-# Write config directly — avoids arduino-cli config syntax differences
-RUN mkdir -p /root/.arduino15 && printf 'board_manager:\n  additional_urls:\n  - https://espressif.github.io/arduino-esp32/package_esp32_index.json\n' \
-    > /root/.arduino15/arduino-cli.yaml
+# Profil vorwaermen: Core und Bibliotheken in den festen Versionen aus
+# waage/sketch.yaml landen im Image, spaetere Builds laufen offline.
+COPY waage/sketch.yaml /warm/waage/sketch.yaml
+RUN printf 'void setup() {}\nvoid loop() {}\n' > /warm/waage/waage.ino \
+ && arduino-cli compile --profile c3 /warm/waage \
+ && rm -rf /warm
 
-# Install ESP32 core (slow layer — cached unless Dockerfile changes)
-RUN arduino-cli core update-index && \
-    arduino-cli core install esp32:esp32
-
-# Install required libraries
-RUN arduino-cli lib install \
-    "Adafruit SSD1306" \
-    "Adafruit GFX Library" \
-    "Adafruit BusIO" \
-    "HX711"
-
-WORKDIR /sketch
+WORKDIR /repo
