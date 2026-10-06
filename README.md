@@ -1,89 +1,151 @@
-# Waage - Smart Drinking Scale
+# 100-Waage
 
-An ESP32-based drinking scale that challenges you to drink a specific amount from your glass with precision.
+Trinkspiel-Waage auf Basis eines ESP32-C3: Ziel ist, möglichst genau eine
+vorgegebene Menge aus dem Glas zu trinken. Mehrere Waagen können per Funk
+gegeneinander antreten (Duell). Technische Details stehen in [Specs.md](Specs.md).
 
 ## Hardware
 
-- **Board**: ESP32-C3 Super Mini
-- **Display**: SSD1306 OLED (128x32, I2C)
-- **Load Cell**: HX711 module
-- **Button**: Reset button on GPIO 0
+| Komponente | Details |
+|---|---|
+| MCU | ESP32-C3 Super Mini |
+| Wägezelle | HX711-Verstärker (10 Messungen/s, 80/s bei umgelötetem RATE-Pin) |
+| Display | SSD1306 OLED 128×32, I2C |
+| Taster | GPIO 5 (HIGH = gedrückt, weckt aus dem Deep-Sleep) |
+| Akku | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 2 |
 
-### Pin Configuration
+| Funktion | GPIO |
+|---|---|
+| OLED SDA / SCL | 8 / 9 |
+| HX711 DAT / CLK | 21 / 20 |
+| Taster | 5 |
+| Akku-ADC | 2 |
 
-- OLED SDA: GPIO 8
-- OLED SCL: GPIO 9
-- HX711 DAT: GPIO 21
-- HX711 CLK: GPIO 20
-- Button: GPIO 5
+## Bedienung
 
-## Features
+### Taster
 
-- **Weight Measurement**: Precise measurement using HX711 load cell amplifier
-- **Drinking Challenge**: Set a goal weight and try to drink exactly that amount
-- **OLED Display**: Real-time feedback and animations
-- **Web Configuration**: Configure scale calibration and goals via WiFi
-- **State Machine**: Idle → Tare → Drinking → Result flow
+| Aktion | Wirkung |
+|---|---|
+| Kurz drücken | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage) |
+| Halten | Ab 0,3 s erscheint ein Balken mit Marken bei 3 s und 5 s; der Text zeigt, was beim Loslassen passiert |
+| Halten 3–5 s | Modus wechseln (Game ↔ Standard) |
+| Halten 5–8 s | Funk: läuft der Config-AP → alles aus, sonst Funk + AP an |
+| Halten ≥ 8 s | Abbrechen, nichts passiert |
 
-## States
+### Spiel (Game-Modus)
 
-1. **Idle**: Waiting for a glass with sufficient weight (≥ goal)
-2. **Tare**: Ready state with motivational drinking phrase
-3. **Drinking**: Animated loading screen while drinking
-4. **Result**: Shows how much you drank with feedback
+1. Das Display zeigt das Ziel, z. B. `100.0g?` (🔀 = Zufallsziel).
+2. Volles Glas aufstellen. Sobald es mindestens das Ziel wiegt und ruhig steht
+   (0,5 s), erscheint `Bereit?` und ein Trinkspruch.
+3. Glas abheben und trinken (Ladeanimation), dann zurückstellen.
+4. Ergebnis: getrunkene Menge auf 0,01 g mit Bewertung, im Wechsel mit der Zeit.
+   Die erste Nachkommastelle ist exakt, die zweite Glück.
 
-## Configuration
+| Abweichung vom Ziel | Bewertung |
+|---|---|
+| 0,00 g | Perfekt! |
+| ≤ 0,10 g | Not Bad! |
+| ≤ 1,00 g | Ganz ok! |
+| zu wenig | Schüchtern |
+| zu viel | Zu gierig! |
 
-Access the web configuration interface via WiFi to set:
+**Ergebnis stehen lassen:** Ein gutes Ergebnis (innerhalb des Auto-Reset-Bereichs,
+Standard ±10 %) bleibt zum Prahlen stehen, bis jemand den Taster drückt. Ein
+schlechtes verschwindet, wenn das Glas abgehoben wird; die Waage tariert dabei
+die leere Waage.
 
-- Scale calibration factor
-- Tare offset
-- Drinking goal (grams)
-- Tolerance (grams)
-- AP SSID
+Wurde mit Glas tariert und das Glas danach weggenommen, nullt sich die leere
+Waage nach 1 s selbst.
 
-Configuration is stored in EEPROM and loaded on startup.
+### Duell
 
-## Building & Uploading
+Voraussetzung: Funk an (5 s halten) und Game-Modus. Das Symbol `Vs n` zeigt,
+wie viele andere Waagen sichtbar sind.
 
-Using Arduino CLI with the sketch.yaml configuration:
+- Glas aufstellen → `Warte... 2/3 bereit`. Die Runde startet, sobald **alle**
+  sichtbaren Waagen bereit sind. Das Ziel wird aus den Zielen der Teilnehmer
+  gewürfelt und angezeigt.
+- Nach dem eigenen Trinken erscheint sofort ein vorläufiger Platz (`~2. Platz`,
+  im Wechsel mit `2/3 fertig`), final dann `2. Platz!`.
+- Es gelten dieselben Regeln wie solo: gutes Ergebnis bleibt bis zum Taster,
+  schlechtes verschwindet beim Abheben (frühestens 3 s nach dem Endergebnis).
+- Eine Waage, die nicht bereit ist (z. B. noch ihr Ergebnis zeigt), hält den Start
+  auf; nach 60 s Warten spielt man solo. Ein Wechsel auf Solo wird mit `Solo!`
+  angezeigt.
+- Alle Waagen müssen dieselbe Firmware haben (Protokoll v3, `0xD3`).
+
+### Standard-Modus
+
+Einfache Waage mit 0,1 g Anzeige. Nimmt nicht an Duellen teil.
+
+### Symbole
+
+| Symbol | Bedeutung |
+|---|---|
+| 🔀 oben links | Zufallsziel aktiv |
+| WLAN-Bogen | Funk an |
+| `AP` | Config-Access-Point läuft |
+| `Vs n` | n andere Duell-Waagen sichtbar |
+| Akku | Ladezustand (bei ausgeschaltetem Funk) |
+| blinkender Akku mit `!` | Akku unter 10 % |
+
+### Energie
+
+- Nach `Deep-Sleep`-Minuten ohne Gewichtsänderung oder Tastendruck schläft die
+  Waage, in jedem Zustand. Ausnahmen: der Config-AP läuft oder die eigene
+  Duell-Runde ist noch nicht entschieden.
+- Aufwecken mit dem Taster. War der Funk an, erscheint kurz `Funk aus`.
+- Der Config-AP geht nach `AP-Auto-Aus` Minuten ohne Web-Zugriff aus, der
+  Duell-Funk läuft weiter.
+
+## Weboberfläche
+
+1. 5 s halten, das Display zeigt den WLAN-Namen (`100-Waage-XXXX`, eindeutig pro Waage).
+2. Mit dem Handy verbinden (offenes WLAN), die Seite öffnet sich als Captive
+   Portal, sonst `http://192.168.4.1` bzw. `http://waage.local` aufrufen.
+
+**Startseite:** Live-Status (Gewicht, Modus, Ziel, Akku), Einstellungen für
+Modus, Zielgewicht, Zufallsziel und Display-Rotation. Änderungen gelten sofort
+(Ziel und Zufall während einer laufenden Runde ab der nächsten).
+
+**Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich,
+Timeouts, Auto-Zero, Passwort; alles ohne Neustart. Außerdem:
+
+- **Akku-Abgleich:** Akkuspannung mit dem Multimeter an den Akkupolen messen
+  (Funk an), eintragen, „Abgleichen“.
+- **Waage kalibrieren:** Waage leeren → Start (tariert) → bekanntes Gewicht
+  auflegen → Gewicht eintragen → „Messen“ → Gewicht entfernen.
+- **Firmware-Update** (.bin), gesperrt während Spiel/Duell-Runde.
+- **Duell-Debug:** sichtbare Waagen und Rundentabelle.
+
+Beim ersten Start der neuen Firmware werden Einstellungen und Kalibrierung aus
+dem alten Speicherformat übernommen.
+
+## Build
+
+Feste Versionen (ESP32-Core 3.3.12, Bibliotheken) stehen im Profil
+`c3` in `waage/sketch.yaml`.
 
 ```bash
-arduino-cli compile
-arduino-cli upload
+./tools/gen_version.sh                       # Firmware-Version aus git describe
+arduino-cli compile --profile c3 waage
+arduino-cli upload  --profile c3 -p /dev/ttyACM0 waage
 ```
 
-Default FQBN: `espressif:esp:nologo_esp32c3_super_mini`
+Alternativ per Docker (ohne lokale Installation): `./compile.sh` →
+`build/waage.ino.bin`.
 
-> **Multiplayer note:** The duel protocol carries a magic/version byte
-> (`duell::MAGIC` in `duell_core.h`, currently protocol v3). Scales with
-> different protocol versions ignore each other, so flash **all** scales
-> together when updating.
+## Tests
 
-### Tests
-
-The duel logic (`waage/duell_core.*`) has no Arduino dependencies and is
-tested on the host, including a multi-scale simulation with packet loss:
+Die Logik (`waage/*_core.*`) ist ohne Arduino auf dem PC testbar, inklusive
+Simulation mehrerer Waagen mit Paketverlust:
 
 ```bash
-./test/run.sh
+./test/run.sh                 # alle Host-Tests
+SANITIZE=1 ./test/run.sh      # zusätzlich mit AddressSanitizer/UBSan
 ```
 
-## Dependencies
-
-- Adafruit_SSD1306
-- HX711
-- WiFi (ESP32)
-- Wire (I2C)
-
-## Usage
-
-1. Place your full glass on the scale (weight ≥ goal)
-2. Wait for "Bereit?" message and drinking phrase
-3. Lift the glass and drink
-4. Place the glass back on the scale
-5. View your result with performance feedback
-
-## License
+## Lizenz
 
 MIT
