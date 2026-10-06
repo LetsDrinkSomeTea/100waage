@@ -18,6 +18,13 @@ fi
 TESTS=(
   "duell_core_test:duell_core.cpp"
   "duell_sim_test:duell_core.cpp"
+  "config_core_test:config_core.cpp"
+  "scale_core_test:scale_core.cpp"
+  "button_core_test:button_core.cpp"
+  "battery_core_test:battery_core.cpp"
+  "power_core_test:power_core.cpp"
+  "text_core_test:text_core.cpp"
+  "web_core_test:web_core.cpp"
 )
 
 for entry in "${TESTS[@]}"; do
