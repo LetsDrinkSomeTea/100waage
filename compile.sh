@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-set -e
+# Firmware im Docker-Container bauen (feste Versionen aus waage/sketch.yaml).
+# Ergebnis: build/waage.ino.bin
+set -euo pipefail
 
-FQBN="esp32:esp32:nologo_esp32c3_super_mini"
-IMAGE="100waage-builder"
-SKETCH_DIR="$(cd "$(dirname "$0")/waage" && pwd)"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+# Image-Tag aus Dockerfile + sketch.yaml: neue Versionen erzeugen ein neues Image
+TAG="$(cat "$ROOT/Dockerfile" "$ROOT/waage/sketch.yaml" | sha256sum | cut -c1-12)"
+IMAGE="100waage-builder:$TAG"
 
-# Build image if not present
 if ! docker image inspect "$IMAGE" &>/dev/null; then
-  echo ">>> Building Docker image (first run — takes a few minutes)..."
-  docker build -t "$IMAGE" "$(dirname "$0")"
+  echo ">>> Baue Docker-Image $IMAGE (erster Lauf dauert einige Minuten)..."
+  docker build -t "$IMAGE" "$ROOT"
 fi
 
-echo ">>> Compiling sketch..."
-docker run --rm \
-  -v "$SKETCH_DIR:/waage" \
-  "$IMAGE" \
-  arduino-cli compile --fqbn "$FQBN" /waage
+"$ROOT/tools/gen_version.sh"
+
+echo ">>> Kompiliere Sketch..."
+docker run --rm -v "$ROOT:/repo" -w /repo "$IMAGE" \
+  arduino-cli compile --profile c3 --warnings default --output-dir build waage
+echo ">>> Firmware: build/waage.ino.bin"
