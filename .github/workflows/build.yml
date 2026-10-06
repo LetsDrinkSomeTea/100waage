@@ -18,6 +18,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Host-Tests (Duell-Logik)
+      run: ./test/run.sh
+
     - name: Setup Arduino CLI
       uses: arduino/setup-arduino-cli@v2
 
