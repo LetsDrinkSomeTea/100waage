@@ -71,8 +71,10 @@ static void applyScaleReq(game::ScaleReq r, const cfg::Config &c, uint32_t now) 
   }
 }
 
-// Einziger Reset: immer mit Tara (Entscheidung 1)
+// Einziger Reset: immer mit Tara (Entscheidung 1). Bricht eine laufende
+// Kalibrierung ab, damit die Tara sie nicht verfaelscht.
 static void resetGame(uint32_t now) {
+  if (cal.active()) cal.cancel(scale_core());
   const cfg::Config &c = config_get();
   theGame.reset(c, now, game::ScaleReq::Tare);
   applyScaleReq(theGame.takeScaleReq(), c, now);
@@ -134,7 +136,6 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
 static void handleButton(button::Zone z, uint32_t now) {
   switch (z) {
     case button::Zone::Short:
-      if (cal.active()) cal.cancel(scale_core());
       resetGame(now);
       break;
     case button::Zone::Mode: {

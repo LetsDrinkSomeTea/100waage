@@ -25,7 +25,7 @@ void scale_begin(float factor) {
   gpio_deep_sleep_hold_dis();
 
   // Ohne Reset: der Reset der Library liest blockierend und haengt ohne Sensor.
-  hx711.begin(HX711_DAT, HX711_CLK, false, false);
+  hx711.begin(HX711_DAT, HX711_CLK, false, false);  // DAT mit Pull-up: ohne Sensor nie bereit
   hx711.power_up();  // CLK LOW → HX711 wacht auf
   core.begin(factor, 0.0f);
   lastSample = lastPoll = millis();
