@@ -27,6 +27,7 @@ constexpr int PIN_BTN = 5;
 constexpr uint32_t SENSOR_GRACE_MS = 2000;   // so lange nach dem Start keine Fehlermeldung
 constexpr uint32_t AP_NAME_TOAST_MS = 3000;
 constexpr uint32_t WAKE_TOAST_MS = 2000;
+constexpr uint32_t CAL_ERROR_SHOW_MS = 10000;  // Kalibrierfehler so lange zeigen, dann weiter spielen
 
 static game::Game theGame;
 static scale::Calibrator cal;
@@ -37,6 +38,8 @@ static uint32_t bootAt = 0;
 static bool otaActive = false;
 static int otaPercent = 0;
 static bool calWasActive = false;
+static uint32_t calErrorSince = 0;
+static bool otaDone = false;  // Update erfolgreich, Neustart steht an
 
 // Ueberlebt den Deep-Sleep: Hinweis "Funk aus" nach dem Aufwachen
 static RTC_DATA_ATTR bool radioWasOnBeforeSleep = false;
@@ -126,7 +129,7 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
     r.appliedNow = true;
   } else if (ch & (cfg::CH_GOAL | cfg::CH_RANDOM)) {
     theGame.applyGoalSettings(c, now);
-    r.appliedNow = theGame.phase() == game::Phase::Idle;
+    r.appliedNow = c.scaleMode == cfg::ScaleMode::Game && theGame.phase() == game::Phase::Idle;
   }
   return r;
 }
@@ -225,12 +228,19 @@ void app_writeCal(web::JsonWriter &j) {
 
 static void updateCalibration(const cfg::Config &c, uint32_t now) {
   if (cal.active()) {
+    bool wasError = cal.state() == scale::CalState::Error;
     cal.update(scale_core(), now, c.tolerance);
     float f;
     if (cal.takeNewFactor(&f)) {
       cfg::Config n = c;
       n.scaleFactor = f;
       app_applyConfig(n, false);
+    }
+    // Fehler (Offset/Faktor sind schon zurueck) nicht ewig stehen lassen:
+    // sonst kein Deep-Sleep und eingefrorenes Spiel, wenn niemand quittiert
+    if (cal.state() == scale::CalState::Error) {
+      if (!wasError) calErrorSince = now;
+      else if ((uint32_t)(now - calErrorSince) >= CAL_ERROR_SHOW_MS) cal.acknowledge();
     }
   }
   // Kalibrierung beendet (Gewicht entfernt oder abgebrochen) → frisch tarieren
@@ -277,6 +287,7 @@ void app_otaProgress(int percent) {
 void app_otaEnd(bool ok) {
   otaActive = false;
   if (ok) {
+    otaDone = true;  // Systembildschirm bis zum Neustart
     ui_force("Update OK", "Neustart...");
     radio_requestReboot(1000, true);  // AP nach dem Neustart wieder an
   } else {
@@ -334,9 +345,14 @@ void app_writeStatus(web::JsonWriter &j) {
 
 // ── Anzeige ───────────────────────────────────────────────────────────────────
 
-// Systembildschirm (Sensorfehler, Kalibrierung) oder false
+// Systembildschirm (Update, Kalibrierung, Sensorfehler) oder false
 static bool systemScreen(uint32_t now, const char *sys[3]) {
   sys[0] = sys[1] = sys[2] = nullptr;
+  if (otaDone) {
+    sys[0] = "Update OK";
+    sys[1] = "Neustart...";
+    return true;
+  }
   if (cal.active()) {
     switch (cal.state()) {
       case scale::CalState::Prepare: sys[0] = "Kalibrierung"; sys[1] = "Waage leeren"; break;
@@ -469,6 +485,7 @@ void app_loop() {
 
   // Duell nur im Game-Modus (Standard-Modus: Ausstieg wurde beim Wechsel gesendet)
   if (radio_isOn() && c.scaleMode == cfg::ScaleMode::Game) duell_update(theGame.localGoal());
+  else if (radio_isOn()) duell_discard_rx();  // keine alten Pakete fuer spaeter aufheben
 
   updateCalibration(c, now);
 
