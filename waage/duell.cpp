@@ -135,6 +135,10 @@ duell::View duell_get_view() {
   return core.view();
 }
 
+void duell_discard_rx() {
+  if (initialized && rxQueue) xQueueReset(rxQueue);
+}
+
 bool duell_busy() {
   return initialized && core.busy(millis());
 }

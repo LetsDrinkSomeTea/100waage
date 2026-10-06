@@ -194,8 +194,11 @@ Gestartet aus dem Admin-Bereich (nicht während Spiel, Runde oder Sensorfehler):
 6. **RemoveWeight** – bis \|w\| < `tolerance` für 1 s, dann Reset mit Tara.
 
 Timeout 120 s für Taring, WaitWeight und Measuring. Fehler und Abbruch stellen
-Offset und Faktor wieder her. Ein Kurzdruck bricht ab und tariert (auch wenn das
-Gewicht noch liegt; dann einfach erneut tarieren).
+Offset und Faktor wieder her. Ein Fehler steht 10 s auf dem Display
+(`CAL_ERROR_SHOW_MS`), danach geht es mit Reset und Tara weiter, damit die Waage
+nicht wach bleibt, wenn niemand quittiert. Jeder Reset (Kurzdruck, Moduswechsel,
+Sensor zurück) bricht eine laufende Kalibrierung ab und tariert (liegt das
+Gewicht noch, einfach erneut tarieren).
 
 ## Spielablauf (Game-Modus)
 
@@ -328,7 +331,9 @@ Eine Waage, die nicht bereit ist (z. B. weil sie noch ein gutes Ergebnis zeigt),
 hält den Start auf, bis jemand drückt oder die 60 s ablaufen. Das ist gewollt.
 
 Der Empfang legt Pakete nur in eine Queue (32 Pakete); verarbeitet wird
-ausschließlich im Loop.
+ausschließlich im Loop. Im Standard-Modus wird die Queue jede Loop geleert, damit
+nach dem Wechsel zurück in den Game-Modus keine alten Pakete Geister-Gegner
+erzeugen.
 
 ## Taster
 
@@ -352,7 +357,7 @@ Ab 300 ms zeigt das Display einen Balken über 8 s mit Marken bei 3 s und 5 s
   Zeichen ohne CP437-Entsprechung (z. B. „…“) sind nicht erlaubt, Texte nutzen
   „...“.
 - `ui_model` baut pro Loop ein Bild; Ebenen in dieser Reihenfolge:
-  Haltebalken > Systembildschirm (Kalibrierung, Sensorfehler) > Hinweis (Toast,
+  Haltebalken > Systembildschirm (Update, Kalibrierung, Sensorfehler) > Hinweis (Toast,
   1,5 s) > Spiel.
 - `ui` zeichnet nur, wenn sich das Bild ändert, höchstens alle 50 ms.
 - „Bereit?“ erscheint 400 ms, dann ein Trinkspruch (gespeichert pro Runde).
@@ -465,7 +470,8 @@ Anfragen `application/x-www-form-urlencoded`, Antworten JSON mit
 
 Nur außerhalb von Spiel, Runde und Kalibrierung (sonst 409). Ein abgebrochener
 Upload ruft `Update.abort()` auf, der nächste Versuch funktioniert ohne
-Neustart. Nach Erfolg: Antwort senden, Runde verlassen, nach 1 s Neustart, AP
+Neustart. Reißt die Verbindung erst nach dem erfolgreichen Abschluss ab, gilt
+das Update als gelungen (das neue Image ist bereits aktiv). Nach Erfolg: Antwort senden, Runde verlassen, nach 1 s Neustart, AP
 danach wieder an. Während des Uploads blockiert der Loop (10–30 s).
 
 ## Build und Version

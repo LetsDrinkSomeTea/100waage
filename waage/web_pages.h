@@ -175,7 +175,7 @@ $('br').onclick=()=>bc({reset:1});
 const CS={Prepare:'Waage leeren…',Taring:'Tara…',WaitWeight:'Bekanntes Gewicht auflegen',Measuring:'Messe…'},W=$('cw'),CE=$('cs');
 let cp='Off';
 const C=every(async()=>{const r=await aapi('/api/admin/cal'),d=r.j,s=d.state;if(r.s!=200||!s)return cp!='Off';
-if(s=='Off'){if(cp=='Error')say(CE,'');else if(cp!='Off'){const k=cp=='Done'||cp=='RemoveWeight'||d.factor!=d.oldFactor;say(CE,k?'Kalibrierung gespeichert':'Kalibrierung abgebrochen',k?'ok':'')}}
+if(s=='Off'){if(cp!='Off'&&cp!='Error'){const k=cp=='Done'||cp=='RemoveWeight'||d.factor!=d.oldFactor;say(CE,k?'Kalibrierung gespeichert':'Kalibrierung abgebrochen',k?'ok':'')}}
 else if(s=='Error')say(CE,d.error||'Fehler');
 else if(s=='Done'||s=='RemoveWeight')say(CE,'Neuer Faktor: '+de(d.newFactor,4)+' (alt: '+de(d.oldFactor,4)+') – Gewicht entfernen','ok');
 else say(CE,CS[s]||s,'inf');
@@ -186,7 +186,7 @@ cp=s;return s!='Off'},500);
 $('c0').onclick=async()=>{const B=$('c0');B.disabled=true;say(CE,'Starte…','inf');const r=await post('/api/admin/cal/start');B.disabled=false;if(r.s>=200&&r.s<300)C();else say(CE,r.j.error)};
 W.onsubmit=async e=>{e.preventDefault();clr(W);if(!chk(W))return;const B=W.querySelector('button');B.disabled=true;const r=await post('/api/admin/cal/measure',{weight:W.elements.weight.value});B.disabled=false;if(res(W,CE,r))C()};
 $('cx').onclick=async()=>{await post('/api/admin/cal/cancel');C()};
-$('ck').onclick=async()=>{await post('/api/admin/cal/cancel');C()};
+$('ck').onclick=async()=>{await post('/api/admin/cal/cancel');say(CE,'');C()};
 const FM=$('fm'),FB=$('fu'),FP=$('fp');
 function wait(){let down=0,n=0;const t=async()=>{const r=await api('/api/status'),f=r.j.fw;n++;
 if(r.s==200&&f&&(f!=fw0||down)){$('fv').textContent=f;FP.hidden=true;return say(FM,(f!=fw0?'Neue Version: ':'Wieder erreichbar – Version: ')+f,'ok')}

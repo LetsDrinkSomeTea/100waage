@@ -26,7 +26,8 @@ void duell_flush_burst();  // aktuellen Zustand sofort mehrfach senden (vor Funk
 
 bool duell_has_start_signal(float *out_target_weight);
 duell::View duell_get_view();
-bool duell_busy();  // Runde oder Nachlauf aktiv → kein Deep-Sleep, keine Kalibrierung
+bool duell_busy();  // Runde oder Nachlauf aktiv (Debug; Sleep/Busy sperrt game::Game::ownRoundOpen)
+void duell_discard_rx();  // Empfangene Pakete verwerfen (Standard-Modus: Kern wird nicht getickt)
 
 String duell_status_json();
 

@@ -30,7 +30,7 @@ static char token[33] = "";  // leer = keine Sitzung
 static web::LoginThrottle throttle;
 static char jsonBuf[2048];
 
-static bool otaRejected = false, otaBeginOk = false;
+static bool otaRejected = false, otaBeginOk = false, otaEnded = false;
 static size_t otaSize = 0;
 
 static void touch() {
@@ -219,7 +219,7 @@ static void handleLogin() {
 
 static void handleLogout() {
   touch();
-  token[0] = 0;
+  if (authed()) token[0] = 0;  // fremde Clients koennen die Sitzung nicht beenden
   server->sendHeader("Set-Cookie", String(COOKIE_NAME) + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
   redirect("/");
 }
@@ -272,6 +272,7 @@ static void handleAdminConfigPost() {
   bool b, p;
   if (server->hasArg("apSSID")) {
     const String &s = server->arg("apSSID");
+    if (s.length() > cfg::SSID_MAX) return sendError(400, "SSID ist zu lang (max. 32 Bytes)", "apSSID");
     cfg::copyUtf8(n.apSSID, s.c_str(), cfg::SSID_MAX);
   }
   if (!argFloat("tolerance", &f, &p)) return;
@@ -397,7 +398,7 @@ static void handleUpdateAllowed() {
 static void handleUpdateUpload() {
   HTTPUpload &up = server->upload();
   if (up.status == UPLOAD_FILE_START) {
-    otaBeginOk = false;
+    otaBeginOk = otaEnded = false;
     otaRejected = !authed() || app_isBusy();
     if (otaRejected) return;
     touch();
@@ -413,11 +414,17 @@ static void handleUpdateUpload() {
     if (otaSize > 0) app_otaProgress((int)((uint64_t)up.totalSize * 100 / otaSize));
   } else if (up.status == UPLOAD_FILE_END) {
     if (otaRejected || !otaBeginOk) return;
-    if (!Update.end(true)) Update.printError(Serial);
+    if (Update.end(true)) otaEnded = true;
+    else Update.printError(Serial);
   } else if (up.status == UPLOAD_FILE_ABORTED) {
-    if (otaBeginOk) Update.abort();
-    if (!otaRejected) app_otaEnd(false);
-    otaBeginOk = false;
+    // Verbindung nach erfolgreichem end() weg: neues Image ist schon aktiv
+    if (otaEnded) {
+      app_otaEnd(true);
+    } else {
+      if (otaBeginOk) Update.abort();
+      if (!otaRejected) app_otaEnd(false);
+    }
+    otaBeginOk = otaEnded = false;
   }
 }
 
@@ -429,7 +436,7 @@ static void handleUpdateDone() {
     return sendError(409, "Spiel läuft – erst Taste drücken");
   }
   bool ok = otaBeginOk && Update.isFinished() && !Update.hasError();
-  otaBeginOk = false;
+  otaBeginOk = otaEnded = false;
   if (!ok) {
     sendError(500, Update.hasError() ? Update.errorString() : "Update unvollständig");
     app_otaEnd(false);
