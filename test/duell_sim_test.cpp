@@ -271,13 +271,14 @@ static void idleBlocksStart(uint32_t seed) {
   SCENARIO_CHECK(s.nodes[0].core.currentRound().n == 4);
 }
 
-// Waage mit hoeherer MAC schaltet spaeter ein: keine Doppelrunde.
+// Waage mit hoeherer MAC schaltet waehrend der Start-Karenz ein: sie wird
+// gehoert, die Karenz beginnt neu und es gibt genau eine Runde mit allen.
 static void lateHigherMac(uint32_t seed) {
   const char *scenario = "lateHigherMac";
   Sim s(3, seed, 0.1);
   s.radioOn(0, true);
   s.radioOn(1, true);
-  uint32_t t = s.now + STARTUP_GUARD_MS + 1000;
+  uint32_t t = s.now + STARTUP_GUARD_MS + 200;  // Karenz von Waage 1 laeuft schon
   while (s.now < t) {
     s.step();
     SCENARIO_CHECK(!s.view(0).inRound && !s.view(1).inRound);
@@ -285,6 +286,14 @@ static void lateHigherMac(uint32_t seed) {
   s.radioOn(2, true);
   for (int k = 0; k < 2000; k++) {
     s.step();
+    // Nie zwei gleichzeitige Runden
+    uint16_t id = 0;
+    for (int i = 0; i < 3; i++) {
+      if (!s.view(i).inRound) continue;
+      uint16_t rid = s.nodes[i].core.currentRound().id;
+      SCENARIO_CHECK(id == 0 || id == rid);
+      id = rid;
+    }
     for (int i = 0; i < 2; i++) {
       if (s.view(i).inRound) SCENARIO_CHECK(s.nodes[i].core.currentRound().n == 3);
     }
@@ -330,6 +339,36 @@ static void gaveUpBeforeJoin(uint32_t seed) {
 
   SCENARIO_CHECK(s.view(0).isFinal && s.view(2).isFinal);
   SCENARIO_CHECK(s.nodes[0].core.currentRound().e[1].status == Status::Forfeit);
+}
+
+// Funk aus mitten in der Runde (duell_deinit): Ausstieg + sofortiges Senden.
+// Die anderen werten das sofort als aufgegeben statt nach 30 s.
+static void leaveFlush(uint32_t seed) {
+  const char *scenario = "leaveFlush";
+  Sim s(3, seed, 0.3);
+  for (int i = 0; i < 3; i++) s.radioOn(i, true);
+  SCENARIO_CHECK(s.waitForRound({ 0, 1, 2 }, 20000));
+  s.runFor(2000);
+  s.nodes[0].core.submitResult(100.2f, 3000);
+  s.nodes[2].core.submitResult(100.1f, 3000);
+  s.runFor(1000);
+  // Waage 1 schaltet den Funk ab: leave + 3x flush, danach stumm
+  s.nodes[1].core.leave(s.now);
+  for (int k = 0; k < 3; k++) {
+    s.nodes[1].core.flush(s.now);
+    s.step(25);
+  }
+  s.nodes[1].radio = false;
+  s.runFor(1000);
+  SCENARIO_CHECK(s.view(0).isFinal && s.view(2).isFinal);
+  SCENARIO_CHECK(s.nodes[0].core.currentRound().e[1].status == Status::Forfeit);
+  // Die stumme Waage blockiert nach PEER_ACTIVE_MS keinen neuen Start
+  s.nodes[0].core.leave(s.now);
+  s.nodes[2].core.leave(s.now);
+  s.nodes[0].core.setReady();
+  s.nodes[2].core.setReady();
+  SCENARIO_CHECK(s.waitForRound({ 0, 2 }, PEER_FORGET_MS + 10000));
+  SCENARIO_CHECK(s.nodes[0].core.currentRound().n == 2);
 }
 
 // Zeitweiser Funkverlust: Teilnehmer wird als aufgegeben gewertet, sein
@@ -389,7 +428,8 @@ int main() {
   typedef void (*Scenario)(uint32_t);
   const Scenario scenarios[] = {
     slowDrinker, leaderDies, buttonBeforeResult, lastLeavesImmediately, neverFinishes,
-    idleBlocksStart, lateHigherMac, missedJoin, gaveUpBeforeJoin, temporaryOutage, consecutiveRounds,
+    idleBlocksStart, lateHigherMac, missedJoin, gaveUpBeforeJoin, leaveFlush, temporaryOutage,
+    consecutiveRounds,
   };
   for (Scenario sc : scenarios) {
     for (uint32_t seed = 1; seed <= 20; seed++) sc(seed);
