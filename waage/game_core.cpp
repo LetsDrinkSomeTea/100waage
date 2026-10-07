@@ -83,6 +83,24 @@ void Game::applyGoalSettings(const cfg::Config &c, uint32_t now) {
   place_.stop();
 }
 
+bool Game::takeRound(RoundDone *out) {
+  if (!roundPending_)
+    return false;
+  roundPending_ = false;
+  if (out)
+    *out = round_;
+  return true;
+}
+
+bool Game::takeDuelFinal(DuelFinal *out) {
+  if (!duelFinalPending_)
+    return false;
+  duelFinalPending_ = false;
+  if (out)
+    *out = duelFinal_;
+  return true;
+}
+
 ScaleReq Game::takeScaleReq() {
   ScaleReq r = req_;
   req_ = ScaleReq::None;
@@ -299,6 +317,11 @@ void Game::finishDrinking(const Input &in) {
   final_.stop();
   view_.rank = view_.settled = view_.total = 0;
   view_.isFinal = view_.forfeit = false;
+  view_.roundSeq++;
+  round_ = {view_.drankCg, toCg(refGoal()), view_.durationMs,
+            duel_ != Duel::Offline};
+  roundPending_ = true;
+  duelFinalSeen_ = false;
 
   if (duel_ != Duel::Offline) {
     if (port_->view().inRound) {
@@ -352,10 +375,16 @@ void Game::updateResult(const cfg::Config &c, const Input &in) {
     view_.resultSig = (uint32_t)v.rank | ((uint32_t)v.settled << 8) |
                       ((uint32_t)v.total << 16) | ((uint32_t)v.isFinal << 24) |
                       ((uint32_t)forfeit << 25);
-    if (v.isFinal)
+    if (v.isFinal) {
       final_.start(now);
-    else
+      if (!duelFinalSeen_) {
+        duelFinalSeen_ = true;
+        duelFinal_ = {v.rank, v.total, forfeit};
+        duelFinalPending_ = true;
+      }
+    } else {
       final_.stop();
+    }
     const bool bad =
         forfeit || !isGood(view_.drankCg, toCg(v.target), c.autoResetRange);
     if (bad && removed && final_.held(now, FINAL_MIN_SHOW_MS))

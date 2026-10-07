@@ -297,6 +297,7 @@ Config defaults() {
   c.autoZeroDelay = AZ_DELAY_DEFAULT;
   c.randomModeEnabled = false;
   c.randomMin = RANDOM_MIN_DEFAULT;
+  c.statsRotation = true;
   return c;
 }
 
@@ -320,6 +321,7 @@ bool sanitize(Config &c) {
   // Bools zuerst normalisieren, danach sind Lesezugriffe definiert
   fixBool(c.autoZeroEnabled, ch);
   fixBool(c.randomModeEnabled, ch);
+  fixBool(c.statsRotation, ch);
 
   if (!scaleFactorOk(c.scaleFactor))
     setF(c.scaleFactor, SCALE_FACTOR_DEFAULT, ch);
@@ -580,6 +582,8 @@ uint32_t diff(const Config &a, const Config &b) {
     m |= CH_AUTOZERO;
   if (!sameBits(a.battDividerRatio, b.battDividerRatio))
     m |= CH_BATT;
+  if (a.statsRotation != b.statsRotation)
+    m |= CH_STATS;
   return m;
 }
 

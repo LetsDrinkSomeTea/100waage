@@ -20,6 +20,7 @@ button,.btn{display:block;width:100%;padding:12px;color:#fff;border:0;border-rad
 .g{background:#4CAF50}.o{background:#FF9800}
 .msg{text-align:center;font-size:14px;margin:8px 0 0;color:#d32f2f}.ok{color:#2e7d32}.inf{color:#1976D2}
 .bd{background:#f44336;color:#fff;border-radius:4px;padding:0 5px;font-size:12px}small{color:#666}[hidden]{display:none!important}
+p{font-size:14px;margin:6px 0}table{width:100%;border-collapse:collapse;font-size:13px}td{padding:3px 4px;border-bottom:1px solid #eee}
 </style></head><body>
 <h2>⚖️ 100-Waage</h2>
 <div class="st" id="st"><span>Gewicht: <b id="w">--</b> g</span><span>Modus: <b id="m">--</b></span><span>Phase: <b id="p">--</b></span><span>Ziel: <b id="z">--</b></span><span>Akku: <b id="a">--</b> <span class="bd" id="al" hidden>schwach</span></span><span>Funk/AP: <b id="f">--</b></span><small id="fw"></small></div>
@@ -29,7 +30,9 @@ button,.btn{display:block;width:100%;padding:12px;color:#fff;border:0;border-rad
 <label class="cb"><input type="checkbox" name="randomModeEnabled">Zufälliges Zielgewicht</label>
 <label>Zufall-Minimum [g]<i>Maximum ist das Zielgewicht</i><input type="number" step="0.1" name="randomMin"></label>
 <label>Display-Rotation<select name="displayRotation"><option value="0">Normal (0°)</option><option value="2">Gedreht (180°)</option></select></label>
+<label class="cb"><input type="checkbox" name="statsRotation">Statistik im Ruhezustand zeigen<i>Nach 15 s ohne Glas wechselt das Display alle 3 s zwischen Ziel und Statistik</i></label>
 <button class="g">💾 Speichern</button><p class="msg" id="msg" aria-live="polite"></p></form>
+<div class="sec"><h3>📊 Statistik</h3><div id="sx">--</div></div>
 <a href="/admin" class="btn o">🔒 Admin-Einstellungen</a>
 <script>
 let up=0;
@@ -65,8 +68,19 @@ F.onsubmit=async e=>{e.preventDefault();clr(F);if(!F.o)return say(M,'Einstellung
 const B=F.querySelector('button');B.disabled=true;say(M,'Speichere…','inf');
 const r=await api('/api/config',diff(F));B.disabled=false;
 if(res(F,M,r)){fill(F,r.j.config||{});say(M,r.j.applied=='next'?'Gespeichert – gilt ab der nächsten Runde':'Gespeichert','ok');P()}};
-document.addEventListener('visibilitychange',()=>{if(live())P()});
-load();P();
+function el(t,p,x){const e=document.createElement(t);if(x!=null)e.textContent=x;p.appendChild(e);return e}
+const sg=v=>(v>0?'+':'')+de(v,2)+' g';
+const ST=every(async()=>{const r=await api('/api/stats'),d=r.j,X=$('sx');if(r.s!=200)return;X.textContent='';
+el('p',X,d.rounds+(d.rounds==1?' Runde':' Runden')+' · Perfekt '+d.perfect+' · Not Bad '+d.notBad+' · Ganz ok '+d.ok);
+const b=d.best,f=d.fastest;
+el('p',X,'Bester Treffer: '+(b?de(b.dev,2)+' g daneben (Ziel '+de(b.goal,1)+' g, '+de(b.time,2)+' s)':'noch keiner'));
+el('p',X,'Schnellste Zeit: '+(f?de(f.time,2)+' s (Ziel '+de(f.goal,1)+' g, '+de(Math.abs(f.dev),2)+' g daneben)':'noch keine (max. 1 g daneben)'));
+if(d.duels)el('p',X,'Duelle: '+d.wins+(d.wins==1?' Sieg':' Siege')+' aus '+d.duels);
+const rs=d.recent||[];if(!rs.length)return;el('p',X,'Letzte Runden (seit dem Einschalten):');
+const T=el('table',X);rs.forEach((e,i)=>{const R=el('tr',T);el('td',R,'#'+(d.rounds-i));el('td',R,e.duel?(e.rank?e.rank+'. Platz':'Duell'):'Solo');
+el('td',R,sg(e.dev));el('td',R,'Ziel '+de(e.goal,1)+' g');el('td',R,de(e.time,2)+' s')})},5000);
+document.addEventListener('visibilitychange',()=>{if(live()){P();ST()}});
+load();P();ST();
 </script></body></html>)html";
 
 static const char LOGIN_HTML[] PROGMEM =
@@ -123,6 +137,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}td{padding:3px 4px;bord
 <div class="sec adm"><h3>🎯 Waage kalibrieren</h3><p class="h" id="fa"></p><p class="msg" id="cs" aria-live="polite"></p>
 <form id="cw" novalidate hidden><label>Bekanntes Gewicht [g]<i>Gewicht auflegen, Wert eingeben, dann messen</i><input type="number" step="0.1" name="weight"></label><p>Rohwert-Änderung: <b id="cd">--</b></p><button class="b">Messen</button></form>
 <button class="b" id="c0">🎯 Kalibrierung starten</button><button class="r" id="cx" hidden>Abbrechen</button><button class="g" id="ck" hidden>OK</button></div>
+<div class="sec adm"><h3>📊 Statistik</h3><p class="h" id="sh" hidden>Die Waage wurde neu kalibriert: alte Werte sind mit dem neuen Faktor nicht mehr vergleichbar.</p>
+<button class="r" id="sr">Statistik zurücksetzen</button><p class="msg" id="sm" aria-live="polite"></p></div>
 <div class="sec adm"><h3>📤 Firmware</h3><p>Version: <b id="fv">--</b> · Protokoll: <b id="pv">--</b></p>
 <label>Firmware-Datei (.bin)<input type="file" id="ff" accept=".bin,application/octet-stream"></label><progress id="fp" max="100" value="0" aria-label="Upload" hidden></progress>
 <button class="b" id="fu">⬆️ Update starten</button><p class="msg" id="fm" aria-live="polite"></p></div>
@@ -178,7 +194,7 @@ $('br').onclick=()=>bc({reset:1});
 const CS={Prepare:'Waage leeren…',Taring:'Tara…',WaitWeight:'Bekanntes Gewicht auflegen',Measuring:'Messe…'},W=$('cw'),CE=$('cs');
 let cp='Off';
 const C=every(async()=>{const r=await aapi('/api/admin/cal'),d=r.j,s=d.state;if(r.s!=200||!s)return cp!='Off';
-if(s=='Off'){if(cp!='Off'&&cp!='Error'){const k=cp=='Done'||cp=='RemoveWeight'||d.factor!=d.oldFactor;say(CE,k?'Kalibrierung gespeichert':'Kalibrierung abgebrochen',k?'ok':'')}}
+if(s=='Off'){if(cp!='Off'&&cp!='Error'){const k=cp=='Done'||cp=='RemoveWeight'||d.factor!=d.oldFactor;say(CE,k?'Kalibrierung gespeichert':'Kalibrierung abgebrochen',k?'ok':'');if(k)$('sh').hidden=false}}
 else if(s=='Error')say(CE,d.error||'Fehler');
 else if(s=='Done'||s=='RemoveWeight')say(CE,'Neuer Faktor: '+de(d.newFactor,4)+' (alt: '+de(d.oldFactor,4)+') – Gewicht entfernen','ok');
 else say(CE,CS[s]||s,'inf');
@@ -190,6 +206,8 @@ $('c0').onclick=async()=>{const B=$('c0');B.disabled=true;say(CE,'Starte…','in
 W.onsubmit=async e=>{e.preventDefault();clr(W);if(!chk(W))return;const B=W.querySelector('button');B.disabled=true;const r=await post('/api/admin/cal/measure',{weight:W.elements.weight.value});B.disabled=false;if(res(W,CE,r))C()};
 $('cx').onclick=async()=>{await post('/api/admin/cal/cancel');C()};
 $('ck').onclick=async()=>{await post('/api/admin/cal/cancel');say(CE,'');C()};
+$('sr').onclick=async()=>{if(!confirm('Statistik wirklich zurücksetzen? Alle Zähler und Bestwerte gehen verloren.'))return;
+const r=await post('/api/admin/stats/reset');if(r.s==200){say($('sm'),'Statistik zurückgesetzt','ok');$('sh').hidden=true}else say($('sm'),r.j.error)};
 const FM=$('fm'),FB=$('fu'),FP=$('fp');
 function wait(){let down=0,n=0;const t=async()=>{const r=await api('/api/status'),f=r.j.fw;n++;
 if(r.s==200&&f&&(f!=fw0||down)){$('fv').textContent=f;FP.hidden=true;return say(FM,(f!=fw0?'Neue Version: ':'Wieder erreichbar – Version: ')+f,'ok')}

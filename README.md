@@ -97,6 +97,22 @@ keine da, spielt man ganz normal solo.
 
 Einfache Waage mit 0,1 g Anzeige.
 
+### Statistik
+
+Die Waage zählt Runden, Perfekt / Not Bad / Ganz ok, den besten Treffer (kleinste
+Abweichung), die schnellste Zeit (nur bis 1 g daneben) sowie Duelle und Siege.
+Die Werte bleiben über Deep-Sleep und Updates erhalten.
+
+- **Im Ergebnis:** Bei einem neuen besten Treffer oder einer neuen schnellsten
+  Zeit wechselt das Ergebnis zusätzlich zu `Neuer Rekord!` bzw.
+  `Schnellste Zeit!`.
+- **Im Ruhezustand:** Steht 15 s kein Glas auf der Waage, wechselt das Display
+  alle 3 s zwischen Ziel, bestem Treffer, schnellster Zeit, Runden, Stufen und
+  den letzten Runden. Glas aufstellen oder Taster drücken bringt sofort das
+  Ziel zurück. Abschaltbar auf der Startseite im Web.
+- **Im Web:** Startseite mit allen Werten und den letzten 10 Runden seit dem
+  Einschalten; zurücksetzen im Admin-Bereich.
+
 ### Symbole
 
 | Symbol        | Bedeutung                                   |
@@ -126,8 +142,9 @@ Einfache Waage mit 0,1 g Anzeige.
    Portal, sonst `http://192.168.4.1` bzw. `http://waage.local` aufrufen.
 
 **Startseite:** Live-Status (Gewicht, Modus, Ziel, Akku), Einstellungen für
-Modus (Game, Duell, Standard), Zielgewicht, Zufallsziel und Display-Rotation. Änderungen gelten sofort
-(Ziel und Zufall während einer laufenden Runde ab der nächsten).
+Modus (Game, Duell, Standard), Zielgewicht, Zufallsziel, Display-Rotation und
+Info-Rotation, dazu die Statistik. Änderungen gelten sofort (Ziel und Zufall
+während einer laufenden Runde ab der nächsten).
 
 **Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich,
 Timeouts, Auto-Zero, Passwort; alles ohne Neustart. Außerdem:
@@ -137,6 +154,8 @@ Timeouts, Auto-Zero, Passwort; alles ohne Neustart. Außerdem:
 - **Waage kalibrieren:** Waage leeren → Start (tariert) → bekanntes Gewicht
   auflegen → Gewicht eintragen → „Messen“ → Gewicht entfernen.
 - **Firmware-Update** (.bin), gesperrt während Spiel/Duell-Runde.
+- **Statistik zurücksetzen** (mit Rückfrage). Nach einer Kalibrierung weist
+  die Seite darauf hin, weil alte Werte dann nicht mehr vergleichbar sind.
 - **Duell-Debug:** sichtbare Waagen und Rundentabelle.
 
 Beim ersten Start der neuen Firmware werden Einstellungen und Kalibrierung aus

@@ -4,6 +4,7 @@
 #include "config.h"
 #include "duell.h"
 #include "radio.h"
+#include "stats.h"
 #include "version.h"
 #include "web_core.h"
 #include "web_pages.h"
@@ -163,6 +164,7 @@ static void writePublicConfig(web::JsonWriter &j) {
   j.key("randomMin").num(c.randomMin, 1);
   j.key("displayRotation").uinteger(c.displayRotation);
   j.key("scaleMode").str(cfg::modeKey(c.scaleMode));
+  j.key("statsRotation").flag(c.statsRotation);
   j.key("tolerance").num(c.tolerance, 1);
   j.endObject();
 }
@@ -196,6 +198,10 @@ static void handleConfigPost() {
     return;
   if (p)
     n.displayRotation = (uint8_t)u;
+  if (!argBool("statsRotation", &b, &p))
+    return;
+  if (p)
+    n.statsRotation = b;
   if (server->hasArg("scaleMode") && server->arg("scaleMode").length() > 0) {
     if (!cfg::parseMode(server->arg("scaleMode").c_str(), &n.scaleMode))
       return sendError(400, "Ungültiger Modus", "scaleMode");
@@ -213,6 +219,13 @@ static void handleConfigPost() {
   j.key("config");
   writePublicConfig(j);
   j.endObject();
+  sendJson(200, j);
+}
+
+static void handleStats() {
+  touch();
+  web::JsonWriter j(jsonBuf, sizeof(jsonBuf));
+  stats_writeJson(j);
   sendJson(200, j);
 }
 
@@ -441,6 +454,14 @@ static void handleCalGet() {
   sendJson(200, j);
 }
 
+static void handleStatsReset() {
+  touch();
+  if (!requireApiAuth())
+    return;
+  stats_reset();
+  sendOk();
+}
+
 static void handleDuell() {
   touch();
   if (!requireApiAuth())
@@ -551,6 +572,7 @@ void web_start() {
   server->on("/api/status", HTTP_GET, handleStatus);
   server->on("/api/config", HTTP_GET, handleConfigGet);
   server->on("/api/config", HTTP_POST, handleConfigPost);
+  server->on("/api/stats", HTTP_GET, handleStats);
   server->on("/login", HTTP_GET, handleLoginPage);
   server->on("/login", HTTP_POST, handleLogin);
   server->on("/logout", HTTP_GET, handleLogout);
@@ -566,6 +588,7 @@ void web_start() {
   server->on("/api/admin/update", HTTP_POST, handleUpdateDone,
              handleUpdateUpload);
   server->on("/api/admin/duell", HTTP_GET, handleDuell);
+  server->on("/api/admin/stats/reset", HTTP_POST, handleStatsReset);
   server->onNotFound(handleNotFound);
   server->begin();
 

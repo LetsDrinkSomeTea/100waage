@@ -57,7 +57,8 @@ static bool same(const Config &a, const Config &b) {
          bits(a.autoZeroThreshold) == bits(b.autoZeroThreshold) &&
          a.autoZeroDelay == b.autoZeroDelay &&
          a.randomModeEnabled == b.randomModeEnabled &&
-         bits(a.randomMin) == bits(b.randomMin);
+         bits(a.randomMin) == bits(b.randomMin) &&
+         a.statsRotation == b.statsRotation;
 }
 
 static bool sanF(float Config::*f, float in, float &out) {
@@ -127,6 +128,7 @@ static void testDefaults() {
   CHECK(c.autoZeroDelay == 5);
   CHECK(c.randomModeEnabled == false);
   CHECK(c.randomMin == 20.0f);
+  CHECK(c.statsRotation == true);
   CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT &&
         c.battDividerRatio == BATT_RATIO_DEFAULT);
 
@@ -380,6 +382,11 @@ static void testSanitizeSmallFields() {
   c.autoZeroEnabled = false;
   c.randomModeEnabled = true;
   CHECK(!sanitize(c) && !c.autoZeroEnabled && c.randomModeEnabled);
+  raw = 0x7F;
+  memcpy(&c.statsRotation, &raw, 1);
+  CHECK(sanitize(c));
+  memcpy(&raw, &c.statsRotation, 1);
+  CHECK(raw == 1);
 }
 
 // ── sanitize: Strings ─────────────────────────────────────────────────────────
@@ -1175,6 +1182,9 @@ static void testDiff() {
   b = a;
   b.battDividerRatio = 3.0f;
   CHECK(diff(a, b) == CH_BATT);
+  b = a;
+  b.statsRotation = false;
+  CHECK(diff(a, b) == CH_STATS);
 
   // Kombination und Symmetrie
   b = a;

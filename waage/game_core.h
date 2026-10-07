@@ -127,6 +127,20 @@ struct View {
   bool isFinal, forfeit;
   uint32_t resultSig;       // aendert sich, wenn sich die Duell-Anzeige aendert
   uint32_t soloFallbackSeq; // erhoeht bei stillem Wechsel auf Solo
+  uint32_t roundSeq;        // erhoeht bei jedem fertigen Ergebnis
+};
+
+// Fertige Runde fuer die Statistik (einmal pro Ergebnis).
+struct RoundDone {
+  int32_t drankCg, goalCg; // Ziel: Duell-Ziel, falls im Duell gestartet
+  uint32_t durationMs;
+  bool duel;
+};
+
+// Erster finaler Duell-Stand der eigenen Runde (einmal pro Runde).
+struct DuelFinal {
+  uint8_t rank, total;
+  bool forfeit;
 };
 
 inline int32_t toCg(float g) {
@@ -152,7 +166,9 @@ public:
 
   void update(const cfg::Config &c, const Input &in);
 
-  ScaleReq takeScaleReq(); // liefert die offene Anforderung einmal
+  ScaleReq takeScaleReq();            // liefert die offene Anforderung einmal
+  bool takeRound(RoundDone *out);     // einmal nach jedem Ergebnis
+  bool takeDuelFinal(DuelFinal *out); // einmal, wenn der Rang final ist
   const View &view() const { return view_; }
 
   Phase phase() const { return phase_; }
@@ -179,6 +195,9 @@ private:
   duell::View cachedView_ = {};
   bool haveCached_ = false;
   uint32_t soloSeq_ = 0;
+  RoundDone round_ = {};
+  DuelFinal duelFinal_ = {};
+  bool roundPending_ = false, duelFinalPending_ = false, duelFinalSeen_ = false;
   struct Timer {
     bool on = false;
     uint32_t since = 0;
