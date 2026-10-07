@@ -12,14 +12,14 @@ benannte Konstanten in ms; die Namen stehen in Klammern.
 | Wägezelle  | HX711, 10 Samples/s (RATE-Pin auf GND). Ein auf 80 SPS umgelötetes Modul wird automatisch erkannt (gemessene Sample-Rate), alle Fenster sind in ms definiert. |
 | Display    | SSD1306 128×32, I2C-Adresse `0x3C`, kein Reset-Pin (`OLED_RESET = -1`)                                                                                        |
 | Taster     | GPIO 5, HIGH = gedrückt, Wake-up-Quelle für den Deep-Sleep                                                                                                    |
-| Akku       | Li-Ion mit Schutzschaltung (Tiefentladeschutz in Hardware), Spannungsteiler an GPIO 2                                                                         |
+| Akku       | Li-Ion mit Schutzschaltung (Tiefentladeschutz in Hardware), Spannungsteiler an GPIO 0                                                                         |
 
 | Funktion        | GPIO    |
 | --------------- | ------- |
 | OLED SDA / SCL  | 8 / 9   |
 | HX711 DAT / CLK | 21 / 20 |
 | Taster          | 5       |
-| Akku-ADC        | 2       |
+| Akku-ADC        | 0       |
 
 ### Compile-Schalter
 

@@ -2,7 +2,7 @@
 #include "battery_core.h"
 #include <stdint.h>
 
-// ── Akku-Messung (ADC an GPIO 2 ueber Spannungsteiler) ────────────────────────
+// ── Akku-Messung (ADC an GPIO 0 ueber Spannungsteiler) ────────────────────────
 // Kalibrierte Pin-Spannung per analogReadMilliVolts() (eFuse-Kalibrierung des
 // ESP32-C3), gemittelt; daraus Zellspannung und Prozent (battery_core).
 

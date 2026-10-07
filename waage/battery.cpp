@@ -1,7 +1,7 @@
 #include "battery.h"
 #include <Arduino.h>
 
-constexpr int PIN_BATT = 2;
+constexpr int PIN_BATT = 0;
 constexpr uint32_t READ_INTERVAL_MS = 5000;
 constexpr uint32_t TOGGLE_SETTLE_MS = 1000;
 constexpr int SAMPLES = 16;
