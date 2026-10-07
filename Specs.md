@@ -45,6 +45,7 @@ Queue legt.
 | `battery_core` | Spannung → Prozent, Glättung, Hysterese, Warnung, Teiler-Abgleich                                                                                           |
 | `power_core`   | wrap-sichere Zeiten, Sleep-Policy, AP-Auto-Aus                                                                                                              |
 | `text_core`    | UTF-8 → CP437, Zeilenlayout, Zahlformate, Trinksprüche                                                                                                      |
+| `stats_core`   | Statistik: Stufen, Bestwert, schnellste Zeit, Erfolg der Runde, Duell-Siege, Verlauf                                                                        |
 | `ui_model`     | baut pro Loop ein vergleichbares Bild (Ebenen, Symbole, Texte)                                                                                              |
 | `web_core`     | JSON-Writer, Cookie-Parser, konstantzeitiger Vergleich, Token, Login-Bremse                                                                                 |
 
@@ -55,6 +56,7 @@ Queue legt.
 | `config`              | NVS-Speicher (Preferences), Import beim ersten Start                         |
 | `scale`               | HX711-Ansteuerung, Sensorfehler, Power-Down                                  |
 | `battery`             | ADC-Messung                                                                  |
+| `stats`               | Statistik im NVS (Namespace `stats`), JSON für das Web                       |
 | `display` / `ui`      | Zeichenprimitive / rendert nur bei Änderung                                  |
 | `duell`               | ESP-NOW, Empfangs-Queue, Ausstieg mit Flush, `DuelPort` für `game_core`      |
 | `radio`               | Funk- und AP-Lebenszyklus, verzögerter AP-Neustart und Reboot                |
@@ -83,6 +85,7 @@ Queue legt.
 | `autoZeroDelay`     | 5 s                | 1–60                                                     | Admin               |
 | `randomModeEnabled` | aus                |                                                          | Start               |
 | `randomMin`         | 20 g               | wird auf [min(`tolerance` + 1, `goal`), `goal`] geklemmt | Start               |
+| `statsRotation`     | an                 |                                                          | Start               |
 
 Beim **Laden** klemmt `sanitize` jeden Wert in seinen Bereich und scheitert nie
 (ein gültiger `scaleFactor` bleibt bit-genau). Aus dem **Web** prüft `validate`
@@ -392,6 +395,45 @@ Duell teil und ist für andere unsichtbar.
 
 Rechts oben von rechts nach links: Akku, `Vs n`, WLAN-Bogen.
 
+## Statistik
+
+`stats_core` zählt pro Waage (nicht pro Person). Summen und Bestwerte liegen im
+NVS (Namespace `stats`, mit Versionsbyte; bei anderer Version wird neu
+begonnen), der Verlauf der letzten 10 Runden nur im RAM.
+
+| Wert            | Regel                                                                       |
+| --------------- | --------------------------------------------------------------------------- |
+| Runde           | jedes fertige Ergebnis (solo oder Duell); abgebrochene Runden zählen nicht  |
+| Stufen          | getrennt: \|d\| = 0 Perfekt, ≤ 0,10 g Not Bad, ≤ 1,00 g Ganz ok             |
+| Bester Treffer  | kleinste \|d\| über alle Ziele, mit Ziel und Zeit (nur strikt besser zählt) |
+| Schnellste Zeit | nur Runden mit \|d\| ≤ 1,00 g (nur strikt schneller zählt)                  |
+| Duell           | finaler Stand mit ≥ 2 Teilnehmern; Sieg = Rang 1 ohne Aufgabe               |
+
+d = getrunken − Ziel (im Duell gegen das Duell-Ziel).
+
+**Erfolg im Ergebnis:** Neuer bester Treffer („Neuer Rekord!“ / „0.03g
+daneben“) oder neue schnellste Zeit („Schnellste Zeit!“ / „3.87s“), höchstens
+einer pro Runde, Rekord zuerst. Läuft als dritter Zustand im 3-s-Wechsel mit
+(Wert → Zeit → Erfolg), im Duell erst, wenn der Rang final ist (nicht bei
+Aufgabe). Auch die erste Runde ist ein Rekord.
+
+**Info-Rotation** (`statsRotation`, Standard an): Im Game-Idle (Game- und
+Duell-Modus) ohne Glas wechselt die Anzeige nach 15 s (`STATS_AFTER_MS`) alle
+3 s (`STATS_STEP_MS`) durch diese Bildschirme, auch vor der ersten Runde:
+
+| Bildschirm     | Inhalt                                                      |
+| -------------- | ----------------------------------------------------------- |
+| Ziel           | wie immer, mit Statusleiste                                 |
+| Bester Treffer | „0.03g daneben“, „Ziel 100.0g, 4.21s“ (sonst „noch keiner“) |
+| Schnellste     | „3.87s“, „1.00g daneben“ (sonst „noch keine“)               |
+| Runden         | „42 Runden“, ggf. „5 Siege, 12 Duelle“                      |
+| Stufen         | „Perfekt 3“, „Not Bad 7“, „Ganz ok 15“                      |
+| Letzte Runden  | bis zu 4 Abweichungen, neueste zuerst (nur mit Verlauf)     |
+
+Die Statistik-Bildschirme zeigen keine Statusleiste. Glas, Taster, Tara oder
+Reset bringen sofort das Ziel zurück, die 15 s beginnen neu. Den Deep-Sleep
+hält die Rotation nicht auf.
+
 ## Energie
 
 ### Deep-Sleep
@@ -479,7 +521,9 @@ Anfragen `application/x-www-form-urlencoded`, Antworten JSON mit
 | Route                                                              | Zweck                                                                                         |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
 | `GET /api/status`                                                  | Gewicht, Modus, Phase, busy, Ziel, Funk/AP, Akku (Prozent, Spannung, Pin-mV, Teiler, Warnung) |
-| `GET/POST /api/config`                                             | Ziel, Zufall, Rotation, Modus (Moduswechsel während Spiel → 409)                              |
+| `GET/POST /api/config`                                             | Ziel, Zufall, Rotation, Modus, Info-Rotation (Moduswechsel während Spiel → 409)               |
+| `GET /api/stats`                                                   | Statistik: Zähler, bester Treffer, schnellste Zeit, Duelle, letzte Runden                     |
+| `POST /api/admin/stats/reset`                                      | Statistik zurücksetzen                                                                        |
 | `GET/POST /api/admin/config`                                       | SSID, Toleranz, Auto-Reset, Timeouts, Auto-Zero, Passwort                                     |
 | `POST /api/admin/battcal`                                          | `measuredV=<V>` oder `reset=1`                                                                |
 | `POST /api/admin/cal/{start,measure,cancel}`, `GET /api/admin/cal` | Kalibrier-Assistent                                                                           |
@@ -522,7 +566,8 @@ führt ihn aus; `SANITIZE=1` zusätzlich mit AddressSanitizer und UBSan.
 | `text_core_test`                       | CP437, Layout, alle Texte ohne Ersatzzeichen                                    |
 | `web_core_test`                        | JSON-Escaping, Cookies, Token, Login-Bremse                                     |
 | `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen                     |
-| `ui_model_test`                        | Ebenen, Symbole, Texte                                                          |
+| `stats_core_test`                      | Stufen, Bestwert, schnellste Zeit, Erfolge, Duell, Verlauf                      |
+| `ui_model_test`                        | Ebenen, Symbole, Texte, Erfolg im Ergebnis, Info-Rotation                       |
 
 ## Abnahme auf der Hardware
 
@@ -548,3 +593,6 @@ Vor dem Merge mit mindestens zwei Waagen:
       „aufgegeben“.
 - [ ] Game-Modus mit AP an: Waage taucht bei anderen nicht als Gegner auf.
 - [ ] Duell-Modus: AP aus → `Vs n` bleibt, Duell läuft weiter.
+- [ ] Statistik: „Neuer Rekord!“ im Ergebnis-Wechsel; nach 15 s ohne Glas
+      Rotation im 3-s-Takt, Glas/Taster bringt sofort das Ziel; Werte nach
+      Deep-Sleep noch da, Verlauf leer; Zurücksetzen im Admin.

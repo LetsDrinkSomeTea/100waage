@@ -351,6 +351,162 @@ static void testSameFrame() {
   CHECK(sameFrame(f3, f4));
 }
 
+// ── Statistik ─────────────────────────────────────────────────────────────────
+
+static stats::Tracker tracker() {
+  stats::Tracker t;
+  t.record({10003, 10000, 4210, false}); // Rekord 0.03, schnellste 4.21
+  t.record({9900, 10000, 3870, true});   // schnellste 3.87, Ganz ok
+  t.duelFinal(1, 2, false);
+  t.record({7000, 5000, 9000, false}); // weit daneben
+  return t;
+}
+
+static void testAchievementInResult() {
+  stats::Tracker t;
+  t.record({10003, 10000, 4210, false});
+  Model m;
+  game::View v = {};
+  v.screen = game::Screen::ResultSolo;
+  v.screenSince = 1000;
+  v.drankCg = 10003;
+  v.durationMs = 4210;
+  v.rating = game::Rating::NotBad;
+  v.roundSeq = 7;
+  Status s = status();
+  s.stats = &t;
+  s.ach = stats::Achievement::Record;
+  s.achSeq = 7;
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 1000), "100.03g", "Not Bad!"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 4000), "4.21s", "Not Bad!"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 7000), "Neuer Rekord!",
+               "0.03g daneben"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 10000), "100.03g", "Not Bad!"));
+
+  // Erfolg einer anderen Runde: nur Wert/Zeit
+  Model m2;
+  s.achSeq = 6;
+  m2.build(v, s, NO_HOLD, nullptr, 1000);
+  m2.build(v, s, NO_HOLD, nullptr, 4000);
+  CHECK(textIs(m2.build(v, s, NO_HOLD, nullptr, 7000), "100.03g", "Not Bad!"));
+
+  // schnellste Zeit
+  Model m3;
+  s.achSeq = 7;
+  s.ach = stats::Achievement::Fastest;
+  m3.build(v, s, NO_HOLD, nullptr, 1000);
+  m3.build(v, s, NO_HOLD, nullptr, 4000);
+  CHECK(textIs(m3.build(v, s, NO_HOLD, nullptr, 7000), "Schnellste Zeit!",
+               "4.21s"));
+
+  // Duell: erst final, nicht bei Aufgabe
+  Model m4;
+  s.ach = stats::Achievement::Record;
+  v.screen = game::Screen::ResultDuel;
+  v.rank = 1;
+  v.settled = 1;
+  v.total = 2;
+  v.resultSig = 1;
+  m4.build(v, s, NO_HOLD, nullptr, 1000);
+  m4.build(v, s, NO_HOLD, nullptr, 4000);
+  CHECK(textIs(m4.build(v, s, NO_HOLD, nullptr, 7000), "100.03g", "~1. Platz"));
+  v.isFinal = true;
+  v.settled = 2;
+  v.resultSig = 2;
+  m4.build(v, s, NO_HOLD, nullptr, 7100);
+  m4.build(v, s, NO_HOLD, nullptr, 10100);
+  CHECK(textIs(m4.build(v, s, NO_HOLD, nullptr, 13100), "Neuer Rekord!",
+               "0.03g daneben"));
+  v.forfeit = true;
+  v.resultSig = 3;
+  for (uint32_t t2 = 13200; t2 < 25000; t2 += 1000)
+    CHECK(!textIs(m4.build(v, s, NO_HOLD, nullptr, t2), "Neuer Rekord!",
+                  "0.03g daneben"));
+}
+
+static void testStatsRotation() {
+  stats::Tracker t = tracker();
+  Model m;
+  game::View v = idleView();
+  v.screenSince = 1000;
+  Status s = status();
+  s.stats = &t;
+  s.statsRotation = true;
+  const uint32_t T0 = 1000, A = STATS_AFTER_MS, S = STATS_STEP_MS;
+
+  Frame f = m.build(v, s, NO_HOLD, nullptr, T0);
+  CHECK(textIs(f, "100.0g?") && f.icons);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A - 1);
+  CHECK(textIs(f, "100.0g?"));
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A); // erster Schritt: Ziel
+  CHECK(textIs(f, "100.0g?") && f.icons);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + S);
+  CHECK(textIs(f, "Bester Treffer", "0.03g daneben", "Ziel 100.0g, 4.21s"));
+  CHECK(!f.icons); // ohne Statusleiste
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 2 * S);
+  CHECK(textIs(f, "Schnellste Zeit", "3.87s", "1.00g daneben"));
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 3 * S);
+  CHECK(textIs(f, "3 Runden", "1 Sieg, 1 Duell"));
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 4 * S);
+  CHECK(textIs(f, "Perfekt 0", "Not Bad 1", "Ganz ok 1"));
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 5 * S);
+  CHECK(textIs(f, "Letzte Runden", "+20.00g  -1.00g", "+0.03g"));
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 6 * S); // wieder Ziel
+  CHECK(textIs(f, "100.0g?") && f.icons);
+
+  // Glas aufgestellt: sofort Ziel, Wartezeit beginnt neu
+  m.build(v, s, NO_HOLD, nullptr, T0 + A + S);
+  v.glassOn = true;
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + S + 100);
+  CHECK(textIs(f, "100.0g?") && f.border);
+  v.glassOn = false;
+  const uint32_t T1 = T0 + A + S + 200; // erstes Bild ohne Glas
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1), "100.0g?"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + S - 1), "100.0g?"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + S), "Bester Treffer",
+               "0.03g daneben", "Ziel 100.0g, 4.21s"));
+
+  // Tara/Reset (neuer Bildschirm-Beginn) startet neu
+  v.screenSince = T1 + A + S + 50;
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + S + 100), "100.0g?"));
+
+  // Taster gehalten startet neu
+  Model m2;
+  m2.build(v, s, NO_HOLD, nullptr, T0);
+  Hold h = {true, button::Zone::Short, 500};
+  m2.build(v, s, h, nullptr, T0 + A);
+  CHECK(textIs(m2.build(v, s, NO_HOLD, nullptr, T0 + A + S), "100.0g?"));
+
+  // aus, ohne Statistik oder in anderen Modi: nie
+  Model m3;
+  s.statsRotation = false;
+  m3.build(v, s, NO_HOLD, nullptr, T0);
+  CHECK(textIs(m3.build(v, s, NO_HOLD, nullptr, T0 + A + S), "100.0g?"));
+  s.statsRotation = true;
+  s.stats = nullptr;
+  CHECK(textIs(m3.build(v, s, NO_HOLD, nullptr, T0 + 2 * A + S), "100.0g?"));
+}
+
+static void testStatsEmpty() {
+  stats::Tracker t; // noch keine Runde: rotiert trotzdem
+  Model m;
+  game::View v = idleView();
+  Status s = status();
+  s.stats = &t;
+  s.statsRotation = true;
+  const uint32_t A = STATS_AFTER_MS, S = STATS_STEP_MS;
+  m.build(v, s, NO_HOLD, nullptr, 0);
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + S), "Bester Treffer",
+               "noch keiner"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 2 * S), "Schnellste Zeit",
+               "noch keine"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 3 * S), "0 Runden"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 4 * S), "Perfekt 0",
+               "Not Bad 0", "Ganz ok 0"));
+  // ohne Verlauf kein "Letzte Runden"
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 5 * S), "100.0g?"));
+}
+
 int main() {
   testLabels();
   testLayers();
@@ -364,5 +520,8 @@ int main() {
   testResultDuel();
   testSoloToast();
   testSameFrame();
+  testAchievementInResult();
+  testStatsRotation();
+  testStatsEmpty();
   return finish("ui_model_test");
 }

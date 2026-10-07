@@ -43,7 +43,8 @@ struct Config {
   float autoZeroThreshold; // [g]
   uint8_t autoZeroDelay;   // [s]
   bool randomModeEnabled;
-  float randomMin; // [g] Untergrenze des Zufallsziels
+  float randomMin;    // [g] Untergrenze des Zufallsziels
+  bool statsRotation; // Statistik im Ruhezustand im Wechsel mit dem Ziel
 };
 
 // Bereiche (gelten fuer sanitize und validate)
@@ -109,6 +110,7 @@ enum Change : uint32_t {
   CH_GAME = 1u << 8,     // tolerance, autoResetRange
   CH_AUTOZERO = 1u << 9, // autoZero*
   CH_BATT = 1u << 10,    // battDividerRatio
+  CH_STATS = 1u << 11,   // statsRotation
 };
 uint32_t diff(const Config &a, const Config &b);
 

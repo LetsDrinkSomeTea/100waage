@@ -49,6 +49,8 @@ static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
     p.putBool("rndOn", c.randomModeEnabled);
     p.putFloat("rndMin", c.randomMin);
   }
+  if (mask & cfg::CH_STATS)
+    p.putBool("statsRot", c.statsRotation);
 }
 
 static constexpr uint32_t ALL = 0xFFFFFFFFu;
@@ -76,6 +78,7 @@ static void readAll(Preferences &p, cfg::Config &c) {
   c.autoZeroDelay = p.getUChar("azDelay", d.autoZeroDelay);
   c.randomModeEnabled = p.getBool("rndOn", d.randomModeEnabled);
   c.randomMin = p.getFloat("rndMin", d.randomMin);
+  c.statsRotation = p.getBool("statsRot", d.statsRotation);
 }
 
 // Liest das alte EEPROM-Abbild nur lesend (legt nichts an, aendert nichts).

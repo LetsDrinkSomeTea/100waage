@@ -2,6 +2,7 @@
 #include "button_core.h"
 #include "config_core.h"
 #include "game_core.h"
+#include "stats_core.h"
 #include "text_core.h"
 #include <stdint.h>
 
@@ -9,6 +10,11 @@
 // Baut pro Loop ein Frame aus Spielzustand, Taster, Toasts und Status. Der
 // Renderer (ui.cpp) zeichnet nur, wenn sich das Frame aendert. Ebenen, oberste
 // zuerst: Haltebalken > Systembildschirm > Toast > Spiel.
+//
+// Statistik: Ein Erfolg der Runde (Rekord, schnellste Zeit) laeuft als dritter
+// Zustand im Ergebnis-Wechsel mit. Im Game-Idle ohne Glas wechselt die Anzeige
+// nach STATS_AFTER_MS alle STATS_STEP_MS zwischen Ziel und Statistik-
+// Bildschirmen (ohne Statusleiste).
 
 namespace ui {
 
@@ -16,8 +22,11 @@ constexpr uint32_t READY_PROMPT_MS = 400; // "Bereit?" vor dem Trinkspruch
 constexpr uint32_t RESULT_ALT_MS = 3000;  // Ergebnis-Wechsel (Wert/Zeit)
 constexpr uint32_t ANIM_MS = 300;         // Ladeanimation
 constexpr uint32_t TOAST_MS = 1500;
-constexpr int MODE_DOTS = 3; // Game, Duell, Standard
-constexpr int BAR_W = 128;   // Haltebalken ueber CANCEL_MS
+constexpr uint32_t STATS_AFTER_MS =
+    15000;                               // so lange ohne Glas bis zur Rotation
+constexpr uint32_t STATS_STEP_MS = 3000; // Takt der Rotation
+constexpr int MODE_DOTS = 3;             // Game, Duell, Standard
+constexpr int BAR_W = 128;               // Haltebalken ueber CANCEL_MS
 constexpr int TICK_MODE_PX =
     (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS);
 constexpr int TICK_RADIO_PX =
@@ -59,6 +68,20 @@ struct Status {
   int battPercent;
   bool battLow;
   cfg::ScaleMode mode;
+  const stats::Tracker *stats; // nullptr = keine Statistik
+  bool statsRotation;          // Info-Rotation im Ruhezustand
+  stats::Achievement ach;      // Erfolg der Runde achSeq (View::roundSeq)
+  uint32_t achSeq;
+};
+
+// Statistik-Bildschirme der Info-Rotation (nach dem Ziel, in dieser Folge)
+enum class StatsScreen : uint8_t {
+  None, // Ziel
+  Best,
+  Fastest,
+  Rounds,
+  Levels,
+  Recent // nur mit Verlauf
 };
 
 struct Hold {
@@ -95,8 +118,8 @@ private:
   uint32_t toastUntil_ = 0;
   bool toastOn_ = false;
   uint8_t toastDots_ = 0;
-  // Ergebnis-Wechsel
-  bool altTime_ = false;
+  // Ergebnis-Wechsel: 0 Wert, 1 Zeit, 2 Erfolg (falls vorhanden)
+  uint8_t alt_ = 0;
   uint32_t altSince_ = 0;
   uint32_t lastSig_ = 0xFFFFFFFFu;
   game::Screen lastScreen_ = game::Screen::IdleGame;
@@ -104,6 +127,11 @@ private:
   // stiller Wechsel auf Solo → Toast "Solo!"
   bool seqInit_ = false;
   uint32_t lastSoloSeq_ = 0;
+  // Info-Rotation: Beginn des Ruhezustands ohne Glas
+  bool rotOn_ = false;
+  uint32_t rotSince_ = 0, rotScreenSince_ = 0;
+  StatsScreen statsScreen(const game::View &v, const Status &s, bool hold,
+                          uint32_t now);
 };
 
 } // namespace ui

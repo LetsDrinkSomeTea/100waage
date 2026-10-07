@@ -112,11 +112,124 @@ static void fmtHundredths(int32_t v, const char *suffix, char *out, size_t n) {
   snprintf(out, n, "%s%s", num, suffix);
 }
 
+// "+0.41g" / "-0.08g" / "0.00g"
+static void fmtDev(int32_t devCg, char *out, size_t n) {
+  char num[16];
+  text::fmtCentigrams(devCg, num, sizeof(num));
+  snprintf(out, n, "%s%sg", devCg > 0 ? "+" : "", num);
+}
+
+static void fmtSeconds(uint32_t ms, char *out, size_t n) {
+  fmtHundredths((int32_t)((ms + 5) / 10), "s", out, n);
+}
+
+static void fmtGoal(int32_t goalCg, char *out, size_t n) {
+  text::fmtGrams1((float)goalCg / 100.0f, out, n);
+  strncat(out, "g", n - strlen(out) - 1);
+}
+
+static const char *plural(uint32_t n, const char *one, const char *many) {
+  return n == 1 ? one : many;
+}
+
+// Erfolg der aktuellen Runde, der im Ergebnis-Wechsel mitlaeuft
+static bool showsAchievement(const game::View &v, const Status &s) {
+  if (!s.stats || s.ach == stats::Achievement::None || s.achSeq != v.roundSeq)
+    return false;
+  if (v.screen == game::Screen::ResultSolo)
+    return true;
+  return v.screen == game::Screen::ResultDuel && v.isFinal && !v.forfeit &&
+         v.rank != 0;
+}
+
+static void buildAchievement(Frame &f, const Status &s) {
+  const stats::Totals &t = s.stats->totals();
+  char b[32];
+  if (s.ach == stats::Achievement::Record) {
+    fmtHundredths(t.bestDevCg, "g daneben", b, sizeof(b));
+    setText(f, "Neuer Rekord!", b);
+  } else {
+    fmtSeconds(t.fastestMs, b, sizeof(b));
+    setText(f, "Schnellste Zeit!", b);
+  }
+}
+
+static void buildStats(Frame &f, StatsScreen sc, const stats::Tracker &st) {
+  const stats::Totals &t = st.totals();
+  char a[64], b[24], c[24], line[64];
+  switch (sc) {
+  case StatsScreen::Best:
+    if (!t.hasBest) {
+      setText(f, "Bester Treffer", "noch keiner");
+      break;
+    }
+    fmtHundredths(t.bestDevCg, "g daneben", a, sizeof(a));
+    fmtGoal(t.bestGoalCg, b, sizeof(b));
+    fmtSeconds(t.bestMs, c, sizeof(c));
+    snprintf(line, sizeof(line), "Ziel %s, %s", b, c);
+    setText(f, "Bester Treffer", a, line);
+    break;
+  case StatsScreen::Fastest:
+    if (!t.hasFastest) {
+      setText(f, "Schnellste Zeit", "noch keine");
+      break;
+    }
+    fmtSeconds(t.fastestMs, a, sizeof(a));
+    fmtHundredths(t.fastestDevCg < 0 ? -t.fastestDevCg : t.fastestDevCg,
+                  "g daneben", b, sizeof(b));
+    setText(f, "Schnellste Zeit", a, b);
+    break;
+  case StatsScreen::Rounds:
+    snprintf(a, sizeof(a), "%lu %s", (unsigned long)t.rounds,
+             plural(t.rounds, "Runde", "Runden"));
+    if (t.duels > 0) {
+      snprintf(line, sizeof(line), "%lu %s, %lu %s", (unsigned long)t.wins,
+               plural(t.wins, "Sieg", "Siege"), (unsigned long)t.duels,
+               plural(t.duels, "Duell", "Duelle"));
+      setText(f, a, line);
+    } else {
+      setText(f, a);
+    }
+    break;
+  case StatsScreen::Levels:
+    snprintf(a, sizeof(a), "Perfekt %lu", (unsigned long)t.perfect);
+    snprintf(b, sizeof(b), "Not Bad %lu", (unsigned long)t.notBad);
+    snprintf(c, sizeof(c), "Ganz ok %lu", (unsigned long)t.ok);
+    setText(f, a, b, c);
+    break;
+  case StatsScreen::Recent: {
+    // bis zu 4 Abweichungen, neueste zuerst, zwei pro Zeile
+    char d[4][24] = {};
+    const int n = st.recentCount() < 4 ? st.recentCount() : 4;
+    for (int i = 0; i < n; i++)
+      fmtDev(st.recent(i).devCg, d[i], sizeof(d[i]));
+    snprintf(a, sizeof(a), "%s%s%s", d[0], n > 1 ? "  " : "", d[1]);
+    snprintf(line, sizeof(line), "%s%s%s", d[2], n > 3 ? "  " : "", d[3]);
+    setText(f, "Letzte Runden", a, n > 2 ? line : nullptr);
+    break;
+  }
+  case StatsScreen::None:
+    break;
+  }
+}
+
 static void buildGame(Frame &f, const game::View &v, const Status &s,
-                      bool altTime, uint32_t now) {
+                      uint8_t alt, StatsScreen sc, uint32_t now) {
   char a[32], b[32];
+  // Ergebnis-Wechsel: Wert, Zeit und ggf. Erfolg
+  const bool ach = showsAchievement(v, s);
+  const uint8_t k = (uint8_t)(alt % (ach ? 3 : 2));
+  const bool altTime = k == 1;
+  if (ach && k == 2) {
+    buildAchievement(f, s);
+    return;
+  }
   switch (v.screen) {
   case game::Screen::IdleGame:
+    if (sc != StatsScreen::None && s.stats) {
+      buildStats(f, sc, *s.stats); // ohne Statusleiste
+      break;
+    }
     text::fmtGrams1(v.goal, a, sizeof(a));
     strncat(a, "g?", sizeof(a) - strlen(a) - 1);
     setText(f, a);
@@ -203,6 +316,31 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
   }
 }
 
+// Info-Rotation: nach STATS_AFTER_MS ohne Glas im STATS_STEP_MS-Takt durch Ziel
+// und Statistik. Neustart bei Tara/Reset (neuer Bildschirm), Glas oder Taster.
+StatsScreen Model::statsScreen(const game::View &v, const Status &s, bool hold,
+                               uint32_t now) {
+  const bool idle = s.statsRotation && s.stats &&
+                    v.screen == game::Screen::IdleGame && !v.glassOn && !hold;
+  if (!idle) {
+    rotOn_ = false;
+    return StatsScreen::None;
+  }
+  if (!rotOn_ || v.screenSince != rotScreenSince_) {
+    rotOn_ = true;
+    rotSince_ = now;
+    rotScreenSince_ = v.screenSince;
+  }
+  const uint32_t idleMs = now - rotSince_;
+  if (idleMs < STATS_AFTER_MS)
+    return StatsScreen::None;
+  StatsScreen list[] = {StatsScreen::None,    StatsScreen::Best,
+                        StatsScreen::Fastest, StatsScreen::Rounds,
+                        StatsScreen::Levels,  StatsScreen::Recent};
+  const uint32_t n = s.stats->recentCount() > 0 ? 6 : 5;
+  return list[((idleMs - STATS_AFTER_MS) / STATS_STEP_MS) % n];
+}
+
 Frame Model::build(const game::View &v, const Status &s, const Hold &h,
                    const char *const system[3], uint32_t now) {
   Frame f;
@@ -227,12 +365,13 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
     lastScreen_ = v.screen;
     lastScreenSince_ = v.screenSince;
     lastSig_ = v.resultSig;
-    altTime_ = false;
+    alt_ = 0;
     altSince_ = now;
   } else if (isResult && (uint32_t)(now - altSince_) >= RESULT_ALT_MS) {
-    altTime_ = !altTime_;
+    alt_ = (uint8_t)((alt_ + 1) % 6); // 6 = Vielfaches von 2 und 3
     altSince_ = now;
   }
+  const StatsScreen sc = statsScreen(v, s, h.active, now);
 
   if (h.active) {
     f.kind = Kind::Hold;
@@ -259,7 +398,7 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
     }
     toastOn_ = false;
   }
-  buildGame(f, v, s, altTime_, now);
+  buildGame(f, v, s, alt_, sc, now);
   return f;
 }
 

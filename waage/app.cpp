@@ -7,6 +7,7 @@
 #include "power_core.h"
 #include "radio.h"
 #include "scale.h"
+#include "stats.h"
 #include "ui.h"
 #include "ui_model.h"
 #include "version.h"
@@ -42,6 +43,9 @@ static int otaPercent = 0;
 static bool calWasActive = false;
 static uint32_t calErrorSince = 0;
 static bool otaDone = false; // Update erfolgreich, Neustart steht an
+// Erfolg der letzten Runde (Rekord, schnellste Zeit) fuer die Anzeige
+static stats::Achievement lastAch = stats::Achievement::None;
+static uint32_t lastAchSeq = 0;
 
 static uint32_t randomWord(void *) { return esp_random(); }
 
@@ -457,6 +461,10 @@ static void render(const cfg::Config &c, uint32_t now) {
   st.battPercent = g.percent();
   st.battLow = BATTERY_CONNECTED && g.valid() && g.low();
   st.mode = c.scaleMode;
+  st.stats = &stats_tracker();
+  st.statsRotation = c.statsRotation;
+  st.ach = lastAch;
+  st.achSeq = lastAchSeq;
 
   ui::Hold h = {};
   h.active = btn.overlay(now);
@@ -528,6 +536,7 @@ void app_setup() {
   scale_begin(c.scaleFactor);
   scale_core().setStableSpread(stableSpreadFor(c));
   battery_begin(c.battDividerRatio);
+  stats_begin();
   theGame.begin(&duell_port(), randomWord, nullptr);
   resetGame(now);
   sleepPolicy.reset(now);
@@ -585,6 +594,14 @@ void app_loop() {
   in.radioOn = duelOn;
   theGame.update(c, in);
   applyScaleReq(theGame.takeScaleReq(), c, now);
+  game::RoundDone round;
+  if (theGame.takeRound(&round)) {
+    lastAch = stats_record(round);
+    lastAchSeq = theGame.view().roundSeq;
+  }
+  game::DuelFinal duelFinal;
+  if (theGame.takeDuelFinal(&duelFinal))
+    stats_duelFinal(duelFinal);
 
   if (z != button::Zone::None)
     handleButton(z, now);

@@ -530,6 +530,51 @@ static void testDuelModePlays() {
   CHECK(d.port.setReadyCalls == 1);
 }
 
+// Statistik: jedes Ergebnis wird einmal gemeldet, finaler Duell-Stand einmal
+static void testRoundEvents() {
+  Driver d;
+  RoundDone r;
+  CHECK(!d.g.takeRound(&r));
+  uint32_t seq = d.g.view().roundSeq;
+  place(d, 300.0f);
+  drink(d, 200.5f, 3000);
+  CHECK(d.g.phase() == Phase::Result);
+  CHECK(d.g.view().roundSeq == seq + 1);
+  CHECK(d.g.takeRound(&r));
+  CHECK(r.drankCg == 9950 && r.goalCg == 10000 && !r.duel);
+  CHECK(r.durationMs == d.g.view().durationMs);
+  CHECK(!d.g.takeRound(&r)); // nur einmal
+  DuelFinal f;
+  CHECK(!d.g.takeDuelFinal(&f)); // solo: kein Duell-Ende
+  // Reset aendert den Zaehler nicht
+  d.press();
+  CHECK(d.g.view().roundSeq == seq + 1);
+}
+
+static void testDuelFinalEvent() {
+  Driver d;
+  duelReady(d);
+  d.port.beginRound(80.0f, 2);
+  d.run(100, 300.0f);
+  drink(d, 220.0f);
+  RoundDone r;
+  CHECK(d.g.takeRound(&r));
+  CHECK(r.duel && r.goalCg == 8000 && r.drankCg == 8000);
+
+  DuelFinal f;
+  d.port.v.rank = 1;
+  d.port.v.settled = 1;
+  d.run(100, 220.0f);
+  CHECK(!d.g.takeDuelFinal(&f)); // vorlaeufig
+  d.port.v.settled = 2;
+  d.port.v.isFinal = true;
+  d.run(100, 220.0f);
+  CHECK(d.g.takeDuelFinal(&f));
+  CHECK(f.rank == 1 && f.total == 2 && !f.forfeit);
+  d.run(1000, 220.0f);
+  CHECK(!d.g.takeDuelFinal(&f)); // nur einmal pro Runde
+}
+
 static void testResetLeaves() {
   Driver d;
   duelReady(d);
@@ -570,6 +615,8 @@ int main() {
   testWaitStartRoundGone();
   testNoDuelWithoutRadio();
   testDuelModePlays();
+  testRoundEvents();
+  testDuelFinalEvent();
   testResetLeaves();
   return finish("game_core_test");
 }

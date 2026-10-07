@@ -27,7 +27,8 @@ TESTS=(
   "web_core_test:web_core.cpp"
   "game_core_test:game_core.cpp config_core.cpp"
   "game_duel_sim_test:game_core.cpp config_core.cpp duell_core.cpp"
-  "ui_model_test:ui_model.cpp text_core.cpp game_core.cpp config_core.cpp"
+  "stats_core_test:stats_core.cpp"
+  "ui_model_test:ui_model.cpp text_core.cpp game_core.cpp config_core.cpp stats_core.cpp"
 )
 
 for entry in "${TESTS[@]}"; do
