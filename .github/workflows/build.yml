@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       fw: ${{ steps.version.outputs.FW_VERSION }}
+      bin: ${{ steps.binname.outputs.BIN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -83,11 +84,24 @@ jobs:
           if [ "$PCT" -ge 97 ]; then echo "::error::Firmware zu gross ($PCT %)"; exit 1; fi
           if [ "$PCT" -ge 92 ]; then echo "::warning::Firmware nahe am Limit ($PCT %)"; fi
 
+      # <repo>-<version>.bin, Punkte der Version als Bindestriche:
+      # v1.3.3 -> 100waage-v1-3-3.bin
+      - name: Dateiname
+        id: binname
+        shell: bash
+        env:
+          REPO: ${{ github.event.repository.name }}
+          VER: ${{ steps.version.outputs.FW_VERSION }}
+        run: |
+          BIN="${REPO}-${VER//./-}.bin"
+          cp build_output/waage.ino.bin "build_output/$BIN"
+          echo "BIN=$BIN" | tee -a "$GITHUB_OUTPUT"
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: 100-Waage-${{ steps.version.outputs.FW_VERSION }}
-          path: build_output/waage.ino.bin
+          path: build_output/${{ steps.binname.outputs.BIN }}
 
   release:
     needs: build
@@ -104,4 +118,4 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: waage.ino.bin
+          files: ${{ needs.build.outputs.bin }}
