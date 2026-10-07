@@ -1,4 +1,5 @@
-// Unit-Tests fuer den reinen Inaktivitaets-Timer (Deep-Sleep) und das AP-Auto-Aus.
+// Unit-Tests fuer den reinen Inaktivitaets-Timer (Deep-Sleep) und das
+// AP-Auto-Aus.
 #include "check.h"
 #include "power_core.h"
 #include <cmath>
@@ -9,11 +10,13 @@ using namespace power;
 static const Blockers NONE = {};
 constexpr uint32_t MIN = 60000UL;
 
-static bool upd(SleepPolicy &p, uint32_t now, uint8_t timeoutMin = 1, const Blockers &b = NONE) {
+static bool upd(SleepPolicy &p, uint32_t now, uint8_t timeoutMin = 1,
+                const Blockers &b = NONE) {
   return p.update(now, 0.0f, false, b, timeoutMin);
 }
 
-static bool updW(SleepPolicy &p, uint32_t now, float w, uint8_t timeoutMin = 1, bool valid = true) {
+static bool updW(SleepPolicy &p, uint32_t now, float w, uint8_t timeoutMin = 1,
+                 bool valid = true) {
   return p.update(now, w, valid, NONE, timeoutMin);
 }
 
@@ -48,7 +51,7 @@ static void testApTimedOut() {
   uint32_t t0 = 0xFFFFF000u;
   CHECK(!apTimedOut(t0 + MIN - 1, t0, 1));
   CHECK(apTimedOut(t0 + MIN, t0, 1));
-  CHECK((uint32_t)(t0 + MIN) < t0);  // wirklich uebergelaufen
+  CHECK((uint32_t)(t0 + MIN) < t0); // wirklich uebergelaufen
   // Aktivitaet minimal nach dem Loop-Zeitstempel ist frisch, nicht ~49 Tage alt
   CHECK(!apTimedOut(1000, 1005, 1));
   CHECK(!apTimedOut(0xFFFFFFFEu, 3, 1));
@@ -62,7 +65,7 @@ static void testTimeoutBasic() {
   CHECK(!upd(p, 1000));
   CHECK(!upd(p, 1000 + MIN - 1));
   CHECK(upd(p, 1000 + MIN));
-  CHECK(upd(p, 1000 + 5 * MIN));  // bleibt true
+  CHECK(upd(p, 1000 + 5 * MIN)); // bleibt true
 
   // 5 min
   SleepPolicy q;
@@ -99,7 +102,7 @@ static void testActivity() {
   SleepPolicy p;
   p.reset(0);
   CHECK(!upd(p, MIN - 1));
-  p.activity(MIN - 1);  // Tasterflanke kurz vor Ablauf
+  p.activity(MIN - 1); // Tasterflanke kurz vor Ablauf
   CHECK(!upd(p, MIN));
   CHECK(!upd(p, 2 * MIN - 2));
   CHECK(upd(p, 2 * MIN - 1));
@@ -145,11 +148,21 @@ static void testEachBlocker() {
   for (int k = 0; k < 5; k++) {
     Blockers b = {};
     switch (k) {
-      case 0: b.apOn = true; break;
-      case 1: b.ownRoundOpen = true; break;
-      case 2: b.buttonBusy = true; break;
-      case 3: b.calibrating = true; break;
-      case 4: b.actionPending = true; break;
+    case 0:
+      b.apOn = true;
+      break;
+    case 1:
+      b.ownRoundOpen = true;
+      break;
+    case 2:
+      b.buttonBusy = true;
+      break;
+    case 3:
+      b.calibrating = true;
+      break;
+    case 4:
+      b.actionPending = true;
+      break;
     }
     SleepPolicy p;
     p.reset(0);
@@ -165,7 +178,7 @@ static void testEachBlocker() {
 }
 
 static void testBlockerAllAndTimeoutZero() {
-  Blockers all = { true, true, true, true, true };
+  Blockers all = {true, true, true, true, true};
   SleepPolicy p;
   p.reset(0);
   CHECK(!upd(p, 5 * MIN, 1, all));
@@ -191,8 +204,9 @@ static void testWeightChangeCounts() {
   // 2,1 g Aenderung zaehlt
   SleepPolicy p;
   p.reset(0);
-  CHECK(!updW(p, 0, 100.0f));                     // Referenz
-  CHECK(!updW(p, 50 * 1000, 102.1f));              // Pruefung (>= 2 s seit Referenz) → Aktivitaet
+  CHECK(!updW(p, 0, 100.0f)); // Referenz
+  CHECK(!updW(p, 50 * 1000,
+              102.1f)); // Pruefung (>= 2 s seit Referenz) → Aktivitaet
   CHECK(!updW(p, 50 * 1000 + MIN - 1, 102.1f));
   CHECK(updW(p, 50 * 1000 + MIN, 102.1f));
 
@@ -228,8 +242,8 @@ static void testWeightReferenceKeptWithoutActivity() {
   SleepPolicy p;
   p.reset(0);
   CHECK(!updW(p, 0, 100.0f));
-  CHECK(!updW(p, 10000, 101.5f));   // 1,5 g → keine Aktivitaet
-  CHECK(!updW(p, 20000, 102.5f));   // 2,5 g zur Referenz → Aktivitaet bei 20 s
+  CHECK(!updW(p, 10000, 101.5f)); // 1,5 g → keine Aktivitaet
+  CHECK(!updW(p, 20000, 102.5f)); // 2,5 g zur Referenz → Aktivitaet bei 20 s
   CHECK(!updW(p, 20000 + MIN - 1, 102.5f));
   CHECK(updW(p, 20000 + MIN, 102.5f));
 }
@@ -238,8 +252,8 @@ static void testWeightNewReferenceAfterActivity() {
   SleepPolicy p;
   p.reset(0);
   CHECK(!updW(p, 0, 100.0f));
-  CHECK(!updW(p, 10000, 103.0f));   // Aktivitaet, neue Referenz 103
-  CHECK(!updW(p, 20000, 104.9f));   // 1,9 g zur neuen Referenz → nichts
+  CHECK(!updW(p, 10000, 103.0f)); // Aktivitaet, neue Referenz 103
+  CHECK(!updW(p, 20000, 104.9f)); // 1,9 g zur neuen Referenz → nichts
   CHECK(!updW(p, 10000 + MIN - 1, 104.9f));
   CHECK(updW(p, 10000 + MIN, 104.9f));
 }
@@ -248,8 +262,8 @@ static void testWeightCheckInterval() {
   // Aenderung zwischen zwei Pruefungen zaehlt erst bei der naechsten Pruefung
   SleepPolicy p;
   p.reset(0);
-  CHECK(!updW(p, 0, 100.0f));              // Referenz, letzte Pruefung 0
-  CHECK(!updW(p, WEIGHT_CHECK_MS - 1, 150.0f));  // noch keine Pruefung
+  CHECK(!updW(p, 0, 100.0f));                   // Referenz, letzte Pruefung 0
+  CHECK(!updW(p, WEIGHT_CHECK_MS - 1, 150.0f)); // noch keine Pruefung
   // Wenn die Aenderung hier schon gezaehlt haette, waere der Timer bei 1999
   // neu gestartet. Pruefung bei 2000 zaehlt sie → Ablauf bei 2000 + 1 min.
   CHECK(!updW(p, WEIGHT_CHECK_MS, 150.0f));
@@ -269,10 +283,11 @@ static void testWeightCheckInterval() {
   SleepPolicy r;
   r.reset(0);
   CHECK(!updW(r, 0, 100.0f));
-  CHECK(!updW(r, 3000, 100.0f));           // Pruefung bei 3000, keine Aenderung
-  CHECK(!updW(r, 4999, 110.0f));           // < 2 s seit 3000 → keine Pruefung
-  CHECK(!updW(r, 5000, 110.0f));           // Pruefung → Aktivitaet bei 5000
-  CHECK(!updW(r, 5000 + MIN - 1, 110.0f));  // (haette 4999 gezaehlt, waere hier Schluss)
+  CHECK(!updW(r, 3000, 100.0f)); // Pruefung bei 3000, keine Aenderung
+  CHECK(!updW(r, 4999, 110.0f)); // < 2 s seit 3000 → keine Pruefung
+  CHECK(!updW(r, 5000, 110.0f)); // Pruefung → Aktivitaet bei 5000
+  CHECK(!updW(r, 5000 + MIN - 1,
+              110.0f)); // (haette 4999 gezaehlt, waere hier Schluss)
   CHECK(updW(r, 5000 + MIN, 110.0f));
 }
 
@@ -291,22 +306,24 @@ static void testWeightInvalidIgnored() {
   CHECK(!updW(q, 0, 100.0f));
   CHECK(!updW(q, 10000, std::nanf("")));
   CHECK(!updW(q, 20000, std::numeric_limits<float>::infinity()));
-  CHECK(!updW(q, 30000, 100.0f));  // Referenz noch intakt → keine Aktivitaet
+  CHECK(!updW(q, 30000, 100.0f)); // Referenz noch intakt → keine Aktivitaet
   CHECK(updW(q, MIN, 100.0f));
 
   // ohne gueltiges Gewicht wird auch keine Referenz gesetzt
   SleepPolicy r;
   r.reset(0);
   CHECK(!updW(r, 0, 100.0f, 1, false));
-  CHECK(!updW(r, 10000, 200.0f));  // erste gueltige Messung → Referenz, keine Aktivitaet
+  CHECK(!updW(r, 10000,
+              200.0f)); // erste gueltige Messung → Referenz, keine Aktivitaet
   CHECK(updW(r, MIN, 200.0f));
 
-  // Referenz bleibt ueber ungueltige Phasen erhalten: danach anderes Gewicht → Aktivitaet
+  // Referenz bleibt ueber ungueltige Phasen erhalten: danach anderes Gewicht →
+  // Aktivitaet
   SleepPolicy s;
   s.reset(0);
   CHECK(!updW(s, 0, 100.0f));
   CHECK(!updW(s, 10000, 0.0f, 1, false));
-  CHECK(!updW(s, 40000, 150.0f));  // Aktivitaet bei 40 s
+  CHECK(!updW(s, 40000, 150.0f)); // Aktivitaet bei 40 s
   CHECK(!updW(s, 40000 + MIN - 1, 150.0f));
   CHECK(updW(s, 40000 + MIN, 150.0f));
 }
@@ -333,8 +350,8 @@ static void testWeightWithBlocker() {
   Blockers b = {};
   b.apOn = true;
   CHECK(!p.update(0, 100.0f, true, b, 1));
-  CHECK(!p.update(10000, 200.0f, true, b, 1));  // neue Referenz 200
-  CHECK(!p.update(20000, 200.0f, true, b, 1));  // letzte blockierte Abfrage
+  CHECK(!p.update(10000, 200.0f, true, b, 1)); // neue Referenz 200
+  CHECK(!p.update(20000, 200.0f, true, b, 1)); // letzte blockierte Abfrage
   CHECK(!p.update(20000 + MIN - 1, 200.0f, true, NONE, 1));
   CHECK(p.update(20000 + MIN, 200.0f, true, NONE, 1));
 }
@@ -342,11 +359,11 @@ static void testWeightWithBlocker() {
 // ── Ueberlauf ─────────────────────────────────────────────────────────────────
 
 static void testWrap() {
-  const uint32_t t0 = 0xFFFFF000u;  // ca. 4 s vor dem millis-Wrap
+  const uint32_t t0 = 0xFFFFF000u; // ca. 4 s vor dem millis-Wrap
   SleepPolicy p;
   p.reset(t0);
   CHECK(!upd(p, t0));
-  CHECK(!upd(p, t0 + 0x1000u));      // genau beim Wrap (0)
+  CHECK(!upd(p, t0 + 0x1000u)); // genau beim Wrap (0)
   CHECK(!upd(p, t0 + MIN - 1));
   CHECK(upd(p, t0 + MIN));
 
@@ -361,9 +378,9 @@ static void testWrap() {
   // Gewichtspruefung ueber den Wrap
   SleepPolicy r;
   r.reset(t0);
-  CHECK(!updW(r, t0, 100.0f));                            // Referenz bei t0
-  CHECK(!updW(r, t0 + WEIGHT_CHECK_MS - 1, 110.0f));      // noch keine Pruefung
-  CHECK(!updW(r, t0 + 0x1000u + 5000u, 110.0f));          // nach dem Wrap → Aktivitaet
+  CHECK(!updW(r, t0, 100.0f));                       // Referenz bei t0
+  CHECK(!updW(r, t0 + WEIGHT_CHECK_MS - 1, 110.0f)); // noch keine Pruefung
+  CHECK(!updW(r, t0 + 0x1000u + 5000u, 110.0f)); // nach dem Wrap → Aktivitaet
   CHECK(!updW(r, t0 + 0x1000u + 5000u + MIN - 1, 110.0f));
   CHECK(updW(r, t0 + 0x1000u + 5000u + MIN, 110.0f));
 
@@ -373,7 +390,7 @@ static void testWrap() {
   Blockers b = {};
   b.calibrating = true;
   CHECK(!upd(s, t0 + 0x800u, 1, b));
-  CHECK(!upd(s, 0x00002000u, 1, b));  // nach dem Wrap
+  CHECK(!upd(s, 0x00002000u, 1, b)); // nach dem Wrap
   CHECK(!upd(s, 0x00002000u + MIN - 1));
   CHECK(upd(s, 0x00002000u + MIN));
 }
@@ -389,13 +406,15 @@ static void testActivityAheadOfNow() {
   CHECK(!upd(p, 1000));
   CHECK(!upd(p, 1003));
   CHECK(!upd(p, 1000 + MIN - 1));
-  CHECK(upd(p, 1005 + MIN));  // Timer laeuft ab der Aktivitaet (bzw. wenige ms frueher)
+  CHECK(upd(
+      p,
+      1005 + MIN)); // Timer laeuft ab der Aktivitaet (bzw. wenige ms frueher)
 
   // gleiches Muster ueber den millis-Wrap
   SleepPolicy q;
   q.reset(0xFFFFFF00u);
-  q.activity(0x00000003u);  // nach dem Wrap gelesen
-  CHECK(!upd(q, 0xFFFFFFFEu));  // update mit altem now vor dem Wrap
+  q.activity(0x00000003u);     // nach dem Wrap gelesen
+  CHECK(!upd(q, 0xFFFFFFFEu)); // update mit altem now vor dem Wrap
   CHECK(!upd(q, 0x00000001u));
   CHECK(!upd(q, (uint32_t)(0xFFFFFFFEu + MIN - 1)));
   CHECK(upd(q, 0x00000003u + MIN));
@@ -411,13 +430,16 @@ static void testActivityAheadOfNow() {
   CHECK(upd(r, 2000 + MIN));
 
   // Schleife wie app_loop: now am Schleifenanfang, die Tasterflanke wird mit
-  // einem etwas spaeteren millis() gemeldet; kein Schlaf, solange Aktivitaet kommt
+  // einem etwas spaeteren millis() gemeldet; kein Schlaf, solange Aktivitaet
+  // kommt
   SleepPolicy s;
   s.reset(0);
   bool slept = false;
   for (uint32_t t = 0; t < 10 * MIN; t += 7) {
-    if (t % 30000 < 7) s.activity(t + 3);
-    if (upd(s, t)) slept = true;
+    if (t % 30000 < 7)
+      s.activity(t + 3);
+    if (upd(s, t))
+      slept = true;
   }
   CHECK(!slept);
 }
@@ -443,11 +465,11 @@ static void testWeightExtremeValues() {
   p.reset(0);
   const float big = std::numeric_limits<float>::max();
   CHECK(!updW(p, 0, big));
-  CHECK(!updW(p, 10000, -big));  // Aktivitaet bei 10 s, Referenz -big
-  CHECK(!updW(p, 20000, -big));  // keine Aenderung
+  CHECK(!updW(p, 10000, -big)); // Aktivitaet bei 10 s, Referenz -big
+  CHECK(!updW(p, 20000, -big)); // keine Aenderung
   CHECK(!updW(p, 10000 + MIN - 1, -big));
   CHECK(updW(p, 10000 + MIN, -big));
-  CHECK(!updW(p, 10000 + MIN + WEIGHT_CHECK_MS, 0.0f));  // wieder Aktivitaet
+  CHECK(!updW(p, 10000 + MIN + WEIGHT_CHECK_MS, 0.0f)); // wieder Aktivitaet
 
   // -0,0 und +0,0 sind gleich
   SleepPolicy q;

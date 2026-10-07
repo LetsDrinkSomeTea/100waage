@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Formatiert die gestagten Dateien vor dem Commit.
+# Aktivieren: git config core.hooksPath .githooks
+set -euo pipefail
+
+mapfile -t files < <(git diff --cached --name-only --diff-filter=ACMR \
+  -- '*.cpp' '*.h' '*.ino' '*.md' '*.yml' '*.yaml')
+[ ${#files[@]} -eq 0 ] && exit 0
+
+# Teilweise gestagte Dateien nicht anfassen, sonst landen ungestagte
+# Aenderungen ungewollt im Commit.
+mapfile -t partial < <(git diff --name-only -- "${files[@]}")
+if [ ${#partial[@]} -gt 0 ]; then
+  echo "pre-commit: Dateien mit ungestagten Aenderungen:" >&2
+  printf '  %s\n' "${partial[@]}" >&2
+  echo "Erst alles stagen oder mit tools/format.sh formatieren." >&2
+  exit 1
+fi
+
+"$(git rev-parse --show-toplevel)/tools/format.sh" "${files[@]}"
+git add -- "${files[@]}"

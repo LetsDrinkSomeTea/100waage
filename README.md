@@ -6,32 +6,32 @@ gegeneinander antreten (Duell). Technische Details stehen in [Specs.md](Specs.md
 
 ## Hardware
 
-| Komponente | Details |
-|---|---|
-| MCU | ESP32-C3 Super Mini |
-| Wägezelle | HX711-Verstärker (10 Messungen/s, 80/s bei umgelötetem RATE-Pin) |
-| Display | SSD1306 OLED 128×32, I2C |
-| Taster | GPIO 5 (HIGH = gedrückt, weckt aus dem Deep-Sleep) |
-| Akku | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 2 |
+| Komponente | Details                                                          |
+| ---------- | ---------------------------------------------------------------- |
+| MCU        | ESP32-C3 Super Mini                                              |
+| Wägezelle  | HX711-Verstärker (10 Messungen/s, 80/s bei umgelötetem RATE-Pin) |
+| Display    | SSD1306 OLED 128×32, I2C                                         |
+| Taster     | GPIO 5 (HIGH = gedrückt, weckt aus dem Deep-Sleep)               |
+| Akku       | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 2            |
 
-| Funktion | GPIO |
-|---|---|
-| OLED SDA / SCL | 8 / 9 |
+| Funktion        | GPIO    |
+| --------------- | ------- |
+| OLED SDA / SCL  | 8 / 9   |
 | HX711 DAT / CLK | 21 / 20 |
-| Taster | 5 |
-| Akku-ADC | 2 |
+| Taster          | 5       |
+| Akku-ADC        | 2       |
 
 ## Bedienung
 
 ### Taster
 
-| Aktion | Wirkung |
-|---|---|
-| Kurz drücken | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage) |
-| Halten | Ab 0,3 s erscheint ein Balken mit Marken bei 3 s und 5 s; der Text zeigt, was beim Loslassen passiert |
-| Halten 3–5 s | Modus wechseln (Game ↔ Standard) |
-| Halten 5–8 s | Funk: läuft der Config-AP → alles aus, sonst Funk + AP an |
-| Halten ≥ 8 s | Abbrechen, nichts passiert |
+| Aktion       | Wirkung                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| Kurz drücken | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                    |
+| Halten       | Ab 0,3 s erscheint ein Balken mit Marken bei 3 s und 5 s; der Text zeigt, was beim Loslassen passiert |
+| Halten 3–5 s | Modus wechseln (Game ↔ Standard)                                                                      |
+| Halten 5–8 s | Funk: läuft der Config-AP → alles aus, sonst Funk + AP an                                             |
+| Halten ≥ 8 s | Abbrechen, nichts passiert                                                                            |
 
 ### Spiel (Game-Modus)
 
@@ -42,13 +42,13 @@ gegeneinander antreten (Duell). Technische Details stehen in [Specs.md](Specs.md
 4. Ergebnis: getrunkene Menge auf 0,01 g mit Bewertung, im Wechsel mit der Zeit.
    Die erste Nachkommastelle ist exakt, die zweite Glück.
 
-| Abweichung vom Ziel | Bewertung |
-|---|---|
-| 0,00 g | Perfekt! |
-| ≤ 0,10 g | Not Bad! |
-| ≤ 1,00 g | Ganz ok! |
-| zu wenig | Schüchtern |
-| zu viel | Zu gierig! |
+| Abweichung vom Ziel | Bewertung  |
+| ------------------- | ---------- |
+| 0,00 g              | Perfekt!   |
+| ≤ 0,10 g            | Not Bad!   |
+| ≤ 1,00 g            | Ganz ok!   |
+| zu wenig            | Schüchtern |
+| zu viel             | Zu gierig! |
 
 **Ergebnis stehen lassen:** Ein gutes Ergebnis (innerhalb des Auto-Reset-Bereichs,
 Standard ±10 %) bleibt zum Prahlen stehen, bis jemand den Taster drückt. Ein
@@ -81,14 +81,14 @@ Einfache Waage mit 0,1 g Anzeige. Nimmt nicht an Duellen teil.
 
 ### Symbole
 
-| Symbol | Bedeutung |
-|---|---|
-| 🔀 oben links | Zufallsziel aktiv |
-| WLAN-Bogen | Funk an |
-| `AP` | Config-Access-Point läuft |
-| `Vs n` | n andere Duell-Waagen sichtbar |
-| Akku | Ladezustand (bei ausgeschaltetem Funk) |
-| blinkender Akku mit `!` | Akku unter 10 % |
+| Symbol                  | Bedeutung                              |
+| ----------------------- | -------------------------------------- |
+| 🔀 oben links           | Zufallsziel aktiv                      |
+| WLAN-Bogen              | Funk an                                |
+| `AP`                    | Config-Access-Point läuft              |
+| `Vs n`                  | n andere Duell-Waagen sichtbar         |
+| Akku                    | Ladezustand (bei ausgeschaltetem Funk) |
+| blinkender Akku mit `!` | Akku unter 10 %                        |
 
 ### Energie
 
@@ -144,6 +144,16 @@ Simulation mehrerer Waagen mit Paketverlust:
 ```bash
 ./test/run.sh                 # alle Host-Tests
 SANITIZE=1 ./test/run.sh      # zusätzlich mit AddressSanitizer/UBSan
+```
+
+## Formatierung
+
+C++ wird mit clang-format (`.clang-format`, LLVM-Stil, 80 Spalten) formatiert,
+Markdown und YAML mit Prettier (`.prettierrc.yaml`). `tools/format.sh`
+formatiert alles. Ein Pre-commit-Hook formatiert die gestagten Dateien:
+
+```sh
+git config core.hooksPath .githooks
 ```
 
 ## Lizenz

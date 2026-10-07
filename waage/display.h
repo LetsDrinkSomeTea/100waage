@@ -1,6 +1,6 @@
 #pragma once
-#include <Adafruit_SSD1306.h>
 #include "text_core.h"
+#include <Adafruit_SSD1306.h>
 
 // ── OLED-Primitive (SSD1306 128x32, CP437-Font) ───────────────────────────────
 

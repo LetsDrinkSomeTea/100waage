@@ -9,22 +9,23 @@
 
 namespace scale {
 
-constexpr int BUF_MAX = 96;                   // Samples im Ringpuffer (>= 1 s bei 80 SPS)
-constexpr uint32_t STABLE_MS = 500;           // Fenster fuer die Stabilitaetspruefung
-constexpr uint32_t DISPLAY_MS = 1000;         // max. Glaettung der Anzeige
-constexpr float STEP_G = 2.0f;                // Sprung > STEP_G startet die Glaettung neu
-constexpr uint32_t TARE_DISCARD_MS = 100;     // nach Tara-Start verworfene Zeit
-constexpr int TARE_MIN_SAMPLES = 5;           // stabile Samples fuer eine Tara
-constexpr uint32_t TARE_MAX_MS = 2000;        // danach Tara mit dem, was da ist
-constexpr float STABLE_SPREAD_MIN_G = 1.0f;   // stableSpread = max(1 g, Toleranz / 5)
+constexpr int BUF_MAX = 96;         // Samples im Ringpuffer (>= 1 s bei 80 SPS)
+constexpr uint32_t STABLE_MS = 500; // Fenster fuer die Stabilitaetspruefung
+constexpr uint32_t DISPLAY_MS = 1000; // max. Glaettung der Anzeige
+constexpr float STEP_G = 2.0f; // Sprung > STEP_G startet die Glaettung neu
+constexpr uint32_t TARE_DISCARD_MS = 100; // nach Tara-Start verworfene Zeit
+constexpr int TARE_MIN_SAMPLES = 5;       // stabile Samples fuer eine Tara
+constexpr uint32_t TARE_MAX_MS = 2000;    // danach Tara mit dem, was da ist
+constexpr float STABLE_SPREAD_MIN_G =
+    1.0f; // stableSpread = max(1 g, Toleranz / 5)
 
 struct Reading {
-  bool valid;       // mindestens ein Sample und keine Tara aktiv
-  float grams;      // adaptiv geglaettet: Anzeige und Schwellen
-  float spread;     // max - min [g] der Samples der letzten STABLE_MS (ueber
-                    // gleitende ~100-ms-Mittel: 10 SPS Einzelsamples, 80 SPS je 8)
-  bool stable;      // STABLE_MS abgedeckt und spread <= stableSpread
-  float sps;        // gemessene Samples pro Sekunde (0 = unbekannt)
+  bool valid;   // mindestens ein Sample und keine Tara aktiv
+  float grams;  // adaptiv geglaettet: Anzeige und Schwellen
+  float spread; // max - min [g] der Samples der letzten STABLE_MS (ueber
+                // gleitende ~100-ms-Mittel: 10 SPS Einzelsamples, 80 SPS je 8)
+  bool stable;  // STABLE_MS abgedeckt und spread <= stableSpread
+  float sps;    // gemessene Samples pro Sekunde (0 = unbekannt)
 };
 
 class Core {
@@ -38,7 +39,8 @@ public:
   void setOffset(float offset);
   float factor() const { return factor_; }
   float offset() const { return offset_; }
-  void setStableSpread(float grams);  // Default max(1 g, 10 g / 5); min. STABLE_SPREAD_MIN_G
+  void setStableSpread(
+      float grams); // Default max(1 g, 10 g / 5); min. STABLE_SPREAD_MIN_G
   float stableSpread() const { return stableSpread_; }
 
   // Neues Rohsample. Waehrend einer Tara landen Samples im Tara-Puffer.
@@ -72,9 +74,9 @@ private:
     uint32_t t;
     float raw;
   };
-  struct Window;  // Statistik der letzten STABLE_MS (scale_core.cpp)
+  struct Window; // Statistik der letzten STABLE_MS (scale_core.cpp)
 
-  const Sample &at(int i) const;  // i = 0: neuestes Sample
+  const Sample &at(int i) const; // i = 0: neuestes Sample
   void push(float raw, uint32_t t);
   float filterMean(uint32_t ref) const;
   void window(uint32_t now, Window *w) const;
@@ -85,8 +87,8 @@ private:
   // Samples darin (die neuesten tareCount_), beim Abschluss bleiben genau die
   // fuer den Offset benutzten Samples uebrig.
   Sample buf_[BUF_MAX] = {};
-  int head_ = 0, count_ = 0;  // naechster Schreibplatz, Anzahl
-  int filterN_ = 0;           // neueste Samples seit letztem Neustart der Glaettung
+  int head_ = 0, count_ = 0; // naechster Schreibplatz, Anzahl
+  int filterN_ = 0; // neueste Samples seit letztem Neustart der Glaettung
   float factor_ = 708.0f, offset_ = 0.0f, stableSpread_ = 2.0f;
   bool taring_ = false;
   uint32_t tareStart_ = 0;
@@ -103,44 +105,51 @@ private:
 // error() = BadWeight, Zustand bleibt (neuer Versuch moeglich). cancel() in
 // Done/RemoveWeight/Error → Off ohne Wiederherstellen (Faktor bleibt).
 
-enum class CalState : uint8_t { Off,
-                                Prepare,
-                                Taring,
-                                WaitWeight,
-                                Measuring,
-                                Done,
-                                RemoveWeight,
-                                Error };
+enum class CalState : uint8_t {
+  Off,
+  Prepare,
+  Taring,
+  WaitWeight,
+  Measuring,
+  Done,
+  RemoveWeight,
+  Error
+};
 
-enum class CalError : uint8_t { None,
-                                BadWeight,  // bekanntes Gewicht ungueltig
-                                NoWeight,   // kein Gewicht erkannt (|Delta| zu klein)
-                                BadFactor,  // Faktor nicht endlich oder |f| < 1
-                                Timeout,
-                                Cancelled };
+enum class CalError : uint8_t {
+  None,
+  BadWeight, // bekanntes Gewicht ungueltig
+  NoWeight,  // kein Gewicht erkannt (|Delta| zu klein)
+  BadFactor, // Faktor nicht endlich oder |f| < 1
+  Timeout,
+  Cancelled
+};
 
 constexpr uint32_t CAL_PREPARE_MS = 2000;
-constexpr uint32_t CAL_TIMEOUT_MS = 120000;     // WaitWeight/Measuring
-constexpr uint32_t CAL_MEASURE_MAX_MS = 5000;   // stabil werden bis dahin, sonst Mittel
+constexpr uint32_t CAL_TIMEOUT_MS = 120000; // WaitWeight/Measuring
+constexpr uint32_t CAL_MEASURE_MAX_MS =
+    5000; // stabil werden bis dahin, sonst Mittel
 constexpr float CAL_MIN_DELTA_COUNTS = 1000.0f;
 constexpr float CAL_WEIGHT_MIN = 0.5f, CAL_WEIGHT_MAX = 5000.0f;
 constexpr uint32_t CAL_REMOVE_MS = 1000;
 
 class Calibrator {
 public:
-  void start(Core &s, uint32_t now);              // merkt alten Offset/Faktor
-  bool measure(float knownG, uint32_t now);       // false: Gewicht ungueltig oder falscher Schritt
-  void cancel(Core &s);                           // stellt alten Zustand her
+  void start(Core &s, uint32_t now); // merkt alten Offset/Faktor
+  bool measure(float knownG,
+               uint32_t now); // false: Gewicht ungueltig oder falscher Schritt
+  void cancel(Core &s);       // stellt alten Zustand her
   void update(Core &s, uint32_t now, float removeTolG);
-  void acknowledge();                             // Error → Off
+  void acknowledge(); // Error → Off
 
   CalState state() const { return state_; }
   CalError error() const { return error_; }
   bool active() const { return state_ != CalState::Off; }
   float oldFactor() const { return oldFactor_; }
-  float newFactor() const { return newFactor_; }  // gueltig ab Done
-  bool takeNewFactor(float *f);                   // einmalig true nach Erfolg (zum Speichern)
-  float liveDeltaCounts(const Core &s, uint32_t now) const;  // aktuelles Mittel - Offset
+  float newFactor() const { return newFactor_; } // gueltig ab Done
+  bool takeNewFactor(float *f); // einmalig true nach Erfolg (zum Speichern)
+  float liveDeltaCounts(const Core &s,
+                        uint32_t now) const; // aktuelles Mittel - Offset
 
 private:
   void restore(Core &s) const;
@@ -157,4 +166,4 @@ private:
   bool removeTiming_ = false;
 };
 
-}  // namespace scale
+} // namespace scale

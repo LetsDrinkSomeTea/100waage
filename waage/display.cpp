@@ -1,7 +1,7 @@
 #include "display.h"
 #include <Wire.h>
 
-constexpr int8_t OLED_RESET = -1;  // kein Reset-Pin
+constexpr int8_t OLED_RESET = -1; // kein Reset-Pin
 constexpr uint8_t SCREEN_ADDR = 0x3C;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -26,9 +26,11 @@ void drawCentered(const char *cp437, int textSize, int y, int h) {
 }
 
 void drawLayout(const text::Layout &l) {
-  if (l.lines == 0) return;
+  if (l.lines == 0)
+    return;
   int slotH = SCREEN_HEIGHT / l.lines;
-  for (int i = 0; i < l.lines; i++) drawCentered(l.line[i], l.size, slotH * i, slotH);
+  for (int i = 0; i < l.lines; i++)
+    drawCentered(l.line[i], l.size, slotH * i, slotH);
 }
 
 // ── Animation und Haltebalken ─────────────────────────────────────────────────
@@ -43,8 +45,10 @@ void drawLoadingAnimation(int frame) {
   int filled = frame % NUM_CIRCLES;
   for (int i = 0; i < NUM_CIRCLES; i++) {
     int x = START_X + i * SPACING;
-    if (i == filled) display.fillCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
-    else display.drawCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
+    if (i == filled)
+      display.fillCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
+    else
+      display.drawCircle(x, CENTER_Y, RADIUS, SSD1306_WHITE);
   }
 }
 
@@ -52,11 +56,13 @@ void drawLoadingAnimation(int frame) {
 void drawHoldBar(int filledPx, int tickA, int tickB) {
   constexpr int Y = 24, H = 8;
   display.drawRect(0, Y, SCREEN_WIDTH, H, SSD1306_WHITE);
-  if (filledPx > 0) display.fillRect(0, Y, filledPx, H, SSD1306_WHITE);
-  for (int x : { tickA, tickB }) {
+  if (filledPx > 0)
+    display.fillRect(0, Y, filledPx, H, SSD1306_WHITE);
+  for (int x : {tickA, tickB}) {
     display.drawFastVLine(x, Y - 3, 3, SSD1306_WHITE);
     // In der Fuellung invertiert, damit die Marke sichtbar bleibt
-    display.drawFastVLine(x, Y + 1, H - 2, x < filledPx ? SSD1306_BLACK : SSD1306_WHITE);
+    display.drawFastVLine(x, Y + 1, H - 2,
+                          x < filledPx ? SSD1306_BLACK : SSD1306_WHITE);
   }
 }
 
@@ -66,7 +72,8 @@ void drawBatteryIcon(int16_t x, int16_t y, int percent) {
   display.drawRect(x, y, 12, 7, SSD1306_WHITE);
   display.fillRect(x + 12, y + 2, 2, 3, SSD1306_WHITE);
   int fill = map(constrain(percent, 0, 100), 0, 100, 0, 10);
-  if (fill > 0) display.fillRect(x + 1, y + 1, fill, 5, SSD1306_WHITE);
+  if (fill > 0)
+    display.fillRect(x + 1, y + 1, fill, 5, SSD1306_WHITE);
 }
 
 // Leeres Akkusymbol mit Ausrufezeichen auf schwarzem Grund (Warnung < 10 %)

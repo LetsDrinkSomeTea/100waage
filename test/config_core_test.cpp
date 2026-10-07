@@ -44,14 +44,19 @@ static void setStr(char *dst, size_t size, const char *s) {
 // Feldweiser Vergleich (Padding ignoriert, Floats bitgenau, Strings komplett)
 static bool same(const Config &a, const Config &b) {
   return memcmp(a.apSSID, b.apSSID, sizeof a.apSSID) == 0 &&
-         memcmp(a.adminPassword, b.adminPassword, sizeof a.adminPassword) == 0 &&
-         bits(a.scaleFactor) == bits(b.scaleFactor) && bits(a.goal) == bits(b.goal) &&
-         bits(a.tolerance) == bits(b.tolerance) && a.displayRotation == b.displayRotation &&
+         memcmp(a.adminPassword, b.adminPassword, sizeof a.adminPassword) ==
+             0 &&
+         bits(a.scaleFactor) == bits(b.scaleFactor) &&
+         bits(a.goal) == bits(b.goal) &&
+         bits(a.tolerance) == bits(b.tolerance) &&
+         a.displayRotation == b.displayRotation &&
          a.wifiTimeout == b.wifiTimeout && a.sleepTimeout == b.sleepTimeout &&
-         bits(a.battDividerRatio) == bits(b.battDividerRatio) && a.scaleMode == b.scaleMode &&
-         a.autoResetRange == b.autoResetRange && a.autoZeroEnabled == b.autoZeroEnabled &&
+         bits(a.battDividerRatio) == bits(b.battDividerRatio) &&
+         a.scaleMode == b.scaleMode && a.autoResetRange == b.autoResetRange &&
+         a.autoZeroEnabled == b.autoZeroEnabled &&
          bits(a.autoZeroThreshold) == bits(b.autoZeroThreshold) &&
-         a.autoZeroDelay == b.autoZeroDelay && a.randomModeEnabled == b.randomModeEnabled &&
+         a.autoZeroDelay == b.autoZeroDelay &&
+         a.randomModeEnabled == b.randomModeEnabled &&
          bits(a.randomMin) == bits(b.randomMin);
 }
 
@@ -88,8 +93,8 @@ static bool ssidKept(const char *ssid) {
 static bool rejects(const Config &in, const char *field) {
   Config c = in;
   Error e = validate(c);
-  return e.field != nullptr && strcmp(e.field, field) == 0 && e.message != nullptr &&
-         e.message[0] != '\0' && same(c, in);
+  return e.field != nullptr && strcmp(e.field, field) == 0 &&
+         e.message != nullptr && e.message[0] != '\0' && same(c, in);
 }
 
 static const char *messageFor(const Config &in) {
@@ -122,11 +127,13 @@ static void testDefaults() {
   CHECK(c.autoZeroDelay == 5);
   CHECK(c.randomModeEnabled == false);
   CHECK(c.randomMin == 20.0f);
-  CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT && c.battDividerRatio == BATT_RATIO_DEFAULT);
+  CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT &&
+        c.battDividerRatio == BATT_RATIO_DEFAULT);
 
   // String-Reste genullt (reproduzierbares Abbild)
   bool tailZero = true;
-  for (size_t i = strlen(c.apSSID); i < sizeof c.apSSID; i++) tailZero &= c.apSSID[i] == 0;
+  for (size_t i = strlen(c.apSSID); i < sizeof c.apSSID; i++)
+    tailZero &= c.apSSID[i] == 0;
   for (size_t i = strlen(c.adminPassword); i < sizeof c.adminPassword; i++)
     tailZero &= c.adminPassword[i] == 0;
   CHECK(tailZero);
@@ -161,8 +168,8 @@ static void testSanitizeScaleFactor() {
 
 static void testSanitizeTolerance() {
   float o;
-  CHECK(!sanF(&Config::tolerance, 7.25f, o) && o == 7.25f);  // kein Raster
-  CHECK(!sanF(&Config::tolerance, 2.0f, o) && o == 2.0f);    // = autoZeroThreshold
+  CHECK(!sanF(&Config::tolerance, 7.25f, o) && o == 7.25f); // kein Raster
+  CHECK(!sanF(&Config::tolerance, 2.0f, o) && o == 2.0f); // = autoZeroThreshold
   CHECK(sanF(&Config::tolerance, 0.49f, o) && o == 10.0f);
   CHECK(sanF(&Config::tolerance, 100.01f, o) && o == 10.0f);
   CHECK(sanF(&Config::tolerance, 0.0f, o) && o == 10.0f);
@@ -194,7 +201,7 @@ static void testSanitizeGoal() {
   CHECK(!sanF(&Config::goal, 250.0f, o) && o == 250.0f);
   CHECK(!sanF(&Config::goal, 33.3f, o) && bits(o) == bits(33.3f));
   CHECK(!sanF(&Config::goal, 5000.0f, o) && o == 5000.0f);
-  CHECK(!sanF(&Config::goal, 20.0f, o) && o == 20.0f);  // = randomMin
+  CHECK(!sanF(&Config::goal, 20.0f, o) && o == 20.0f); // = randomMin
   // Raster 0,1 g
   CHECK(sanF(&Config::goal, 100.04f, o) && bits(o) == bits(100.0f));
   CHECK(sanF(&Config::goal, 100.06f, o) && bits(o) == bits(100.1f));
@@ -203,7 +210,8 @@ static void testSanitizeGoal() {
   // Klemmen
   CHECK(sanF(&Config::goal, 6000.0f, o) && o == 5000.0f);
   CHECK(sanF(&Config::goal, 1e30f, o) && o == 5000.0f);
-  CHECK(sanF(&Config::goal, 0.0f, o) && o == 11.0f);  // 1 → mindestens tolerance + 1
+  CHECK(sanF(&Config::goal, 0.0f, o) &&
+        o == 11.0f); // 1 → mindestens tolerance + 1
   CHECK(sanF(&Config::goal, -50.0f, o) && o == 11.0f);
   CHECK(sanF(&Config::goal, 10.5f, o) && o == 11.0f);
   // Nicht endlich → Default
@@ -253,8 +261,8 @@ static void testSanitizeGoal() {
 static void testSanitizeRandomMin() {
   float o;
   CHECK(!sanF(&Config::randomMin, 20.0f, o) && o == 20.0f);
-  CHECK(!sanF(&Config::randomMin, 11.0f, o) && o == 11.0f);    // tolerance + 1
-  CHECK(!sanF(&Config::randomMin, 100.0f, o) && o == 100.0f);  // = goal
+  CHECK(!sanF(&Config::randomMin, 11.0f, o) && o == 11.0f);   // tolerance + 1
+  CHECK(!sanF(&Config::randomMin, 100.0f, o) && o == 100.0f); // = goal
   CHECK(!sanF(&Config::randomMin, 55.5f, o) && bits(o) == bits(55.5f));
   CHECK(sanF(&Config::randomMin, 10.9f, o) && o == 11.0f);
   CHECK(sanF(&Config::randomMin, 5.0f, o) && o == 11.0f);
@@ -272,7 +280,7 @@ static void testSanitizeRandomMin() {
   CHECK(sanitize(c));
   CHECK(c.randomMin == 15.0f);
   c = defaults();
-  c.goal = NAN_F;  // → 100
+  c.goal = NAN_F; // → 100
   c.randomMin = 150.0f;
   CHECK(sanitize(c));
   CHECK(c.goal == 100.0f && c.randomMin == 100.0f);
@@ -289,11 +297,13 @@ static void testSanitizeAutoZero() {
   float o;
   CHECK(!sanF(&Config::autoZeroThreshold, 2.0f, o) && o == 2.0f);
   CHECK(!sanF(&Config::autoZeroThreshold, 0.1f, o) && bits(o) == bits(0.1f));
-  CHECK(!sanF(&Config::autoZeroThreshold, 10.0f, o) && o == 10.0f);  // = tolerance
+  CHECK(!sanF(&Config::autoZeroThreshold, 10.0f, o) &&
+        o == 10.0f); // = tolerance
   CHECK(!sanF(&Config::autoZeroThreshold, 0.37f, o) && bits(o) == bits(0.37f));
   CHECK(sanF(&Config::autoZeroThreshold, 0.05f, o) && bits(o) == bits(0.1f));
   CHECK(sanF(&Config::autoZeroThreshold, -1.0f, o) && bits(o) == bits(0.1f));
-  CHECK(sanF(&Config::autoZeroThreshold, 15.0f, o) && o == 10.0f);  // <= tolerance
+  CHECK(sanF(&Config::autoZeroThreshold, 15.0f, o) &&
+        o == 10.0f); // <= tolerance
   CHECK(sanF(&Config::autoZeroThreshold, NAN_F, o) && o == 2.0f);
   CHECK(sanF(&Config::autoZeroThreshold, INF_F, o) && o == 2.0f);
 
@@ -305,7 +315,7 @@ static void testSanitizeAutoZero() {
   c.autoZeroThreshold = 20.0f;
   CHECK(!sanitize(c));
   c = defaults();
-  c.tolerance = 0.5f;  // Default 2 g > Toleranz
+  c.tolerance = 0.5f; // Default 2 g > Toleranz
   CHECK(sanitize(c));
   CHECK(c.autoZeroThreshold == 0.5f);
 
@@ -376,32 +386,34 @@ static void testSanitizeStrings() {
   // Gueltige SSIDs bleiben (UTF-8 erlaubt)
   CHECK(ssidKept("Partywaage"));
   CHECK(ssidKept(" "));
-  CHECK(ssidKept("B\xC3\xA4r"));                     // "Baer" mit ae als UTF-8
-  CHECK(ssidKept("\xE2\x82\xAC" "uro"));             // Euro-Zeichen + "uro"
-  CHECK(ssidKept("Bier \xF0\x9F\x8D\xBA"));          // Bier + Bierkrug U+1F37A
-  CHECK(ssidKept("\xC2\xA0nbsp"));                   // U+00A0 ist druckbar
-  CHECK(ssidKept("\xF4\x8F\xBF\xBF"));               // U+10FFFF
-  CHECK(ssidKept("\xED\x9F\xBF"));                   // U+D7FF
-  CHECK(ssidKept("12345678901234567890123456789012"));  // 32 Bytes
+  CHECK(ssidKept("B\xC3\xA4r")); // "Baer" mit ae als UTF-8
+  CHECK(ssidKept("\xE2\x82\xAC"
+                 "uro"));                   // Euro-Zeichen + "uro"
+  CHECK(ssidKept("Bier \xF0\x9F\x8D\xBA")); // Bier + Bierkrug U+1F37A
+  CHECK(ssidKept("\xC2\xA0nbsp"));          // U+00A0 ist druckbar
+  CHECK(ssidKept("\xF4\x8F\xBF\xBF"));      // U+10FFFF
+  CHECK(ssidKept("\xED\x9F\xBF"));          // U+D7FF
+  CHECK(ssidKept("12345678901234567890123456789012")); // 32 Bytes
 
   // Leer oder nicht druckbar → Default
   CHECK(ssidReplaced(""));
-  CHECK(ssidReplaced("\x01" "abc"));
+  CHECK(ssidReplaced("\x01"
+                     "abc"));
   CHECK(ssidReplaced("ab\x7F"));
   CHECK(ssidReplaced("a\tb"));
   CHECK(ssidReplaced("a\nb"));
-  CHECK(ssidReplaced("\xC2\x80"));          // C1-Steuerzeichen
+  CHECK(ssidReplaced("\xC2\x80")); // C1-Steuerzeichen
   CHECK(ssidReplaced("x\xC2\x9F"));
   CHECK(ssidReplaced("\xFF"));
-  CHECK(ssidReplaced("ab\x80"));            // einzelnes Folgebyte
-  CHECK(ssidReplaced("ab\xC3"));            // abgeschnittene Sequenz
+  CHECK(ssidReplaced("ab\x80")); // einzelnes Folgebyte
+  CHECK(ssidReplaced("ab\xC3")); // abgeschnittene Sequenz
   CHECK(ssidReplaced("\xE2\x82"));
-  CHECK(ssidReplaced("\xC3\x28"));          // falsches Folgebyte
-  CHECK(ssidReplaced("\xC0\xAF"));          // Overlong
-  CHECK(ssidReplaced("\xE0\x80\xAF"));      // Overlong
-  CHECK(ssidReplaced("\xF0\x80\x80\xAF"));  // Overlong
-  CHECK(ssidReplaced("\xED\xA0\x80"));      // Surrogate
-  CHECK(ssidReplaced("\xF4\x90\x80\x80"));  // > U+10FFFF
+  CHECK(ssidReplaced("\xC3\x28"));         // falsches Folgebyte
+  CHECK(ssidReplaced("\xC0\xAF"));         // Overlong
+  CHECK(ssidReplaced("\xE0\x80\xAF"));     // Overlong
+  CHECK(ssidReplaced("\xF0\x80\x80\xAF")); // Overlong
+  CHECK(ssidReplaced("\xED\xA0\x80"));     // Surrogate
+  CHECK(ssidReplaced("\xF4\x90\x80\x80")); // > U+10FFFF
   CHECK(ssidReplaced("\xF5\x80\x80\x80"));
 
   // Ersetzt: Rest des Arrays genullt
@@ -411,7 +423,8 @@ static void testSanitizeStrings() {
   CHECK(sanitize(c));
   CHECK(strcmp(c.apSSID, DEFAULT_AP_SSID) == 0);
   bool tailZero = true;
-  for (size_t i = strlen(c.apSSID); i < sizeof c.apSSID; i++) tailZero &= c.apSSID[i] == 0;
+  for (size_t i = strlen(c.apSSID); i < sizeof c.apSSID; i++)
+    tailZero &= c.apSSID[i] == 0;
   CHECK(tailZero);
 
   // Nicht terminiert → auf 32 Bytes gekuerzt
@@ -465,23 +478,25 @@ static bool inRanges(const Config &c) {
   size_t p = strnlen(c.adminPassword, sizeof c.adminPassword);
   return n >= 1 && n <= SSID_MAX && p >= 1 && p <= PASSWORD_MAX &&
          std::isfinite(c.scaleFactor) && std::fabs(c.scaleFactor) >= 1.0f &&
-         c.tolerance >= 0.5f && c.tolerance <= 100.0f &&
-         c.goal >= 1.0f && c.goal <= 5000.0f && onGrid(c.goal) &&
-         c.goal >= c.tolerance + 1.0f &&
-         c.randomMin <= c.goal && c.randomMin >= std::fmin(c.tolerance + 1.0f, c.goal) &&
-         onGrid(c.randomMin) &&
-         c.autoZeroThreshold >= 0.1f && c.autoZeroThreshold <= 20.0f &&
-         c.autoZeroThreshold <= c.tolerance &&
-         c.autoZeroDelay >= 1 && c.autoZeroDelay <= 60 && c.autoResetRange <= 100 &&
+         c.tolerance >= 0.5f && c.tolerance <= 100.0f && c.goal >= 1.0f &&
+         c.goal <= 5000.0f && onGrid(c.goal) && c.goal >= c.tolerance + 1.0f &&
+         c.randomMin <= c.goal &&
+         c.randomMin >= std::fmin(c.tolerance + 1.0f, c.goal) &&
+         onGrid(c.randomMin) && c.autoZeroThreshold >= 0.1f &&
+         c.autoZeroThreshold <= 20.0f && c.autoZeroThreshold <= c.tolerance &&
+         c.autoZeroDelay >= 1 && c.autoZeroDelay <= 60 &&
+         c.autoResetRange <= 100 &&
          (c.displayRotation == 0 || c.displayRotation == 2) &&
          c.battDividerRatio >= 1.0f && c.battDividerRatio <= 6.0f &&
          (c.scaleMode == ScaleMode::Game || c.scaleMode == ScaleMode::Standard);
 }
 
 static float specialFloat() {
-  static const float v[] = {NAN_F, INF_F, -INF_F, 0.0f, -0.0f, 1e-40f, 0.05f, 0.1f, 0.5f,
-                            0.55f, 1.0f, 1.5f, 2.0f, 6.0f, 10.0f, 20.0f, 100.0f, 100.05f,
-                            101.0f, 5000.0f, 5000.04f, 5000.06f, -1.0f, 3e38f, -3e38f};
+  static const float v[] = {NAN_F,    INF_F,    -INF_F,  0.0f,   -0.0f,
+                            1e-40f,   0.05f,    0.1f,    0.5f,   0.55f,
+                            1.0f,     1.5f,     2.0f,    6.0f,   10.0f,
+                            20.0f,    100.0f,   100.05f, 101.0f, 5000.0f,
+                            5000.04f, 5000.06f, -1.0f,   3e38f,  -3e38f};
   return v[rnd() % (sizeof v / sizeof v[0])];
 }
 
@@ -491,24 +506,32 @@ static void testSanitizeFuzz() {
   int bad = 0;
   for (int iter = 0; iter < 20000; iter++) {
     uint8_t raw[sizeof(Config)];
-    for (size_t i = 0; i < sizeof raw; i++) raw[i] = (uint8_t)rnd();
+    for (size_t i = 0; i < sizeof raw; i++)
+      raw[i] = (uint8_t)rnd();
     Config c;
     memcpy(&c, raw, sizeof c);
     // Sonderwerte gezielt einstreuen
-    float Config::*floats[] = {&Config::scaleFactor, &Config::goal, &Config::tolerance,
-                               &Config::battDividerRatio, &Config::autoZeroThreshold,
-                               &Config::randomMin};
+    float Config::*floats[] = {
+        &Config::scaleFactor,       &Config::goal,
+        &Config::tolerance,         &Config::battDividerRatio,
+        &Config::autoZeroThreshold, &Config::randomMin};
     for (auto f : floats)
-      if (rnd() % 2) c.*f = specialFloat();
-    if (rnd() % 4 == 0) c.apSSID[rnd() % sizeof c.apSSID] = '\0';
-    if (rnd() % 4 == 0) c.adminPassword[rnd() % sizeof c.adminPassword] = '\0';
+      if (rnd() % 2)
+        c.*f = specialFloat();
+    if (rnd() % 4 == 0)
+      c.apSSID[rnd() % sizeof c.apSSID] = '\0';
+    if (rnd() % 4 == 0)
+      c.adminPassword[rnd() % sizeof c.adminPassword] = '\0';
 
     sanitize(c);
-    if (!inRanges(c)) bad++;
+    if (!inRanges(c))
+      bad++;
     Config d = c;
-    if (sanitize(d) || !same(c, d)) bad++;
+    if (sanitize(d) || !same(c, d))
+      bad++;
     Config v = c;
-    if (!accepts(v) || !same(v, c)) bad++;
+    if (!accepts(v) || !same(v, c))
+      bad++;
   }
   CHECK(bad == 0);
 }
@@ -524,7 +547,7 @@ static void testValidateFields() {
   setStr(c.apSSID, sizeof c.apSSID, "");
   CHECK(rejects(c, "apSSID"));
   c = base;
-  memset(c.apSSID, 'a', sizeof c.apSSID);  // 33 Bytes ohne NUL
+  memset(c.apSSID, 'a', sizeof c.apSSID); // 33 Bytes ohne NUL
   CHECK(rejects(c, "apSSID"));
   c = base;
   setStr(c.apSSID, sizeof c.apSSID, "a\x01");
@@ -536,7 +559,7 @@ static void testValidateFields() {
   setStr(c.apSSID, sizeof c.apSSID, "a\x7F");
   CHECK(rejects(c, "apSSID"));
   c = base;
-  setStr(c.apSSID, sizeof c.apSSID, "\xC2\x85");  // C1
+  setStr(c.apSSID, sizeof c.apSSID, "\xC2\x85"); // C1
   CHECK(rejects(c, "apSSID"));
   c = base;
   setStr(c.apSSID, sizeof c.apSSID, "ab\xFF");
@@ -579,10 +602,10 @@ static void testValidateFields() {
   c.goal = 5000.1f;
   CHECK(rejects(c, "goal"));
   c = base;
-  c.goal = 5000.06f;  // gerundet 5000,1
+  c.goal = 5000.06f; // gerundet 5000,1
   CHECK(rejects(c, "goal"));
   c = base;
-  c.goal = 5000.04f;  // gerundet 5000,0
+  c.goal = 5000.04f; // gerundet 5000,0
   CHECK(accepts(c));
   CHECK(c.goal == 5000.0f);
   c = base;
@@ -613,7 +636,7 @@ static void testValidateFields() {
   CHECK(rangeMsg && relMsg && strcmp(rangeMsg, relMsg) != 0);
   CHECK(relMsg && strstr(relMsg, "Toleranz") != nullptr);
   c = base;
-  c.goal = 10.96f;  // gerundet 11,0
+  c.goal = 10.96f; // gerundet 11,0
   CHECK(accepts(c));
   CHECK(bits(c.goal) == bits(11.0f));
   c = base;
@@ -621,9 +644,9 @@ static void testValidateFields() {
   c.autoZeroThreshold = 0.5f;
   c.goal = 1.5f;
   CHECK(accepts(c));
-  c.goal = 1.44f;  // gerundet 1,4 < 1,5
+  c.goal = 1.44f; // gerundet 1,4 < 1,5
   CHECK(rejects(c, "goal"));
-  c.goal = 1.46f;  // gerundet 1,5
+  c.goal = 1.46f; // gerundet 1,5
   CHECK(accepts(c));
   CHECK(c.goal == 1.5f);
 
@@ -659,7 +682,7 @@ static void testValidateFields() {
   CHECK(accepts(c));
   CHECK(c.randomMin == 11.0f);
   c = base;
-  c.goal = 30.0f;  // Ziel unter bisherigem Minimum
+  c.goal = 30.0f; // Ziel unter bisherigem Minimum
   c.randomMin = 50.0f;
   CHECK(accepts(c));
   CHECK(c.randomMin == 30.0f);
@@ -706,7 +729,7 @@ static void testValidateFields() {
   CHECK(accepts(c));
   c.autoZeroThreshold = 0.09f;
   CHECK(rejects(c, "autoZeroThreshold"));
-  c.autoZeroThreshold = 10.0f;  // = tolerance
+  c.autoZeroThreshold = 10.0f; // = tolerance
   CHECK(accepts(c));
   c.autoZeroThreshold = 10.01f;
   CHECK(rejects(c, "autoZeroThreshold"));
@@ -780,18 +803,20 @@ static void testValidateFields() {
   c.goal = 100.04f;
   c.randomMin = 5.0f;
   c.displayRotation = 1;
-  CHECK(rejects(c, "displayRotation"));  // goal/randomMin nicht angefasst
+  CHECK(rejects(c, "displayRotation")); // goal/randomMin nicht angefasst
 
   // Meldungen deutsch mit echten Umlauten (UTF-8)
   c = base;
   setStr(c.apSSID, sizeof c.apSSID, "a\x01");
   const char *m = messageFor(c);
-  CHECK(m && strstr(m, "ung\xC3\xBC" "ltig") != nullptr);  // "ungueltig"
+  CHECK(m && strstr(m, "ung\xC3\xBC"
+                       "ltig") != nullptr); // "ungueltig"
   c = base;
   c.autoZeroDelay = 0;
   m = messageFor(c);
-  CHECK(m && strstr(m, "Verz\xC3\xB6gerung") != nullptr);  // "Verzoegerung"
-  CHECK(azRelMsg && strstr(azRelMsg, "gr\xC3\xB6\xC3\x9F" "er") != nullptr);  // "groesser"
+  CHECK(m && strstr(m, "Verz\xC3\xB6gerung") != nullptr); // "Verzoegerung"
+  CHECK(azRelMsg && strstr(azRelMsg, "gr\xC3\xB6\xC3\x9F"
+                                     "er") != nullptr); // "groesser"
 }
 
 // Validierte Configs sind stabil: sanitize aendert nichts mehr.
@@ -799,10 +824,10 @@ static void testValidateMatchesSanitize() {
   int accepted = 0, bad = 0;
   for (int iter = 0; iter < 20000; iter++) {
     Config c = defaults();
-    c.tolerance = (float)(rnd() % 1100) / 10.0f;               // 0..110
-    c.goal = (float)(rnd() % 520000) / 100.0f;                 // 0..5200, 0,01 g
+    c.tolerance = (float)(rnd() % 1100) / 10.0f; // 0..110
+    c.goal = (float)(rnd() % 520000) / 100.0f;   // 0..5200, 0,01 g
     c.randomMin = (float)(rnd() % 600000) / 100.0f - 100.0f;
-    c.autoZeroThreshold = (float)(rnd() % 2500) / 100.0f;      // 0..25
+    c.autoZeroThreshold = (float)(rnd() % 2500) / 100.0f; // 0..25
     c.autoZeroDelay = (uint8_t)(rnd() % 70);
     c.autoResetRange = (uint8_t)(rnd() % 120);
     c.displayRotation = (uint8_t)(rnd() % 4);
@@ -810,19 +835,25 @@ static void testValidateMatchesSanitize() {
     c.scaleMode = (ScaleMode)(rnd() % 3);
     c.wifiTimeout = (uint8_t)rnd();
     c.sleepTimeout = (uint8_t)rnd();
-    if (rnd() % 10 == 0) c.goal = specialFloat();
-    if (rnd() % 10 == 0) c.randomMin = specialFloat();
+    if (rnd() % 10 == 0)
+      c.goal = specialFloat();
+    if (rnd() % 10 == 0)
+      c.randomMin = specialFloat();
     Config before = c;
     if (!accepts(c)) {
-      if (!same(c, before)) bad++;  // Ablehnen aendert nichts
+      if (!same(c, before))
+        bad++; // Ablehnen aendert nichts
       continue;
     }
     accepted++;
-    if (!inRanges(c)) bad++;
+    if (!inRanges(c))
+      bad++;
     Config s = c;
-    if (sanitize(s) || !same(s, c)) bad++;
+    if (sanitize(s) || !same(s, c))
+      bad++;
     Config again = c;
-    if (!accepts(again) || !same(again, c)) bad++;  // idempotent
+    if (!accepts(again) || !same(again, c))
+      bad++; // idempotent
   }
   CHECK(bad == 0);
   CHECK(accepted > 500);
@@ -834,11 +865,12 @@ static void testValidNewPassword() {
   CHECK(!validNewPassword("abc"));
   CHECK(validNewPassword("abcd"));
   CHECK(validNewPassword(" sp "));
-  CHECK(validNewPassword("p\xC3\xA4ss"));  // "paess", 5 Bytes
+  CHECK(validNewPassword("p\xC3\xA4ss")); // "paess", 5 Bytes
   CHECK(validNewPassword(std::string(31, 'x').c_str()));
   CHECK(!validNewPassword(std::string(32, 'x').c_str()));
   CHECK(!validNewPassword(std::string(200, 'x').c_str()));
-  CHECK(!validNewPassword("abc\x01" "d"));
+  CHECK(!validNewPassword("abc\x01"
+                          "d"));
   CHECK(!validNewPassword("abcd\x7F"));
   CHECK(!validNewPassword("abcd\n"));
   CHECK(!validNewPassword("\tabcd"));
@@ -853,7 +885,7 @@ static bool pf(const char *s, float expect) {
 
 static bool pfFails(const char *s) {
   float v = -777.0f;
-  return !parseFloat(s, &v) && v == -777.0f;  // out bleibt unangetastet
+  return !parseFloat(s, &v) && v == -777.0f; // out bleibt unangetastet
 }
 
 static void testParseFloat() {
@@ -876,7 +908,7 @@ static void testParseFloat() {
   CHECK(pf("007", 7.0f));
   CHECK(pf("712.34", 712.34f));
   CHECK(pf("3.4028235e38", 3.4028235e38f));
-  CHECK(pf("1e-50", 0.0f));  // Unterlauf ist endlich
+  CHECK(pf("1e-50", 0.0f)); // Unterlauf ist endlich
 
   CHECK(pfFails(""));
   CHECK(pfFails("   "));
@@ -942,13 +974,13 @@ static void testParseUint() {
   CHECK(pu("4294967295", 0xFFFFFFFFu, 0xFFFFFFFFu));
   CHECK(pu("60", 60, 60));
 
-  CHECK(puFails("256", 255));      // nicht auf 0 abgeschnitten
-  CHECK(puFails("300", 255));      // nicht 44
+  CHECK(puFails("256", 255)); // nicht auf 0 abgeschnitten
+  CHECK(puFails("300", 255)); // nicht 44
   CHECK(puFails("65536", 65535));
   CHECK(puFails("1", 0));
   CHECK(puFails("61", 60));
   CHECK(puFails("4294967296", 0xFFFFFFFFu));
-  CHECK(puFails("18446744073709551617", 0xFFFFFFFFu));  // 2^64 + 1
+  CHECK(puFails("18446744073709551617", 0xFFFFFFFFu)); // 2^64 + 1
   CHECK(puFails("99999999999999999999999999999", 0xFFFFFFFFu));
   CHECK(puFails("-1", 255));
   CHECK(puFails("-0", 255));
@@ -974,7 +1006,8 @@ static std::string cu(const char *src, size_t maxBytes) {
   copyUtf8(buf, src, maxBytes);
   // Kein Schreiben hinter maxBytes + 1
   for (size_t i = maxBytes + 1; i < sizeof buf; i++)
-    if (buf[i] != 'Z') return "<overflow>";
+    if (buf[i] != 'Z')
+      return "<overflow>";
   return std::string(buf);
 }
 
@@ -996,7 +1029,9 @@ static void testCopyUtf8() {
   CHECK(cu("a\xE2\x82\xAC", 2) == "a");
   CHECK(cu("a\xE2\x82\xAC", 3) == "a");
   CHECK(cu("a\xE2\x82\xAC", 4) == "a\xE2\x82\xAC");
-  CHECK(cu("a\xE2\x82\xAC" "b", 4) == "a\xE2\x82\xAC");
+  CHECK(cu("a\xE2\x82\xAC"
+           "b",
+           4) == "a\xE2\x82\xAC");
   // U+1F600 = F0 9F 98 80
   CHECK(cu("a\xF0\x9F\x98\x80", 2) == "a");
   CHECK(cu("a\xF0\x9F\x98\x80", 3) == "a");
@@ -1006,15 +1041,17 @@ static void testCopyUtf8() {
   CHECK(cu("\x80\x80\x80\x80\x80", 3) == "\x80\x80\x80");
   CHECK(cu("ab\xC3", 2) == "ab");
   CHECK(cu("\xFF\xFE\xFD", 2) == "\xFF\xFE");
-  CHECK(cu("a\xC3\xA4\xA4\xA4", 3) == "a\xC3\xA4");  // streunende Folgebytes
+  CHECK(cu("a\xC3\xA4\xA4\xA4", 3) == "a\xC3\xA4"); // streunende Folgebytes
 
   // In-place (dst == src)
-  char inplace[8] = "a\xC3\xA4" "bc";
+  char inplace[8] = "a\xC3\xA4"
+                    "bc";
   copyUtf8(inplace, inplace, 2);
   CHECK(std::string(inplace) == "a");
 
   // Eigenschaft: laengster Praefix an einer Zeichengrenze
-  static const char *pool[] = {"a", "\xC3\xA4", "\xE2\x82\xAC", "\xF0\x9F\x8D\xBA"};
+  static const char *pool[] = {"a", "\xC3\xA4", "\xE2\x82\xAC",
+                               "\xF0\x9F\x8D\xBA"};
   int bad = 0;
   for (int iter = 0; iter < 2000; iter++) {
     std::string s;
@@ -1024,11 +1061,14 @@ static void testCopyUtf8() {
       s += pool[rnd() % 4];
       bounds.push_back(s.size());
     }
-    for (size_t maxBytes = 0; maxBytes <= s.size() + 1 && maxBytes < 79; maxBytes++) {
+    for (size_t maxBytes = 0; maxBytes <= s.size() + 1 && maxBytes < 79;
+         maxBytes++) {
       size_t expect = 0;
       for (size_t b : bounds)
-        if (b <= maxBytes) expect = b;
-      if (cu(s.c_str(), maxBytes) != s.substr(0, expect)) bad++;
+        if (b <= maxBytes)
+          expect = b;
+      if (cu(s.c_str(), maxBytes) != s.substr(0, expect))
+        bad++;
     }
   }
   CHECK(bad == 0);
@@ -1040,7 +1080,8 @@ static std::string apName(const Config &c, const uint8_t mac[6]) {
   char out[SSID_MAX + 1];
   memset(out, 'Z', sizeof out);
   effectiveApName(c, mac, out);
-  if (strnlen(out, sizeof out) > SSID_MAX) return "<unterminated>";
+  if (strnlen(out, sizeof out) > SSID_MAX)
+    return "<unterminated>";
   return std::string(out);
 }
 
@@ -1192,9 +1233,11 @@ static_assert(offsetof(OldConfig, battDividerRatio) == 116, "battDividerRatio");
 static_assert(offsetof(OldConfig, scaleMode) == 120, "scaleMode");
 static_assert(offsetof(OldConfig, autoResetRange) == 121, "autoResetRange");
 static_assert(offsetof(OldConfig, autoZeroEnabled) == 122, "autoZeroEnabled");
-static_assert(offsetof(OldConfig, autoZeroThreshold) == 124, "autoZeroThreshold");
+static_assert(offsetof(OldConfig, autoZeroThreshold) == 124,
+              "autoZeroThreshold");
 static_assert(offsetof(OldConfig, autoZeroDelay) == 128, "autoZeroDelay");
-static_assert(offsetof(OldConfig, randomModeEnabled) == 129, "randomModeEnabled");
+static_assert(offsetof(OldConfig, randomModeEnabled) == 129,
+              "randomModeEnabled");
 static_assert(offsetof(OldConfig, randomMin) == 132, "randomMin");
 static_assert(sizeof(OldConfig) == 136, "OldConfig size");
 
@@ -1226,7 +1269,7 @@ static void putOldStr(char *field, const char *s) {
 
 static OldConfig oldSample() {
   OldConfig o;
-  memset(&o, 0xEE, sizeof o);  // Padding und String-Reste mit Muell
+  memset(&o, 0xEE, sizeof o); // Padding und String-Reste mit Muell
   o.magic = 0xCD;
   putOldStr(o.apSSID, "Partywaage");
   o.scaleFactor = 712.34f;
@@ -1284,7 +1327,7 @@ static void testLegacyRoundtrip() {
   CHECK(c.randomModeEnabled == true);
   CHECK(c.randomMin == 150.0f);
   Config s = c;
-  CHECK(!sanitize(s));  // bereits bereinigt
+  CHECK(!sanitize(s)); // bereits bereinigt
 
   // Negativer Faktor bitgenau, Gegenwerte der bools
   o.scaleFactor = -1234.5f;
@@ -1299,9 +1342,9 @@ static void testLegacyRoundtrip() {
 
   // Explizite Little-Endian-Bytes (unabhaengig vom Struct)
   img = image(oldSample());
-  const uint8_t f712[4] = {0xC3, 0x15, 0x32, 0x44};  // 712.34f = 0x443215C3
+  const uint8_t f712[4] = {0xC3, 0x15, 0x32, 0x44}; // 712.34f = 0x443215C3
   CHECK(memcmp(img.data() + 68, f712, 4) == 0);
-  img[72] = 0x00, img[73] = 0x00, img[74] = 0x48, img[75] = 0x43;  // 200.0f
+  img[72] = 0x00, img[73] = 0x00, img[74] = 0x48, img[75] = 0x43; // 200.0f
   CHECK(decodeLegacy(img.data(), img.size(), c));
   CHECK(c.goal == 200.0f);
 
@@ -1337,7 +1380,8 @@ static void testLegacyCC() {
   o.autoZeroEnabled = true;
   o.autoZeroThreshold = 3.0f;
   o.autoZeroDelay = 60;
-  std::vector<uint8_t> img = image(o);  // genau 132 Bytes, Padding 129..131 = 0xEE
+  std::vector<uint8_t> img =
+      image(o); // genau 132 Bytes, Padding 129..131 = 0xEE
   CHECK(img.size() == 132);
   Config c = sentinel();
   CHECK(decodeLegacy(img.data(), img.size(), c));
@@ -1349,7 +1393,7 @@ static void testLegacyCC() {
   CHECK(c.battDividerRatio == 1.5f && c.scaleMode == ScaleMode::Game);
   CHECK(c.autoResetRange == 100 && c.autoZeroEnabled);
   CHECK(c.autoZeroThreshold == 3.0f && c.autoZeroDelay == 60);
-  CHECK(c.randomModeEnabled == false);  // Default, nicht Padding 0xEE
+  CHECK(c.randomModeEnabled == false); // Default, nicht Padding 0xEE
   CHECK(c.randomMin == 20.0f);
 
   // Default-randomMin wird trotzdem ans Ziel geklemmt
@@ -1379,7 +1423,7 @@ static void testLegacyRejects() {
   c = s;
   CHECK(!decodeLegacy(img.data(), img.size(), c));
   CHECK(same(c, s));
-  img = image(oldSample(), 132);  // 0xCD braucht 136
+  img = image(oldSample(), 132); // 0xCD braucht 136
   CHECK(!decodeLegacy(img.data(), img.size(), c));
   OldConfigCC cc;
   memset(&cc, 0, sizeof cc);
@@ -1387,7 +1431,7 @@ static void testLegacyRejects() {
   img = image(cc, 131);
   CHECK(!decodeLegacy(img.data(), img.size(), c));
   img = image(cc, 132);
-  CHECK(decodeLegacy(img.data(), img.size(), c));  // Inhalt wird bereinigt
+  CHECK(decodeLegacy(img.data(), img.size(), c)); // Inhalt wird bereinigt
   c = s;
   img = image(oldSample(), 1);
   CHECK(!decodeLegacy(img.data(), 1, c));
@@ -1406,7 +1450,7 @@ static void testLegacyStrings() {
   CHECK(decodeLegacy(img.data(), img.size(), c));
   CHECK(std::string(c.apSSID) == std::string(32, 'S'));
   CHECK(std::string(c.adminPassword) == std::string(31, 'p'));
-  CHECK(c.goal == 250.0f);  // Nachbarfelder unbeeinflusst
+  CHECK(c.goal == 250.0f); // Nachbarfelder unbeeinflusst
 
   // 63-Byte-SSID: ae auf Byte 31/32 → 31 Bytes
   o = oldSample();
@@ -1445,7 +1489,7 @@ static void testLegacyStrings() {
   CHECK(strcmp(c.adminPassword, "admin") == 0);
   o = oldSample();
   putOldStr(o.apSSID, "Waage\x01");
-  putOldStr(o.adminPassword, "abc");  // kurzes altes Passwort bleibt
+  putOldStr(o.adminPassword, "abc"); // kurzes altes Passwort bleibt
   img = image(o);
   CHECK(decodeLegacy(img.data(), img.size(), c));
   CHECK(strcmp(c.apSSID, DEFAULT_AP_SSID) == 0);
@@ -1465,8 +1509,8 @@ static void testLegacySanitized() {
   o.autoZeroDelay = 0;
   o.randomMin = 5.0f;
   std::vector<uint8_t> img = image(o);
-  img[122] = 7;  // autoZeroEnabled mit Muell-Byte
-  img[129] = 9;  // randomModeEnabled mit Muell-Byte
+  img[122] = 7; // autoZeroEnabled mit Muell-Byte
+  img[129] = 9; // randomModeEnabled mit Muell-Byte
   Config c = sentinel();
   CHECK(decodeLegacy(img.data(), img.size(), c));
   CHECK(c.scaleFactor == 708.0f);
@@ -1493,19 +1537,23 @@ static void testLegacySanitized() {
   img = image(o);
   CHECK(decodeLegacy(img.data(), img.size(), c));
   CHECK(c.scaleFactor == 708.0f && c.goal == 100.0f && c.tolerance == 10.0f);
-  CHECK(c.battDividerRatio == 2.0f && c.autoZeroThreshold == 2.0f && c.randomMin == 20.0f);
+  CHECK(c.battDividerRatio == 2.0f && c.autoZeroThreshold == 2.0f &&
+        c.randomMin == 20.0f);
 
   // Zufaellige Abbilder mit gueltigem Magic: nie ein Fehler, immer bereinigt
   int bad = 0;
   for (int iter = 0; iter < 5000; iter++) {
     size_t len = (iter % 2) ? 136 : 132;
     std::vector<uint8_t> v(len);
-    for (auto &b : v) b = (uint8_t)rnd();
+    for (auto &b : v)
+      b = (uint8_t)rnd();
     v[0] = (len == 136) ? 0xCD : 0xCC;
     Config d = sentinel();
-    if (!decodeLegacy(v.data(), v.size(), d) || !inRanges(d)) bad++;
+    if (!decodeLegacy(v.data(), v.size(), d) || !inRanges(d))
+      bad++;
     Config s = d;
-    if (sanitize(s)) bad++;
+    if (sanitize(s))
+      bad++;
   }
   CHECK(bad == 0);
 }
@@ -1513,11 +1561,11 @@ static void testLegacySanitized() {
 // ── Zufallsziel ───────────────────────────────────────────────────────────────
 
 static void testRollGoal() {
-  Config c = defaults();  // goal 100, tolerance 10, randomMin 20 → [20..100]
+  Config c = defaults(); // goal 100, tolerance 10, randomMin 20 → [20..100]
   CHECK(rollGoal(c, 0) == 20.0f);
   CHECK(rollGoal(c, 0xFFFFFFFFu) == 100.0f);
   CHECK(rollGoal(c, 0x80000000u) == 60.0f);
-  CHECK(rollGoal(c, 0xFFFFF000u) == 100.0f);  // nahe am Ueberlauf
+  CHECK(rollGoal(c, 0xFFFFF000u) == 100.0f); // nahe am Ueberlauf
   CHECK(rollGoal(c, 0x00000FFFu) == 20.0f);
 
   // Alle Werte erreichbar, ganzzahlig, monoton in r
@@ -1528,7 +1576,8 @@ static void testRollGoal() {
   for (int i = 0; i < N; i++) {
     uint32_t r = (uint32_t)((uint64_t)i * 0xFFFFFFFFull / (N - 1));
     float g = rollGoal(c, r);
-    if (g < 20.0f || g > 100.0f || g != std::floor(g) || g < prev) ok = false;
+    if (g < 20.0f || g > 100.0f || g != std::floor(g) || g < prev)
+      ok = false;
     prev = g;
     seen.insert((int)g);
   }
@@ -1566,7 +1615,7 @@ static void testRollGoal() {
   c = defaults();
   c.tolerance = 10.5f;
   c.goal = 11.5f;
-  c.randomMin = 11.5f;  // [12..11]
+  c.randomMin = 11.5f; // [12..11]
   CHECK(rollGoal(c, 0x80000000u) == 11.5f);
   // Grosser Bereich
   c = defaults();
@@ -1575,7 +1624,8 @@ static void testRollGoal() {
   c.goal = 5000.0f;
   CHECK(rollGoal(c, 0) == 2.0f);
   CHECK(rollGoal(c, 0xFFFFFFFFu) == 5000.0f);
-  CHECK(rollGoal(c, 0xFFFFF000u) <= 5000.0f && rollGoal(c, 0xFFFFF000u) >= 4999.0f);
+  CHECK(rollGoal(c, 0xFFFFF000u) <= 5000.0f &&
+        rollGoal(c, 0xFFFFF000u) >= 4999.0f);
   // Unbereinigte Werte: kein UB, sinnvolles Ergebnis
   c = defaults();
   c.goal = NAN_F;
@@ -1596,19 +1646,20 @@ static void testRollGoal() {
 
 static void testReviewPasswords() {
   // validNewPassword: "keine Steuerzeichen" heisst dasselbe wie bei der SSID
-  CHECK(!validNewPassword("abcd\xC2\x85"));   // U+0085 (C1, NEL)
-  CHECK(!validNewPassword("\xC2\x80" "abcd")); // U+0080
-  CHECK(!validNewPassword("abcd\xC2\x9F"));   // U+009F
-  CHECK(validNewPassword("abcd\xC2\xA0"));    // U+00A0 ist druckbar
-  CHECK(!validNewPassword("abcd\x85"));       // Latin-1-C1 / kaputtes UTF-8
-  CHECK(!validNewPassword("abc\xE4"));        // Latin-1-ae
-  CHECK(!validNewPassword("abcd\xC3"));       // abgeschnittene Sequenz
-  CHECK(!validNewPassword("abcd\xED\xA0\x80"));  // Surrogate
-  CHECK(validNewPassword("Bier\xF0\x9F\x8D\xBA"));  // 8 Bytes mit Emoji
-  CHECK(validNewPassword("\xC3\xA4\xC3\xB6"));      // "aeoe": 2 Zeichen, 4 Bytes
-  std::string p31 = std::string(29, 'x') + "\xC3\xA4";  // genau 31 Bytes
+  CHECK(!validNewPassword("abcd\xC2\x85")); // U+0085 (C1, NEL)
+  CHECK(!validNewPassword("\xC2\x80"
+                          "abcd"));             // U+0080
+  CHECK(!validNewPassword("abcd\xC2\x9F"));     // U+009F
+  CHECK(validNewPassword("abcd\xC2\xA0"));      // U+00A0 ist druckbar
+  CHECK(!validNewPassword("abcd\x85"));         // Latin-1-C1 / kaputtes UTF-8
+  CHECK(!validNewPassword("abc\xE4"));          // Latin-1-ae
+  CHECK(!validNewPassword("abcd\xC3"));         // abgeschnittene Sequenz
+  CHECK(!validNewPassword("abcd\xED\xA0\x80")); // Surrogate
+  CHECK(validNewPassword("Bier\xF0\x9F\x8D\xBA")); // 8 Bytes mit Emoji
+  CHECK(validNewPassword("\xC3\xA4\xC3\xB6"));     // "aeoe": 2 Zeichen, 4 Bytes
+  std::string p31 = std::string(29, 'x') + "\xC3\xA4"; // genau 31 Bytes
   CHECK(validNewPassword(p31.c_str()));
-  std::string p32 = std::string(30, 'x') + "\xC3\xA4";  // 32 Bytes
+  std::string p32 = std::string(30, 'x') + "\xC3\xA4"; // 32 Bytes
   CHECK(!validNewPassword(p32.c_str()));
 
   // validate: gleiche Bereiche wie sanitize, also leer/unterminiert ablehnen
@@ -1617,15 +1668,16 @@ static void testReviewPasswords() {
   setStr(c.adminPassword, sizeof c.adminPassword, "");
   {
     Config s = c;
-    CHECK(sanitize(s));  // sanitize wuerde korrigieren ...
+    CHECK(sanitize(s)); // sanitize wuerde korrigieren ...
   }
-  CHECK(rejects(c, "newPassword"));  // ... also lehnt validate ab
+  CHECK(rejects(c, "newPassword")); // ... also lehnt validate ab
   c = base;
-  memset(c.adminPassword, 'p', sizeof c.adminPassword);  // 32 Bytes ohne NUL
+  memset(c.adminPassword, 'p', sizeof c.adminPassword); // 32 Bytes ohne NUL
   CHECK(rejects(c, "newPassword"));
   const char *m = messageFor(c);
   CHECK(m && strstr(m, "Passwort") != nullptr);
-  // Kurze alte und unbequeme Passwoerter bleiben gueltig (kein validNewPassword)
+  // Kurze alte und unbequeme Passwoerter bleiben gueltig (kein
+  // validNewPassword)
   c = base;
   setStr(c.adminPassword, sizeof c.adminPassword, "abc");
   CHECK(accepts(c));
@@ -1656,29 +1708,38 @@ static bool refPrintable(const std::string &x) {
     uint8_t b = (uint8_t)x[i];
     uint32_t cp;
     size_t len;
-    if (b < 0x80) cp = b, len = 1;
-    else if ((b & 0xE0) == 0xC0) cp = b & 0x1F, len = 2;
-    else if ((b & 0xF0) == 0xE0) cp = b & 0x0F, len = 3;
-    else if ((b & 0xF8) == 0xF0) cp = b & 0x07, len = 4;
-    else return false;
-    if (i + len > x.size()) return false;
+    if (b < 0x80)
+      cp = b, len = 1;
+    else if ((b & 0xE0) == 0xC0)
+      cp = b & 0x1F, len = 2;
+    else if ((b & 0xF0) == 0xE0)
+      cp = b & 0x0F, len = 3;
+    else if ((b & 0xF8) == 0xF0)
+      cp = b & 0x07, len = 4;
+    else
+      return false;
+    if (i + len > x.size())
+      return false;
     for (size_t k = 1; k < len; k++) {
       uint8_t cb = (uint8_t)x[i + k];
-      if ((cb & 0xC0) != 0x80) return false;
+      if ((cb & 0xC0) != 0x80)
+        return false;
       cp = (cp << 6) | (cb & 0x3F);
     }
     static const uint32_t minCp[5] = {0, 0, 0x80, 0x800, 0x10000};
-    if (cp < minCp[len] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return false;
-    if (cp < 0x20 || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F)) return false;
+    if (cp < minCp[len] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))
+      return false;
+    if (cp < 0x20 || cp == 0x7F || (cp >= 0x80 && cp <= 0x9F))
+      return false;
     i += len;
   }
   return true;
 }
 
-static const uint8_t kEdgeBytes[] = {0x01, 0x1F, 0x20, 0x41, 0x7E, 0x7F, 0x80, 0x8F, 0x90,
-                                     0x9F, 0xA0, 0xBF, 0xC0, 0xC1, 0xC2, 0xC3, 0xDF, 0xE0,
-                                     0xE1, 0xEC, 0xED, 0xEE, 0xEF, 0xF0, 0xF1, 0xF3, 0xF4,
-                                     0xF5, 0xF7, 0xF8, 0xFE, 0xFF};
+static const uint8_t kEdgeBytes[] = {
+    0x01, 0x1F, 0x20, 0x41, 0x7E, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0,
+    0xBF, 0xC0, 0xC1, 0xC2, 0xC3, 0xDF, 0xE0, 0xE1, 0xEC, 0xED, 0xEE,
+    0xEF, 0xF0, 0xF1, 0xF3, 0xF4, 0xF5, 0xF7, 0xF8, 0xFE, 0xFF};
 
 static std::string edgeBytes(size_t n) {
   std::string x;
@@ -1700,17 +1761,23 @@ static void testReviewUtf8Reference() {
     setStr(c.apSSID, sizeof c.apSSID, x.c_str());
     Config v = c;
     bool acc = validate(v).field == nullptr;
-    if (acc != ref) bad++;
+    if (acc != ref)
+      bad++;
     // sanitize ersetzt genau die abgelehnten SSIDs
     Config s = c;
     bool ch = sanitize(s);
-    if (ch != !ref) bad++;
-    if (ref && strcmp(s.apSSID, x.c_str()) != 0) bad++;
-    if (!ref && strcmp(s.apSSID, DEFAULT_AP_SSID) != 0) bad++;
+    if (ch != !ref)
+      bad++;
+    if (ref && strcmp(s.apSSID, x.c_str()) != 0)
+      bad++;
+    if (!ref && strcmp(s.apSSID, DEFAULT_AP_SSID) != 0)
+      bad++;
     // validNewPassword mit gleicher Definition (auf 4 Bytes auffuellen)
     std::string pw = x + "abcd";
-    if (validNewPassword(pw.c_str()) != refPrintable(pw)) bad++;
-    if (ref) accepted++;
+    if (validNewPassword(pw.c_str()) != refPrintable(pw))
+      bad++;
+    if (ref)
+      accepted++;
   }
   CHECK(bad == 0);
   CHECK(accepted > 1000);
@@ -1719,7 +1786,7 @@ static void testReviewUtf8Reference() {
 // ── Review: copyUtf8 mit kaputten Eingaben ────────────────────────────────────
 
 static void testReviewCopyUtf8() {
-  copyUtf8(nullptr, "abc", 3);  // kein Absturz
+  copyUtf8(nullptr, "abc", 3); // kein Absturz
   char one[1] = {'Z'};
   copyUtf8(one, "abc", 0);
   CHECK(one[0] == '\0');
@@ -1743,17 +1810,20 @@ static void testReviewCopyUtf8() {
       // die erst hinter maxBytes endet
       uint8_t lead = (uint8_t)x[n];
       size_t len = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1;
-      if (lead < 0xC0 || lead > 0xF7 || n + len <= maxBytes) bad++;
+      if (lead < 0xC0 || lead > 0xF7 || n + len <= maxBytes)
+        bad++;
     }
     // Gueltiges UTF-8: Ergebnis ist der laengste Praefix an einer Zeichengrenze
     if (refPrintable(x)) {
       std::string r(dst.data(), n);
-      if (!refPrintable(r)) bad++;
+      if (!refPrintable(r))
+        bad++;
       size_t next = n;
       if (next < x.size()) {
         uint8_t b = (uint8_t)x[next];
         next += b < 0x80 ? 1 : b < 0xE0 ? 2 : b < 0xF0 ? 3 : 4;
-        if (next <= maxBytes) bad++;  // haette noch gepasst
+        if (next <= maxBytes)
+          bad++; // haette noch gepasst
       }
     }
   }
@@ -1765,31 +1835,45 @@ static void testReviewCopyUtf8() {
 // Referenz fuer parseFloat: Syntax per Hand, Wert per strtof.
 static bool refParseFloat(const std::string &in, float *out) {
   size_t a = 0, b = in.size();
-  auto sp = [](char ch) { return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n'; };
-  while (a < b && sp(in[a])) a++;
-  while (b > a && sp(in[b - 1])) b--;
+  auto sp = [](char ch) {
+    return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+  };
+  while (a < b && sp(in[a]))
+    a++;
+  while (b > a && sp(in[b - 1]))
+    b--;
   std::string t = in.substr(a, b - a);
-  if (t.empty() || t.size() >= 48) return false;
+  if (t.empty() || t.size() >= 48)
+    return false;
   size_t i = 0;
-  if (t[i] == '+' || t[i] == '-') i++;
+  if (t[i] == '+' || t[i] == '-')
+    i++;
   size_t intDigits = 0, fracDigits = 0;
-  while (i < t.size() && isdigit((unsigned char)t[i])) i++, intDigits++;
+  while (i < t.size() && isdigit((unsigned char)t[i]))
+    i++, intDigits++;
   if (i < t.size() && (t[i] == '.' || t[i] == ',')) {
     t[i] = '.';
     i++;
-    while (i < t.size() && isdigit((unsigned char)t[i])) i++, fracDigits++;
+    while (i < t.size() && isdigit((unsigned char)t[i]))
+      i++, fracDigits++;
   }
-  if (intDigits + fracDigits == 0) return false;
+  if (intDigits + fracDigits == 0)
+    return false;
   if (i < t.size() && (t[i] == 'e' || t[i] == 'E')) {
     i++;
-    if (i < t.size() && (t[i] == '+' || t[i] == '-')) i++;
+    if (i < t.size() && (t[i] == '+' || t[i] == '-'))
+      i++;
     size_t e = 0;
-    while (i < t.size() && isdigit((unsigned char)t[i])) i++, e++;
-    if (e == 0) return false;
+    while (i < t.size() && isdigit((unsigned char)t[i]))
+      i++, e++;
+    if (e == 0)
+      return false;
   }
-  if (i != t.size()) return false;
+  if (i != t.size())
+    return false;
   float v = strtof(t.c_str(), nullptr);
-  if (!std::isfinite(v)) return false;
+  if (!std::isfinite(v))
+    return false;
   *out = v;
   return true;
 }
@@ -1800,48 +1884,57 @@ static void testReviewParsers() {
   for (int iter = 0; iter < 60000; iter++) {
     size_t n = rnd() % 9;
     std::string x;
-    for (size_t k = 0; k < n; k++) x.push_back(alpha[rnd() % (sizeof alpha - 1)]);
-    if (rnd() % 8 == 0) x = std::to_string(rnd()) + (rnd() % 2 ? "e3" : "e39");
+    for (size_t k = 0; k < n; k++)
+      x.push_back(alpha[rnd() % (sizeof alpha - 1)]);
+    if (rnd() % 8 == 0)
+      x = std::to_string(rnd()) + (rnd() % 2 ? "e3" : "e39");
 
     float ref = 0.0f, got = -777.0f;
     bool r = refParseFloat(x, &ref);
     bool g = parseFloat(x.c_str(), &got);
-    if (r != g || (g && bits(got) != bits(ref)) || (!g && got != -777.0f)) bad++;
-    if (g) okF++;
+    if (r != g || (g && bits(got) != bits(ref)) || (!g && got != -777.0f))
+      bad++;
+    if (g)
+      okF++;
 
-    uint32_t maxV = (rnd() % 3 == 0) ? 0xFFFFFFFFu : (rnd() % 2 ? 255u : rnd() % 100000);
+    uint32_t maxV =
+        (rnd() % 3 == 0) ? 0xFFFFFFFFu : (rnd() % 2 ? 255u : rnd() % 100000);
     // Referenz: nur Ziffern (plus Leerraum aussen), Wert per strtoull
-    size_t a = x.find_first_not_of(" \t\r\n"), b = x.find_last_not_of(" \t\r\n");
+    size_t a = x.find_first_not_of(" \t\r\n"),
+           b = x.find_last_not_of(" \t\r\n");
     bool refU = false;
     unsigned long long uv = 0;
     if (a != std::string::npos) {
       std::string t = x.substr(a, b - a + 1);
-      if (t.find_first_not_of("0123456789") == std::string::npos && t.size() < 19) {
+      if (t.find_first_not_of("0123456789") == std::string::npos &&
+          t.size() < 19) {
         uv = strtoull(t.c_str(), nullptr, 10);
         refU = uv <= maxV;
       }
     }
     uint32_t u = 777;
     bool gu = parseUint(x.c_str(), maxV, &u);
-    if (gu != refU || (gu && u != uv) || (!gu && u != 777)) bad++;
-    if (gu) okU++;
+    if (gu != refU || (gu && u != uv) || (!gu && u != 777))
+      bad++;
+    if (gu)
+      okU++;
   }
   CHECK(bad == 0);
   CHECK(okF > 1000 && okU > 1000);
 
   // Gezielte Randfaelle
-  CHECK(pf("1e-45", 1e-45f));  // kleinste Subnormale ist endlich
+  CHECK(pf("1e-45", 1e-45f)); // kleinste Subnormale ist endlich
   CHECK(pf("-1e-50", -0.0f));
   CHECK(pf("+,5", 0.5f));
   CHECK(pf("-5,", -5.0f));
   CHECK(pf("3,40282346e38", 3.40282346e38f));
-  CHECK(pfFails("\v1"));  // nur Leerzeichen, Tab, CR, LF werden getrimmt
+  CHECK(pfFails("\v1")); // nur Leerzeichen, Tab, CR, LF werden getrimmt
   CHECK(pfFails("1\f"));
   CHECK(pfFails("1 e5"));
   CHECK(pfFails("1e 5"));
   CHECK(pu("4294967294", 0xFFFFFFFEu, 0xFFFFFFFEu));
   CHECK(puFails("4294967295", 0xFFFFFFFEu));
-  CHECK(puFails("42949672950", 0xFFFFFFFFu));  // waere nach Verengung 4294967286
+  CHECK(puFails("42949672950", 0xFFFFFFFFu)); // waere nach Verengung 4294967286
   CHECK(puFails("256", 255));
   CHECK(puFails("\v1", 255));
 }
@@ -1856,7 +1949,7 @@ static void testReviewFloatEdges() {
   CHECK(sanF(&Config::randomMin, -0.0f, o) && o == 11.0f && !std::signbit(o));
   CHECK(sanF(&Config::autoZeroThreshold, -0.0f, o) && bits(o) == bits(0.1f));
   CHECK(sanF(&Config::battDividerRatio, -0.0f, o) && o == 2.0f);
-  CHECK(sanF(&Config::scaleFactor, -1e-40f, o) && o == 708.0f);  // subnormal
+  CHECK(sanF(&Config::scaleFactor, -1e-40f, o) && o == 708.0f); // subnormal
   CHECK(sanF(&Config::goal, 1e-40f, o) && o == 11.0f);
   // Groesster/kleinster endlicher Wert
   const float big = std::numeric_limits<float>::max();
@@ -1878,7 +1971,7 @@ static void testReviewFloatEdges() {
   c.randomMin = -0.0f;
   CHECK(accepts(c) && c.randomMin == 11.0f && !std::signbit(c.randomMin));
   c = base;
-  c.goal = big;  // round10 laeuft ueber → trotzdem sauber abgelehnt
+  c.goal = big; // round10 laeuft ueber → trotzdem sauber abgelehnt
   CHECK(rejects(c, "goal"));
   c = base;
   c.goal = -big;
@@ -1894,7 +1987,7 @@ static void testReviewFloatEdges() {
   a.scaleFactor = NAN_F;
   b.scaleFactor = NAN_F;
   CHECK(diff(a, b) == 0);
-  b.scaleFactor = -NAN_F;  // anderes Vorzeichenbit
+  b.scaleFactor = -NAN_F; // anderes Vorzeichenbit
   CHECK(diff(a, b) == CH_SCALE);
 }
 
@@ -1905,7 +1998,8 @@ static void testReviewToleranceSweep() {
   for (int iter = 0; iter < 200000; iter++) {
     // Beliebiger Float in [0,5 .. 100] (nicht nur Rasterwerte)
     float t = 0.5f + 99.5f * (float)(rnd() >> 8) / 16777216.0f;
-    if (t > 100.0f) t = 100.0f;
+    if (t > 100.0f)
+      t = 100.0f;
     Config c = defaults();
     c.tolerance = t;
     c.goal = 1.0f;
@@ -1915,16 +2009,21 @@ static void testReviewToleranceSweep() {
     float m = t + 1.0f;
     // goal: auf dem Raster, >= tolerance + 1 und der kleinste solche Wert
     float below = roundf(c.goal * 10.0f - 1.0f) / 10.0f;
-    if (!(c.goal >= m) || !onGrid(c.goal) || below >= m) bad++;
-    if (bits(c.randomMin) != bits(c.goal)) bad++;
+    if (!(c.goal >= m) || !onGrid(c.goal) || below >= m)
+      bad++;
+    if (bits(c.randomMin) != bits(c.goal))
+      bad++;
     Config d = c;
-    if (sanitize(d)) bad++;
+    if (sanitize(d))
+      bad++;
     Config v = c;
-    if (!accepts(v) || !same(v, c)) bad++;
+    if (!accepts(v) || !same(v, c))
+      bad++;
     // validate auf genau diesem Ziel bzw. einen Rasterschritt darunter
     v = c;
     v.goal = below;
-    if (accepts(v)) bad++;
+    if (accepts(v))
+      bad++;
   }
   CHECK(bad == 0);
 }
@@ -1951,12 +2050,17 @@ static void testReviewRollGoalBuckets() {
     uint64_t span = rg.hi - rg.lo + 1;
     for (uint64_t k = 1; k < span; k++) {
       uint64_t t = (k * 0x100000000ull + span - 1) / span;
-      if (rollGoal(c, (uint32_t)(t - 1)) != (float)(rg.lo + k - 1)) bad++;
-      if (rollGoal(c, (uint32_t)t) != (float)(rg.lo + k)) bad++;
+      if (rollGoal(c, (uint32_t)(t - 1)) != (float)(rg.lo + k - 1))
+        bad++;
+      if (rollGoal(c, (uint32_t)t) != (float)(rg.lo + k))
+        bad++;
     }
-    if (rollGoal(c, 0) != (float)rg.lo) bad++;
-    if (rollGoal(c, 0xFFFFFFFFu) != (float)rg.hi) bad++;
-    if (rollGoal(c, 0xFFFFF000u) != (float)rg.hi) bad++;  // nahe am Ueberlauf
+    if (rollGoal(c, 0) != (float)rg.lo)
+      bad++;
+    if (rollGoal(c, 0xFFFFFFFFu) != (float)rg.hi)
+      bad++;
+    if (rollGoal(c, 0xFFFFF000u) != (float)rg.hi)
+      bad++; // nahe am Ueberlauf
   }
   CHECK(bad == 0);
   // Bereinigte Zufallsconfigs: Ergebnis immer ganzzahlig im Bereich oder goal
@@ -1972,7 +2076,8 @@ static void testReviewRollGoalBuckets() {
     float lo = std::ceil(std::fmax(c.randomMin, c.tolerance + 1.0f));
     float hi = std::floor(c.goal);
     if (lo > hi) {
-      if (bits(g) != bits(c.goal)) bad++;
+      if (bits(g) != bits(c.goal))
+        bad++;
     } else if (g < lo || g > hi || g != std::floor(g)) {
       bad++;
     }
@@ -1983,7 +2088,8 @@ static void testReviewRollGoalBuckets() {
 // ── Review: Legacy-Abbild im ganzen EEPROM-Bereich ────────────────────────────
 
 static void testReviewLegacyEeprom() {
-  // 0xCC in 512 Byte: Bytes 129..135 sind Muell/Folgedaten, Zufallsfelder Default
+  // 0xCC in 512 Byte: Bytes 129..135 sind Muell/Folgedaten, Zufallsfelder
+  // Default
   OldConfigCC o;
   memset(&o, 0, sizeof o);
   o.magic = 0xCC;
@@ -1999,7 +2105,7 @@ static void testReviewLegacyEeprom() {
   o.autoZeroDelay = 5;
   std::vector<uint8_t> img(512, 0xA5);
   memcpy(img.data(), &o, sizeof o);
-  img[129] = 1;  // waere randomModeEnabled = true
+  img[129] = 1; // waere randomModeEnabled = true
   const float rmin = 55.0f;
   memcpy(img.data() + 132, &rmin, 4);
   Config c = sentinel();
@@ -2040,13 +2146,14 @@ static void testReviewApName() {
   const uint8_t mac[6] = {0, 0, 0, 0, 0xFE, 0x01};
   Config c = defaults();
   // Default-SSID mit Resten hinter dem NUL zaehlt als Default
-  memset(c.apSSID + sizeof DEFAULT_AP_SSID, 'x', sizeof c.apSSID - sizeof DEFAULT_AP_SSID);
+  memset(c.apSSID + sizeof DEFAULT_AP_SSID, 'x',
+         sizeof c.apSSID - sizeof DEFAULT_AP_SSID);
   CHECK(apName(c, mac) == "100-Waage-FE01");
   // Ausgabe exakt SSID_MAX + 1 Bytes auf dem Heap
   std::vector<char> out(SSID_MAX + 1, 'Z');
   effectiveApName(c, mac, out.data());
   CHECK(std::string(out.data()) == "100-Waage-FE01");
-  memset(c.apSSID, 'w', sizeof c.apSSID);  // unterminiert
+  memset(c.apSSID, 'w', sizeof c.apSSID); // unterminiert
   effectiveApName(c, mac, out.data());
   CHECK(strnlen(out.data(), out.size()) == SSID_MAX);
   // Praefix der Default-SSID mit Zusatz ist nicht die Default-SSID

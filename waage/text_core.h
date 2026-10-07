@@ -9,8 +9,8 @@
 
 namespace text {
 
-constexpr int LINE_CHARS = 21;   // Zeichen pro Zeile bei Textgroesse 1 (128 px)
-constexpr int BIG_CHARS = 10;    // Zeichen pro Zeile bei Textgroesse 2
+constexpr int LINE_CHARS = 21; // Zeichen pro Zeile bei Textgroesse 1 (128 px)
+constexpr int BIG_CHARS = 10;  // Zeichen pro Zeile bei Textgroesse 2
 constexpr int MAX_LINES = 3;
 
 // Wandelt UTF-8 nach CP437, schreibt hoechstens outSize-1 Zeichen + NUL.
@@ -22,8 +22,8 @@ size_t toCp437(const char *utf8, char *out, size_t outSize);
 // Eine einzelne Zeile > LINE_CHARS wird an Leerzeichen auf bis zu 3 Zeilen
 // umbrochen. Eingaben UTF-8 (nullptr oder "" = leer), Ausgabe CP437.
 struct Layout {
-  uint8_t lines;     // 0..3, letzte nicht leere Zeile + 1
-  uint8_t size;      // 1 oder 2
+  uint8_t lines; // 0..3, letzte nicht leere Zeile + 1
+  uint8_t size;  // 1 oder 2
   char line[MAX_LINES][LINE_CHARS + 1];
 };
 void layout(const char *l1, const char *l2, const char *l3, Layout &out);
@@ -35,6 +35,6 @@ void fmtGrams1(float g, char *out, size_t n);
 
 // Trinksprueche (UTF-8 mit Umlauten), alle passen nach Umbruch in 3 x 21.
 int trinkspruchCount();
-const char *trinkspruch(int index);  // index wird modulo Anzahl genommen
+const char *trinkspruch(int index); // index wird modulo Anzahl genommen
 
-}  // namespace text
+} // namespace text

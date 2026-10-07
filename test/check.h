@@ -5,13 +5,13 @@
 static int g_failures = 0;
 static int g_checks = 0;
 
-#define CHECK(cond)                                                     \
-  do {                                                                  \
-    g_checks++;                                                         \
-    if (!(cond)) {                                                      \
-      std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond);       \
-      g_failures++;                                                     \
-    }                                                                   \
+#define CHECK(cond)                                                            \
+  do {                                                                         \
+    g_checks++;                                                                \
+    if (!(cond)) {                                                             \
+      std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond);              \
+      g_failures++;                                                            \
+    }                                                                          \
   } while (0)
 
 static int finish(const char *name) {

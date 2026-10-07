@@ -6,27 +6,27 @@ benannte Konstanten in ms; die Namen stehen in Klammern.
 
 ## Hardware
 
-| Komponente | Details |
-|---|---|
-| MCU | ESP32-C3 Super Mini (FQBN `esp32:esp32:nologo_esp32c3_super_mini`) |
-| Wägezelle | HX711, 10 Samples/s (RATE-Pin auf GND). Ein auf 80 SPS umgelötetes Modul wird automatisch erkannt (gemessene Sample-Rate), alle Fenster sind in ms definiert. |
-| Display | SSD1306 128×32, I2C-Adresse `0x3C`, kein Reset-Pin (`OLED_RESET = -1`) |
-| Taster | GPIO 5, HIGH = gedrückt, Wake-up-Quelle für den Deep-Sleep |
-| Akku | Li-Ion mit Schutzschaltung (Tiefentladeschutz in Hardware), Spannungsteiler an GPIO 2 |
+| Komponente | Details                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MCU        | ESP32-C3 Super Mini (FQBN `esp32:esp32:nologo_esp32c3_super_mini`)                                                                                            |
+| Wägezelle  | HX711, 10 Samples/s (RATE-Pin auf GND). Ein auf 80 SPS umgelötetes Modul wird automatisch erkannt (gemessene Sample-Rate), alle Fenster sind in ms definiert. |
+| Display    | SSD1306 128×32, I2C-Adresse `0x3C`, kein Reset-Pin (`OLED_RESET = -1`)                                                                                        |
+| Taster     | GPIO 5, HIGH = gedrückt, Wake-up-Quelle für den Deep-Sleep                                                                                                    |
+| Akku       | Li-Ion mit Schutzschaltung (Tiefentladeschutz in Hardware), Spannungsteiler an GPIO 2                                                                         |
 
-| Funktion | GPIO |
-|---|---|
-| OLED SDA / SCL | 8 / 9 |
+| Funktion        | GPIO    |
+| --------------- | ------- |
+| OLED SDA / SCL  | 8 / 9   |
 | HX711 DAT / CLK | 21 / 20 |
-| Taster | 5 |
-| Akku-ADC | 2 |
+| Taster          | 5       |
+| Akku-ADC        | 2       |
 
 ### Compile-Schalter
 
-| Schalter | Datei | Wert | Wirkung |
-|---|---|---|---|
-| `BATTERY_CONNECTED` | `battery.h` | `true` | Akku messen und anzeigen |
-| `RESET_CONFIG_ENABLED` | `app.cpp` | `false` | Werksreset: Taster beim Einschalten 3 s halten |
+| Schalter               | Datei       | Wert    | Wirkung                                        |
+| ---------------------- | ----------- | ------- | ---------------------------------------------- |
+| `BATTERY_CONNECTED`    | `battery.h` | `true`  | Akku messen und anzeigen                       |
+| `RESET_CONFIG_ENABLED` | `app.cpp`   | `false` | Werksreset: Taster beim Einschalten 3 s halten |
 
 ## Modulstruktur
 
@@ -35,54 +35,54 @@ Adapter für die Hardware. Kein ISR, kein eigener Task; alles läuft aus `loop()
 Einzige Ausnahme ist der ESP-NOW-Empfang (WiFi-Task), der Pakete nur in eine
 Queue legt.
 
-| Kern (rein) | Inhalt |
-|---|---|
-| `config_core` | Config-Modell, Defaults, `sanitize` (Laden), `validate` (Web), Parser, UTF-8-Kürzung, AP-Name, Änderungsmaske, Import des alten EEPROM-Abbilds, Zufallsziel |
-| `scale_core` | Sample-Puffer, adaptiver Filter, Stabilität, nicht blockierende Tara, Nullung aus dem Fenster, Kalibrier-Assistent |
-| `game_core` | Solo- und Duell-Ablauf, Bewertung, Ergebnisregeln, Auto-Zero/NegZero-Auslöser |
-| `duell_core` | Duell-Protokoll v3: Nachrichtenformat, Rundentabelle, Merge, Ranking |
-| `button_core` | Entprellung, Haltezonen, Overlay |
-| `battery_core` | Spannung → Prozent, Glättung, Hysterese, Warnung, Teiler-Abgleich |
-| `power_core` | wrap-sichere Zeiten, Sleep-Policy, AP-Auto-Aus |
-| `text_core` | UTF-8 → CP437, Zeilenlayout, Zahlformate, Trinksprüche |
-| `ui_model` | baut pro Loop ein vergleichbares Bild (Ebenen, Symbole, Texte) |
-| `web_core` | JSON-Writer, Cookie-Parser, konstantzeitiger Vergleich, Token, Login-Bremse |
+| Kern (rein)    | Inhalt                                                                                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config_core`  | Config-Modell, Defaults, `sanitize` (Laden), `validate` (Web), Parser, UTF-8-Kürzung, AP-Name, Änderungsmaske, Import des alten EEPROM-Abbilds, Zufallsziel |
+| `scale_core`   | Sample-Puffer, adaptiver Filter, Stabilität, nicht blockierende Tara, Nullung aus dem Fenster, Kalibrier-Assistent                                          |
+| `game_core`    | Solo- und Duell-Ablauf, Bewertung, Ergebnisregeln, Auto-Zero/NegZero-Auslöser                                                                               |
+| `duell_core`   | Duell-Protokoll v3: Nachrichtenformat, Rundentabelle, Merge, Ranking                                                                                        |
+| `button_core`  | Entprellung, Haltezonen, Overlay                                                                                                                            |
+| `battery_core` | Spannung → Prozent, Glättung, Hysterese, Warnung, Teiler-Abgleich                                                                                           |
+| `power_core`   | wrap-sichere Zeiten, Sleep-Policy, AP-Auto-Aus                                                                                                              |
+| `text_core`    | UTF-8 → CP437, Zeilenlayout, Zahlformate, Trinksprüche                                                                                                      |
+| `ui_model`     | baut pro Loop ein vergleichbares Bild (Ebenen, Symbole, Texte)                                                                                              |
+| `web_core`     | JSON-Writer, Cookie-Parser, konstantzeitiger Vergleich, Token, Login-Bremse                                                                                 |
 
-| Adapter | Inhalt |
-|---|---|
-| `waage.ino` | nur `app_setup()` / `app_loop()` |
-| `app` | verbindet alle Module, Taster-Aktionen, Kalibrierung, OTA-Status, Deep-Sleep |
-| `config` | NVS-Speicher (Preferences), Import beim ersten Start |
-| `scale` | HX711-Ansteuerung, Sensorfehler, Power-Down |
-| `battery` | ADC-Messung |
-| `display` / `ui` | Zeichenprimitive / rendert nur bei Änderung |
-| `duell` | ESP-NOW, Empfangs-Queue, Ausstieg mit Flush, `DuelPort` für `game_core` |
-| `radio` | Funk- und AP-Lebenszyklus, verzögerter AP-Neustart und Reboot |
-| `web` / `web_pages.h` | Webserver, JSON-API, statische Seiten |
-| `version.h` | `FW_VERSION` aus `version_gen.h` (erzeugt) oder `dev-<Datum>` |
+| Adapter               | Inhalt                                                                       |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `waage.ino`           | nur `app_setup()` / `app_loop()`                                             |
+| `app`                 | verbindet alle Module, Taster-Aktionen, Kalibrierung, OTA-Status, Deep-Sleep |
+| `config`              | NVS-Speicher (Preferences), Import beim ersten Start                         |
+| `scale`               | HX711-Ansteuerung, Sensorfehler, Power-Down                                  |
+| `battery`             | ADC-Messung                                                                  |
+| `display` / `ui`      | Zeichenprimitive / rendert nur bei Änderung                                  |
+| `duell`               | ESP-NOW, Empfangs-Queue, Ausstieg mit Flush, `DuelPort` für `game_core`      |
+| `radio`               | Funk- und AP-Lebenszyklus, verzögerter AP-Neustart und Reboot                |
+| `web` / `web_pages.h` | Webserver, JSON-API, statische Seiten                                        |
+| `version.h`           | `FW_VERSION` aus `version_gen.h` (erzeugt) oder `dev-<Datum>`                |
 
 ## Konfiguration
 
 ### Felder
 
-| Feld | Default | Bereich | Web |
-|---|---|---|---|
-| `apSSID` | `100-Waage-Config` | 1–32 Byte, keine Steuerzeichen | Admin |
-| `adminPassword` | `admin` | neu gesetzt: 4–31 Byte | Admin |
-| `scaleFactor` | 708 | endlich, \|f\| ≥ 1 | Kalibrier-Assistent |
-| `goal` | 100,0 g | 1–5000 g, 0,1-g-Raster, ≥ `tolerance` + 1 | Start |
-| `tolerance` | 10 g | 0,5–100 g | Admin |
-| `displayRotation` | 0 | 0 oder 2 (180°) | Start |
-| `wifiTimeout` | 10 min | 0–255, 0 = nie | Admin |
-| `sleepTimeout` | 5 min | 0–255, 0 = nie | Admin |
-| `battDividerRatio` | 2,0 | 1–6 | Akku-Abgleich |
-| `scaleMode` | Game | Game / Standard | Start |
-| `autoResetRange` | 10 % | 0–100 | Admin |
-| `autoZeroEnabled` | an | | Admin |
-| `autoZeroThreshold` | 2 g | 0,1–20 g, ≤ `tolerance` | Admin |
-| `autoZeroDelay` | 5 s | 1–60 | Admin |
-| `randomModeEnabled` | aus | | Start |
-| `randomMin` | 20 g | wird auf [min(`tolerance` + 1, `goal`), `goal`] geklemmt | Start |
+| Feld                | Default            | Bereich                                                  | Web                 |
+| ------------------- | ------------------ | -------------------------------------------------------- | ------------------- |
+| `apSSID`            | `100-Waage-Config` | 1–32 Byte, keine Steuerzeichen                           | Admin               |
+| `adminPassword`     | `admin`            | neu gesetzt: 4–31 Byte                                   | Admin               |
+| `scaleFactor`       | 708                | endlich, \|f\| ≥ 1                                       | Kalibrier-Assistent |
+| `goal`              | 100,0 g            | 1–5000 g, 0,1-g-Raster, ≥ `tolerance` + 1                | Start               |
+| `tolerance`         | 10 g               | 0,5–100 g                                                | Admin               |
+| `displayRotation`   | 0                  | 0 oder 2 (180°)                                          | Start               |
+| `wifiTimeout`       | 10 min             | 0–255, 0 = nie                                           | Admin               |
+| `sleepTimeout`      | 5 min              | 0–255, 0 = nie                                           | Admin               |
+| `battDividerRatio`  | 2,0                | 1–6                                                      | Akku-Abgleich       |
+| `scaleMode`         | Game               | Game / Standard                                          | Start               |
+| `autoResetRange`    | 10 %               | 0–100                                                    | Admin               |
+| `autoZeroEnabled`   | an                 |                                                          | Admin               |
+| `autoZeroThreshold` | 2 g                | 0,1–20 g, ≤ `tolerance`                                  | Admin               |
+| `autoZeroDelay`     | 5 s                | 1–60                                                     | Admin               |
+| `randomModeEnabled` | aus                |                                                          | Start               |
+| `randomMin`         | 20 g               | wird auf [min(`tolerance` + 1, `goal`), `goal`] geklemmt | Start               |
 
 Beim **Laden** klemmt `sanitize` jeden Wert in seinen Bereich und scheitert nie
 (ein gültiger `scaleFactor` bleibt bit-genau). Aus dem **Web** prüft `validate`
@@ -98,16 +98,16 @@ MAC-Bytes), damit mehrere Waagen unterscheidbar sind; sonst die SSID selbst.
 Namespace `waage`, ein Schlüssel pro Feld. `schema` (aktuell 1) wird zuletzt
 geschrieben; fehlt er, gilt der Speicher als leer.
 
-| Schlüssel | Feld | Schlüssel | Feld |
-|---|---|---|---|
-| `ssid` | apSSID | `pw` | adminPassword |
-| `scale` | scaleFactor | `goal` | goal |
-| `tol` | tolerance | `arRange` | autoResetRange |
-| `rot` | displayRotation | `wifiTo` | wifiTimeout |
-| `sleepTo` | sleepTimeout | `battDiv` | battDividerRatio |
-| `mode` | scaleMode | `azOn` | autoZeroEnabled |
-| `azThr` | autoZeroThreshold | `azDelay` | autoZeroDelay |
-| `rndOn` | randomModeEnabled | `rndMin` | randomMin |
+| Schlüssel | Feld              | Schlüssel | Feld             |
+| --------- | ----------------- | --------- | ---------------- |
+| `ssid`    | apSSID            | `pw`      | adminPassword    |
+| `scale`   | scaleFactor       | `goal`    | goal             |
+| `tol`     | tolerance         | `arRange` | autoResetRange   |
+| `rot`     | displayRotation   | `wifiTo`  | wifiTimeout      |
+| `sleepTo` | sleepTimeout      | `battDiv` | battDividerRatio |
+| `mode`    | scaleMode         | `azOn`    | autoZeroEnabled  |
+| `azThr`   | autoZeroThreshold | `azDelay` | autoZeroDelay    |
+| `rndOn`   | randomModeEnabled | `rndMin`  | randomMin        |
 
 `config_set` schreibt nur die geänderten Schlüssel (Änderungsmaske `cfg::diff`).
 
@@ -125,15 +125,15 @@ Abbild gelten die Defaults. Ein Werksreset schreibt Defaults inklusive `schema`
 
 Änderungen gelten ohne Neustart:
 
-| Änderung | Wirkung |
-|---|---|
-| Ziel, Zufall | im Game-Idle sofort (ohne Tara), sonst ab dem nächsten Reset |
-| Rotation | sofort |
-| Modus | wie der Taster: Reset mit Tara, Duell verlassen und Ausstieg senden. Aus dem Web während Spiel, offener Runde, Kalibrierung oder OTA: 409 |
-| Toleranz | neue Stabilitätsschwelle |
-| Akku-Teiler | Akku wird neu bewertet |
-| SSID | AP startet 1 s nach der Antwort neu, falls sich der wirksame Name ändert |
-| Passwort | alle Sitzungen ungültig, neu anmelden |
+| Änderung     | Wirkung                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Ziel, Zufall | im Game-Idle sofort (ohne Tara), sonst ab dem nächsten Reset                                                                              |
+| Rotation     | sofort                                                                                                                                    |
+| Modus        | wie der Taster: Reset mit Tara, Duell verlassen und Ausstieg senden. Aus dem Web während Spiel, offener Runde, Kalibrierung oder OTA: 409 |
+| Toleranz     | neue Stabilitätsschwelle                                                                                                                  |
+| Akku-Teiler  | Akku wird neu bewertet                                                                                                                    |
+| SSID         | AP startet 1 s nach der Antwort neu, falls sich der wirksame Name ändert                                                                  |
+| Passwort     | alle Sitzungen ungültig, neu anmelden                                                                                                     |
 
 ## Waage
 
@@ -166,12 +166,12 @@ pausiert.
 
 `game_core` fordert die Waage über `ScaleReq` an:
 
-| Anforderung | Wann | Ausführung |
-|---|---|---|
-| `Tare` | jeder Reset: Kurzdruck, Moduswechsel, Start, Sensor zurück, Ende der Kalibrierung | frische Tara |
-| `TareEmpty` | schlechtes Ergebnis, Glas abgehoben | Nullung aus dem Fenster (\|Mittel\| ≤ `tolerance`, Spanne ≤ `stableSpread`), sonst Tara |
-| `AutoZero` | Idle, \|w\| < `autoZeroThreshold`, stabil für `autoZeroDelay` s; danach Pause 3 × `autoZeroDelay` | Nullung aus dem Fenster (Mittel und Spanne ≤ Schwelle) |
-| `NegZero` | Game-Idle, w < −`tolerance` und stabil für `NEGZERO_MS` = 1000 ms (mit Glas tariert, Glas weg) | Nullung aus dem Fenster ohne Betragsgrenze |
+| Anforderung | Wann                                                                                              | Ausführung                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `Tare`      | jeder Reset: Kurzdruck, Moduswechsel, Start, Sensor zurück, Ende der Kalibrierung                 | frische Tara                                                                            |
+| `TareEmpty` | schlechtes Ergebnis, Glas abgehoben                                                               | Nullung aus dem Fenster (\|Mittel\| ≤ `tolerance`, Spanne ≤ `stableSpread`), sonst Tara |
+| `AutoZero`  | Idle, \|w\| < `autoZeroThreshold`, stabil für `autoZeroDelay` s; danach Pause 3 × `autoZeroDelay` | Nullung aus dem Fenster (Mittel und Spanne ≤ Schwelle)                                  |
+| `NegZero`   | Game-Idle, w < −`tolerance` und stabil für `NEGZERO_MS` = 1000 ms (mit Glas tariert, Glas weg)    | Nullung aus dem Fenster ohne Betragsgrenze                                              |
 
 Die Nullung aus dem Fenster verschiebt den Offset sofort um das Mittel der
 bereits geprüften Samples; sie blockiert nicht und nullt kein gerade
@@ -208,13 +208,13 @@ Phasen `Idle → Ready → Drinking → Result`, im Duell zusätzlich
 `Offline | WaitReady | WaitStart | Live`. Solange keine gültige Messung vorliegt
 (Tara, Sensorfehler, Kalibrierung, OTA), ändert sich nichts.
 
-| Übergang | Bedingung (Konstante) |
-|---|---|
-| Idle → Ready | w ≥ Ziel und stabil 500 ms (`PLACE_STABLE_MS`); `fullWeight` = w |
-| Ready → Drinking | w ≤ `fullWeight` − `tolerance` für 300 ms (`LIFT_MS`); Startzeit = erstes Unterschreiten, `emptyWeight` = w |
-| während Drinking | `emptyWeight` wird nachgeführt, solange das Glas weg und stabil ist |
+| Übergang          | Bedingung (Konstante)                                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idle → Ready      | w ≥ Ziel und stabil 500 ms (`PLACE_STABLE_MS`); `fullWeight` = w                                                                                |
+| Ready → Drinking  | w ≤ `fullWeight` − `tolerance` für 300 ms (`LIFT_MS`); Startzeit = erstes Unterschreiten, `emptyWeight` = w                                     |
+| während Drinking  | `emptyWeight` wird nachgeführt, solange das Glas weg und stabil ist                                                                             |
 | Drinking → Result | w ≥ `emptyWeight` + `tolerance` (Endzeit = erstes Überschreiten), dann stabil 500 ms (`RETURN_STABLE_MS`), spätestens 1500 ms (`RETURN_MAX_MS`) |
-| Result → Idle | siehe Ergebnisregeln |
+| Result → Idle     | siehe Ergebnisregeln                                                                                                                            |
 
 Es wird immer ein volles Glas aufgestellt (kein Einschenken auf der Waage).
 
@@ -224,13 +224,13 @@ Getrunken = `fullWeight` − Endgewicht, gerundet auf 0,01 g (Centigramm,
 `toCg`). Die erste Nachkommastelle ist exakt, die zweite Glück. d = getrunken −
 Ziel (beides in cg):
 
-| d | Bewertung |
-|---|---|
-| 0 | Perfekt! |
-| \|d\| ≤ 0,10 g | Not Bad! |
-| \|d\| ≤ 1,00 g | Ganz ok! |
-| d < 0 | Schüchtern |
-| d > 0 | Zu gierig! |
+| d              | Bewertung  |
+| -------------- | ---------- |
+| 0              | Perfekt!   |
+| \|d\| ≤ 0,10 g | Not Bad!   |
+| \|d\| ≤ 1,00 g | Ganz ok!   |
+| d < 0          | Schüchtern |
+| d > 0          | Zu gierig! |
 
 **Gut** heißt \|d\| ≤ `autoResetRange` % vom Ziel.
 
@@ -293,14 +293,14 @@ Little Endian, Kopf 15 Byte, Eintrag 13 Byte, max. 11 Teilnehmer → 158 Byte.
 
 ### Anzeige
 
-| Situation | Anzeige |
-|---|---|
-| Warten auf Start | „Warte...“ / „2/3 bereit“ |
-| Rundenstart | Duell-Ziel |
+| Situation                             | Anzeige                                                   |
+| ------------------------------------- | --------------------------------------------------------- |
+| Warten auf Start                      | „Warte...“ / „2/3 bereit“                                 |
+| Rundenstart                           | Duell-Ziel                                                |
 | eigenes Ergebnis, andere trinken noch | Gramm (0,01 g) / „~2. Platz“, im Wechsel mit „2/3 fertig“ |
-| final | Gramm / „2. Platz!“, im Wechsel mit der Zeit |
-| aufgegeben | „Zu spät!“ |
-| stiller Wechsel auf Solo | Hinweis „Solo!“ |
+| final                                 | Gramm / „2. Platz!“, im Wechsel mit der Zeit              |
+| aufgegeben                            | „Zu spät!“                                                |
+| stiller Wechsel auf Solo              | Hinweis „Solo!“                                           |
 
 Wird der Funk nach dem Final ausgeschaltet, bleibt der letzte finale Rang stehen.
 
@@ -313,19 +313,19 @@ erst nach 30 s.
 
 ### Robustheit
 
-| Mechanismus | Wert |
-|---|---|
-| Peer gilt als aktiv | letzte Nachricht < 5 s |
-| Peer wird vergessen | keine Nachricht > 10 s |
-| Forfeit: Teilnehmer verlässt die Runde (Taster, Funk aus, Moduswechsel) | sofort |
-| Forfeit: Teilnehmer nachweislich in keiner/anderer Runde | sofort |
-| Forfeit: Beitritt verpasst (weiter `Ready`) | nach 15 s |
-| Forfeit: Teilnehmer nicht mehr gehört | 30 s |
-| Harter Rundentimeout (alle `Pending` → Forfeit) | 180 s |
-| Nachlauf: verlassene Runde wird weiter gesendet | 20 s |
-| WaitReady: Gegner weg oder 60 s ohne Start | Solo |
-| WaitReady: Glas 300 ms abgehoben | Solo, direkt Trinken (kürzeres Anheben ändert nichts) |
-| Runde vor dem Final verloren (Funk aus) | Solo gegen das Duell-Ziel |
+| Mechanismus                                                             | Wert                                                  |
+| ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| Peer gilt als aktiv                                                     | letzte Nachricht < 5 s                                |
+| Peer wird vergessen                                                     | keine Nachricht > 10 s                                |
+| Forfeit: Teilnehmer verlässt die Runde (Taster, Funk aus, Moduswechsel) | sofort                                                |
+| Forfeit: Teilnehmer nachweislich in keiner/anderer Runde                | sofort                                                |
+| Forfeit: Beitritt verpasst (weiter `Ready`)                             | nach 15 s                                             |
+| Forfeit: Teilnehmer nicht mehr gehört                                   | 30 s                                                  |
+| Harter Rundentimeout (alle `Pending` → Forfeit)                         | 180 s                                                 |
+| Nachlauf: verlassene Runde wird weiter gesendet                         | 20 s                                                  |
+| WaitReady: Gegner weg oder 60 s ohne Start                              | Solo                                                  |
+| WaitReady: Glas 300 ms abgehoben                                        | Solo, direkt Trinken (kürzeres Anheben ändert nichts) |
+| Runde vor dem Final verloren (Funk aus)                                 | Solo gegen das Duell-Ziel                             |
 
 Eine Waage, die nicht bereit ist (z. B. weil sie noch ein gutes Ergebnis zeigt),
 hält den Start auf, bis jemand drückt oder die 60 s ablaufen. Das ist gewollt.
@@ -341,12 +341,12 @@ Polling im Loop, kein Interrupt. Entprellung 30 ms, Drücke unter 50 ms zählen
 nicht. Jede Flanke zählt als Aktivität für den Deep-Sleep. Der Druck, der die
 Waage aufweckt, löst nichts aus.
 
-| Haltezeit beim Loslassen | Aktion | Text im Balken |
-|---|---|---|
-| < 3 s | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“ |
-| 3–5 s | Modus wechseln | „Standard-Modus“ / „Game-Modus“ |
-| 5–8 s | AP an → alles aus; sonst Funk + AP an | „Alles aus“ / „AP an“ / „Funk + AP an“ |
-| ≥ 8 s | nichts | „Abbrechen“ |
+| Haltezeit beim Loslassen | Aktion                                          | Text im Balken                         |
+| ------------------------ | ----------------------------------------------- | -------------------------------------- |
+| < 3 s                    | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                 |
+| 3–5 s                    | Modus wechseln                                  | „Standard-Modus“ / „Game-Modus“        |
+| 5–8 s                    | AP an → alles aus; sonst Funk + AP an           | „Alles aus“ / „AP an“ / „Funk + AP an“ |
+| ≥ 8 s                    | nichts                                          | „Abbrechen“                            |
 
 Ab 300 ms zeigt das Display einen Balken über 8 s mit Marken bei 3 s und 5 s
 (Pixel 48 und 80); der Text zeigt die Wirkung beim Loslassen.
@@ -364,14 +364,14 @@ Ab 300 ms zeigt das Display einen Balken über 8 s mit Marken bei 3 s und 5 s
   Ergebnisse wechseln alle 3 s zwischen Wert und Zeit. Ladeanimation mit 300 ms
   pro Schritt.
 
-| Symbol | Bedingung |
-|---|---|
-| Zufall (oben links) | Zufallsziel aktiv |
-| WLAN-Bogen | Funk an |
-| `Vs n` | Funk an, Game-Modus, n > 0 Gegner sichtbar |
-| `AP` | Config-AP läuft |
-| Akku mit Prozent | Funk aus |
-| blinkender Akku mit `!` | Akku-Warnung (1 Hz) |
+| Symbol                  | Bedingung                                  |
+| ----------------------- | ------------------------------------------ |
+| Zufall (oben links)     | Zufallsziel aktiv                          |
+| WLAN-Bogen              | Funk an                                    |
+| `Vs n`                  | Funk an, Game-Modus, n > 0 Gegner sichtbar |
+| `AP`                    | Config-AP läuft                            |
+| Akku mit Prozent        | Funk aus                                   |
+| blinkender Akku mit `!` | Akku-Warnung (1 Hz)                        |
 
 ## Energie
 
@@ -418,12 +418,12 @@ gilt als frische Aktivität.
 
 ## Funk und AP
 
-| Aktion | Ablauf |
-|---|---|
-| Funk an | STA-Modus ohne Verbindung, Modem-Sleep aus, 8,5 dBm, Kanal 1, ESP-NOW |
-| Funk + AP an | zusätzlich Soft-AP (offen, Kanal 1, max. 4 Clients), DNS-Captive-Portal, mDNS `waage.local`, Webserver |
-| AP aus (Timeout) | Webserver und AP aus, ESP-NOW bleibt |
-| alles aus | Runde verlassen und Abmeldung senden, dann WiFi aus |
+| Aktion           | Ablauf                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| Funk an          | STA-Modus ohne Verbindung, Modem-Sleep aus, 8,5 dBm, Kanal 1, ESP-NOW                                  |
+| Funk + AP an     | zusätzlich Soft-AP (offen, Kanal 1, max. 4 Clients), DNS-Captive-Portal, mDNS `waage.local`, Webserver |
+| AP aus (Timeout) | Webserver und AP aus, ESP-NOW bleibt                                                                   |
+| alles aus        | Runde verlassen und Abmeldung senden, dann WiFi aus                                                    |
 
 AP-Neustart (SSID geändert) und Reboot (nach OTA) werden nur vorgemerkt und im
 Loop nach der HTTP-Antwort ausgeführt. Nach einem OTA-Reboot startet der AP
@@ -433,10 +433,10 @@ einmalig automatisch (Merker im RTC-Speicher), damit die Seite neu laden kann.
 
 ### Seiten
 
-| Seite | Inhalt |
-|---|---|
-| `/` | Live-Status (fragt `/api/status` jede Sekunde ab), Modus, Ziel, Zufall, Rotation |
-| `/login` | Passwort |
+| Seite    | Inhalt                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------- |
+| `/`      | Live-Status (fragt `/api/status` jede Sekunde ab), Modus, Ziel, Zufall, Rotation                |
+| `/login` | Passwort                                                                                        |
 | `/admin` | Einstellungen, Akku-Abgleich, Kalibrier-Assistent, Firmware-Update mit Fortschritt, Duell-Debug |
 
 Seiten sind statisch (PROGMEM), Daten kommen per JSON. Formulare senden nur
@@ -456,15 +456,15 @@ Vollständige Beschreibung mit allen Feldern: Kommentar in `waage/web.h`.
 Anfragen `application/x-www-form-urlencoded`, Antworten JSON mit
 `Cache-Control: no-store`, Fehler `{"ok":false,"error":"…","field":"…"}`.
 
-| Route | Zweck |
-|---|---|
-| `GET /api/status` | Gewicht, Modus, Phase, busy, Ziel, Funk/AP, Akku (Prozent, Spannung, Pin-mV, Teiler, Warnung) |
-| `GET/POST /api/config` | Ziel, Zufall, Rotation, Modus (Moduswechsel während Spiel → 409) |
-| `GET/POST /api/admin/config` | SSID, Toleranz, Auto-Reset, Timeouts, Auto-Zero, Passwort |
-| `POST /api/admin/battcal` | `measuredV=<V>` oder `reset=1` |
-| `POST /api/admin/cal/{start,measure,cancel}`, `GET /api/admin/cal` | Kalibrier-Assistent |
-| `GET /api/admin/update/allowed`, `POST /api/admin/update` | Firmware-Update |
-| `GET /api/admin/duell` | Duell-Debug (Gegner, Rundentabelle) |
+| Route                                                              | Zweck                                                                                         |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `GET /api/status`                                                  | Gewicht, Modus, Phase, busy, Ziel, Funk/AP, Akku (Prozent, Spannung, Pin-mV, Teiler, Warnung) |
+| `GET/POST /api/config`                                             | Ziel, Zufall, Rotation, Modus (Moduswechsel während Spiel → 409)                              |
+| `GET/POST /api/admin/config`                                       | SSID, Toleranz, Auto-Reset, Timeouts, Auto-Zero, Passwort                                     |
+| `POST /api/admin/battcal`                                          | `measuredV=<V>` oder `reset=1`                                                                |
+| `POST /api/admin/cal/{start,measure,cancel}`, `GET /api/admin/cal` | Kalibrier-Assistent                                                                           |
+| `GET /api/admin/update/allowed`, `POST /api/admin/update`          | Firmware-Update                                                                               |
+| `GET /api/admin/duell`                                             | Duell-Debug (Gegner, Rundentabelle)                                                           |
 
 ### Firmware-Update
 
@@ -492,17 +492,17 @@ danach wieder an. Während des Uploads blockiert der Loop (10–30 s).
 `./test/run.sh` baut jeden Test mit `g++ -std=c++17 -Wall -Wextra -Werror` und
 führt ihn aus; `SANITIZE=1` zusätzlich mit AddressSanitizer und UBSan.
 
-| Test | Prüft |
-|---|---|
-| `duell_core_test`, `duell_sim_test` | Protokoll, Merge, Ranking; 2–4 Waagen mit Paketverlust, Ausstieg |
-| `config_core_test` | Sanitize, Validierung, Parser, altes EEPROM-Abbild bit-genau |
-| `scale_core_test` | Filter, Stabilität, Tara, Nullung, Kalibrierung inkl. Fehlerpfade, Zeitüberlauf |
-| `button_core_test` | Prellen, Zonengrenzen, Weck-Druck |
-| `battery_core_test`, `power_core_test` | Kurve, Hysterese, Abgleich; Sleep-Policy, AP-Timeout, Zeitüberlauf |
-| `text_core_test` | CP437, Layout, alle Texte ohne Ersatzzeichen |
-| `web_core_test` | JSON-Escaping, Cookies, Token, Login-Bremse |
-| `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen |
-| `ui_model_test` | Ebenen, Symbole, Texte |
+| Test                                   | Prüft                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| `duell_core_test`, `duell_sim_test`    | Protokoll, Merge, Ranking; 2–4 Waagen mit Paketverlust, Ausstieg                |
+| `config_core_test`                     | Sanitize, Validierung, Parser, altes EEPROM-Abbild bit-genau                    |
+| `scale_core_test`                      | Filter, Stabilität, Tara, Nullung, Kalibrierung inkl. Fehlerpfade, Zeitüberlauf |
+| `button_core_test`                     | Prellen, Zonengrenzen, Weck-Druck                                               |
+| `battery_core_test`, `power_core_test` | Kurve, Hysterese, Abgleich; Sleep-Policy, AP-Timeout, Zeitüberlauf              |
+| `text_core_test`                       | CP437, Layout, alle Texte ohne Ersatzzeichen                                    |
+| `web_core_test`                        | JSON-Escaping, Cookies, Token, Login-Bremse                                     |
+| `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen                     |
+| `ui_model_test`                        | Ebenen, Symbole, Texte                                                          |
 
 ## Abnahme auf der Hardware
 

@@ -6,7 +6,8 @@
 // Kein Internet im AP: alles inline. Werte von Geraet/Nutzer nur per
 // textContent/value setzen.
 
-static const char INDEX_HTML[] PROGMEM = R"html(<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>100-Waage</title><style>
+static const char INDEX_HTML[] PROGMEM =
+    R"html(<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>100-Waage</title><style>
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:500px;margin:16px auto;padding:0 16px;color:#222;background:#fff}
 h2,h3{text-align:center;margin-top:0}
 .st{background:#f0f4f8;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:14px;display:flex;gap:6px 16px;flex-wrap:wrap}.st span{white-space:nowrap}.off{opacity:.5}
@@ -68,7 +69,8 @@ document.addEventListener('visibilitychange',()=>{if(live())P()});
 load();P();
 </script></body></html>)html";
 
-static const char LOGIN_HTML[] PROGMEM = R"html(<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin-Login – 100-Waage</title><style>
+static const char LOGIN_HTML[] PROGMEM =
+    R"html(<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin-Login – 100-Waage</title><style>
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:500px;margin:16px auto;padding:0 16px;color:#222;background:#fff}
 h2,h3{text-align:center;margin-top:0}
 .sec{border:1px solid #FFB74D;border-radius:8px;padding:16px;margin-bottom:16px}
@@ -88,7 +90,8 @@ const m={1:'Falsches Passwort',2:'Zu viele Versuche – bitte 30 s warten'}[new 
 if(m){e.textContent=m;e.hidden=false}
 </script></body></html>)html";
 
-static const char ADMIN_HTML[] PROGMEM = R"html(<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin – 100-Waage</title><style>
+static const char ADMIN_HTML[] PROGMEM =
+    R"html(<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin – 100-Waage</title><style>
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:500px;margin:16px auto;padding:0 16px;color:#222;background:#fff}
 h2,h3{text-align:center;margin-top:0}p{font-size:14px;margin:6px 0}
 .sec{border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px}.adm{border-color:#FFB74D}

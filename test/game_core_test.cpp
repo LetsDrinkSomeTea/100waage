@@ -6,9 +6,7 @@
 using namespace game;
 
 // Volles Glas aufstellen, bis Bereit
-static void place(Driver &d, float full) {
-  d.run(600, full);
-}
+static void place(Driver &d, float full) { d.run(600, full); }
 
 // Abheben (Glas weg = 0 g), awayMs trinken, mit Restgewicht zurueckstellen.
 // Liefert die Startzeit (erstes Unterschreiten).
@@ -39,11 +37,11 @@ static void testRating() {
   CHECK(!isGood(8999, 10000, 10));
   CHECK(isGood(10000, 10000, 0));
   CHECK(!isGood(10001, 10000, 0));
-  CHECK(!isGood(0, 0, 100));           // kein Ziel → nie gut
-  CHECK(isGood(0, 10000, 100));        // 100 %: alles bis doppelt ist gut
+  CHECK(!isGood(0, 0, 100));    // kein Ziel → nie gut
+  CHECK(isGood(0, 10000, 100)); // 100 %: alles bis doppelt ist gut
   CHECK(isGood(20000, 10000, 100));
   CHECK(!isGood(20001, 10000, 100));
-  CHECK(!isGood(2000000000, 500000, 100));  // kein Ueberlauf
+  CHECK(!isGood(2000000000, 500000, 100)); // kein Ueberlauf
 
   // Rundung statt Abschneiden
   CHECK(toCg(1.234f) == 123);
@@ -57,10 +55,10 @@ static void testRating() {
 
 static void testBootTare() {
   Driver d;
-  CHECK(d.lastReq == ScaleReq::Tare);  // jeder Reset tariert
+  CHECK(d.lastReq == ScaleReq::Tare); // jeder Reset tariert
   CHECK(d.g.phase() == Phase::Idle);
   CHECK(d.g.localGoal() == 100.0f);
-  d.run(500, 0.0f, true, false);  // Tara laeuft
+  d.run(500, 0.0f, true, false); // Tara laeuft
   CHECK(d.g.view().screen == Screen::Taring);
   d.run(100, 0.0f);
   CHECK(d.g.view().screen == Screen::IdleGame);
@@ -72,7 +70,7 @@ static void testBootTare() {
 static void testSoloPerfectStays() {
   Driver d;
   d.run(1000, 0.0f);
-  d.run(500, 300.0f);  // 0,4 s stabil: noch nicht bereit
+  d.run(500, 300.0f); // 0,4 s stabil: noch nicht bereit
   CHECK(d.g.phase() == Phase::Idle);
   d.run(100, 300.0f);
   CHECK(d.g.phase() == Phase::Ready);
@@ -80,14 +78,14 @@ static void testSoloPerfectStays() {
   CHECK(d.g.gameRunning());
 
   uint32_t t0 = d.now;
-  d.run(300, 0.0f);  // 0,2 s abgehoben: noch nicht
+  d.run(300, 0.0f); // 0,2 s abgehoben: noch nicht
   CHECK(d.g.phase() == Phase::Ready);
   d.run(100, 0.0f);
   CHECK(d.g.phase() == Phase::Drinking);
   CHECK(d.g.view().screen == Screen::Drinking);
   d.run(2600, 0.0f);
   uint32_t tr = d.now;
-  d.run(500, 200.0f);  // zurueck, 0,4 s stabil
+  d.run(500, 200.0f); // zurueck, 0,4 s stabil
   CHECK(d.g.phase() == Phase::Drinking);
   d.run(100, 200.0f);
   CHECK(d.g.phase() == Phase::Result);
@@ -114,14 +112,14 @@ static void testSoloBadGoesOnLift() {
   Driver d;
   d.run(500, 0.0f);
   place(d, 300.0f);
-  drink(d, 150.0f);  // 150 g getrunken: zu gierig
+  drink(d, 150.0f); // 150 g getrunken: zu gierig
   CHECK(d.g.phase() == Phase::Result);
   CHECK(d.g.view().rating == Rating::Greedy);
   d.run(1000, 150.0f);
-  CHECK(d.g.phase() == Phase::Result);  // steht noch
+  CHECK(d.g.phase() == Phase::Result); // steht noch
   int reqs = d.reqCount;
   d.run(400, 0.0f);
-  CHECK(d.g.phase() == Phase::Result);  // erst nach 0,5 s
+  CHECK(d.g.phase() == Phase::Result); // erst nach 0,5 s
   d.run(200, 0.0f);
   CHECK(d.g.phase() == Phase::Idle);
   CHECK(d.reqCount == reqs + 1);
@@ -151,7 +149,7 @@ static void testShortLiftInReady() {
   Driver d;
   place(d, 300.0f);
   for (int i = 0; i < 5; i++) {
-    d.run(200, 100.0f);  // kurz angehoben
+    d.run(200, 100.0f); // kurz angehoben
     d.run(300, 300.0f);
   }
   CHECK(d.g.phase() == Phase::Ready);
@@ -161,7 +159,7 @@ static void testInvalidWeightPauses() {
   Driver d;
   place(d, 300.0f);
   d.run(200, 0.0f);
-  d.run(5000, 0.0f, true, false);  // Sensorfehler mitten im Abheben
+  d.run(5000, 0.0f, true, false); // Sensorfehler mitten im Abheben
   CHECK(d.g.phase() == Phase::Ready);
   d.run(400, 0.0f);
   CHECK(d.g.phase() == Phase::Drinking);
@@ -172,7 +170,7 @@ static void testEmptyTrackedWhileAway() {
   Driver d;
   place(d, 300.0f);
   d.run(400, 0.0f);
-  d.run(2000, 3.0f);  // Drift auf 3 g, stabil
+  d.run(2000, 3.0f); // Drift auf 3 g, stabil
   d.run(600, 203.0f);
   CHECK(d.g.phase() == Phase::Result);
   CHECK(d.g.view().drankCg == 9700);
@@ -214,7 +212,7 @@ static void testNegZeroOnlyInGame() {
 }
 
 static void testAutoZero() {
-  Driver d;  // Reset bei 1000 → Pause 3 x 5 s
+  Driver d; // Reset bei 1000 → Pause 3 x 5 s
   int reqs = d.reqCount;
   d.run(19000, 1.0f);
   CHECK(d.reqCount == reqs);
@@ -243,11 +241,11 @@ static void testStandardMode() {
   d.press();
   d.run(100, 1.5f);
   CHECK(d.g.view().screen == Screen::IdleStandard);
-  CHECK(d.g.view().weight == 0.0f);  // Auto-Zero zeigt 0
+  CHECK(d.g.view().weight == 0.0f); // Auto-Zero zeigt 0
   d.run(100, 123.4f);
   CHECK(std::fabs(d.g.view().weight - 123.4f) < 1e-4f);
   d.run(5000, 500.0f);
-  CHECK(d.g.phase() == Phase::Idle);  // kein Spiel
+  CHECK(d.g.phase() == Phase::Idle); // kein Spiel
   CHECK(d.port.setReadyCalls == 0);
 }
 
@@ -259,13 +257,13 @@ static void testGoalSettings() {
   CHECK(d.g.localGoal() == 50.0f);
   int reqs = d.reqCount;
   d.run(100, 0.0f);
-  CHECK(d.reqCount == reqs);  // ohne Tara
+  CHECK(d.reqCount == reqs); // ohne Tara
   CHECK(d.g.view().goal == 50.0f);
 
   place(d, 300.0f);
   d.c.goal = 80.0f;
   d.g.applyGoalSettings(d.c, d.now);
-  CHECK(d.g.localGoal() == 50.0f);  // im Spiel erst ab dem naechsten Reset
+  CHECK(d.g.localGoal() == 50.0f); // im Spiel erst ab dem naechsten Reset
   d.press();
   CHECK(d.g.localGoal() == 80.0f);
 
@@ -279,7 +277,8 @@ static void testGoalSettings() {
     float g = d.g.localGoal();
     CHECK(g >= 20.0f && g <= 80.0f);
     CHECK(g == std::floor(g));
-    if (prev >= 0 && g != prev) changed = true;
+    if (prev >= 0 && g != prev)
+      changed = true;
     prev = g;
   }
   CHECK(changed);
@@ -289,17 +288,17 @@ static void testGlassBelowGoalNotReady() {
   Driver d;
   d.run(5000, 99.9f);
   CHECK(d.g.phase() == Phase::Idle);
-  d.run(5000, 150.0f, false);  // instabil
+  d.run(5000, 150.0f, false); // instabil
   CHECK(d.g.phase() == Phase::Idle);
 }
 
 static void testWrap() {
-  Driver d(0xFFFFF000u);  // millis() laeuft waehrend der Runde ueber
+  Driver d(0xFFFFF000u); // millis() laeuft waehrend der Runde ueber
   d.run(500, 0.0f);
   place(d, 300.0f);
   CHECK(d.g.phase() == Phase::Ready);
   uint32_t t0 = drink(d, 200.0f, 3000);
-  CHECK(d.now < t0);  // tatsaechlich uebergelaufen
+  CHECK(d.now < t0); // tatsaechlich uebergelaufen
   CHECK(d.g.phase() == Phase::Result);
   CHECK(d.g.view().drankCg == 10000);
   CHECK(d.g.view().durationMs == 3000);
@@ -379,7 +378,7 @@ static void testDuelBadAfterFinal() {
   duelReady(d);
   d.port.beginRound(80.0f, 2);
   d.run(100, 300.0f);
-  drink(d, 250.0f);  // 50 g von 80: schlecht
+  drink(d, 250.0f); // 50 g von 80: schlecht
   CHECK(d.g.duel() == Duel::Live);
   d.port.v.rank = 2;
   d.port.v.settled = 1;
@@ -391,7 +390,7 @@ static void testDuelBadAfterFinal() {
   d.port.v.settled = 2;
   d.port.v.isFinal = true;
   d.run(2900, 0.0f);
-  CHECK(d.g.phase() == Phase::Result);  // final < 3 s
+  CHECK(d.g.phase() == Phase::Result); // final < 3 s
   d.run(200, 0.0f);
   CHECK(d.g.phase() == Phase::Idle);
   CHECK(d.lastReq == ScaleReq::TareEmpty);
@@ -405,7 +404,7 @@ static void testDuelBadGlassStillOn() {
   drink(d, 250.0f);
   d.port.v.rank = 2;
   d.port.v.isFinal = true;
-  d.run(10000, 250.0f);  // Glas bleibt stehen
+  d.run(10000, 250.0f); // Glas bleibt stehen
   CHECK(d.g.phase() == Phase::Result);
   d.run(600, 0.0f);
   CHECK(d.g.phase() == Phase::Idle);
@@ -416,8 +415,8 @@ static void testDuelForfeitIsBad() {
   duelReady(d);
   d.port.beginRound(80.0f, 2);
   d.run(100, 300.0f);
-  drink(d, 220.0f);  // eigentlich perfekt
-  d.port.v.myStatus = duell::Status::Forfeit;  // zu spaet
+  drink(d, 220.0f);                           // eigentlich perfekt
+  d.port.v.myStatus = duell::Status::Forfeit; // zu spaet
   d.port.v.isFinal = true;
   d.run(100, 220.0f);
   CHECK(d.g.view().forfeit);
@@ -434,14 +433,14 @@ static void testDuelLostBeforeFinal() {
   d.port.v.rank = 1;
   d.run(100, 220.0f);
   uint32_t seq = d.g.view().soloFallbackSeq;
-  d.port.v = {};  // Funk aus vor dem Final
+  d.port.v = {}; // Funk aus vor dem Final
   d.run(100, 220.0f);
   CHECK(d.g.duel() == Duel::Offline);
   CHECK(d.g.view().screen == Screen::ResultSolo);
-  CHECK(d.g.view().rating == Rating::Perfect);  // gegen das Duell-Ziel
+  CHECK(d.g.view().rating == Rating::Perfect); // gegen das Duell-Ziel
   CHECK(d.g.view().soloFallbackSeq == seq + 1);
   d.run(5000, 0.0f);
-  CHECK(d.g.phase() == Phase::Result);  // gut bleibt
+  CHECK(d.g.phase() == Phase::Result); // gut bleibt
 }
 
 static void testWaitReadyShortLift() {
@@ -490,7 +489,7 @@ static void testWaitReadyPeersGone() {
   CHECK(d.port.leaveCalls == 1);
   drink(d, 200.0f);
   CHECK(d.g.view().screen == Screen::ResultSolo);
-  CHECK(d.g.view().rating == Rating::Perfect);  // eigenes Ziel
+  CHECK(d.g.view().rating == Rating::Perfect); // eigenes Ziel
 }
 
 static void testWaitStartRoundGone() {
@@ -505,13 +504,13 @@ static void testWaitStartRoundGone() {
   CHECK(d.g.duel() == Duel::Offline);
   drink(d, 220.0f);
   CHECK(d.g.view().screen == Screen::ResultSolo);
-  CHECK(d.g.view().rating == Rating::Perfect);  // Duell-Ziel 80
+  CHECK(d.g.view().rating == Rating::Perfect); // Duell-Ziel 80
   CHECK(d.port.submitCalls == 0);
 }
 
 static void testNoDuelWithoutRadio() {
   Driver d;
-  d.port.isActive = true;  // Gegner sichtbar, aber Funk aus (Zustand stale)
+  d.port.isActive = true; // Gegner sichtbar, aber Funk aus (Zustand stale)
   place(d, 300.0f);
   CHECK(d.g.duel() == Duel::Offline);
   CHECK(d.port.setReadyCalls == 0);
@@ -526,7 +525,7 @@ static void testResetLeaves() {
   d.press();
   CHECK(d.port.leaveCalls == leaves + 1);
   CHECK(d.g.duel() == Duel::Offline);
-  CHECK(d.g.localGoal() == 100.0f);  // Duell-Ziel vergessen
+  CHECK(d.g.localGoal() == 100.0f); // Duell-Ziel vergessen
 }
 
 int main() {

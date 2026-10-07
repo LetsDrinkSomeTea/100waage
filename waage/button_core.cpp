@@ -2,8 +2,10 @@
 
 namespace button {
 
-static_assert(DEBOUNCE_MS < MIN_PRESS_MS, "Mindestdruck muss laenger als die Entprellung sein");
-static_assert(MIN_PRESS_MS < MODE_MS && MODE_MS < RADIO_MS && RADIO_MS < CANCEL_MS,
+static_assert(DEBOUNCE_MS < MIN_PRESS_MS,
+              "Mindestdruck muss laenger als die Entprellung sein");
+static_assert(MIN_PRESS_MS < MODE_MS && MODE_MS < RADIO_MS &&
+                  RADIO_MS < CANCEL_MS,
               "Zonen muessen aufsteigend sein");
 
 namespace {
@@ -16,13 +18,16 @@ uint32_t since(uint32_t now, uint32_t t) {
 }
 
 Zone zoneFor(uint32_t held) {
-  if (held < MODE_MS) return Zone::Short;
-  if (held < RADIO_MS) return Zone::Mode;
-  if (held < CANCEL_MS) return Zone::Radio;
+  if (held < MODE_MS)
+    return Zone::Short;
+  if (held < RADIO_MS)
+    return Zone::Mode;
+  if (held < CANCEL_MS)
+    return Zone::Radio;
   return Zone::Cancel;
 }
 
-}  // namespace
+} // namespace
 
 void Button::begin(bool levelAtBoot, uint32_t now) {
   // Ein beim Boot gehaltener Taster gilt sofort als gedrueckt, aber ignoriert.
@@ -39,7 +44,8 @@ Zone Button::update(bool level, uint32_t now) {
     raw_ = level;
     rawSince_ = now;
   }
-  if (raw_ == pressed_ || since(now, rawSince_) < DEBOUNCE_MS) return Zone::None;
+  if (raw_ == pressed_ || since(now, rawSince_) < DEBOUNCE_MS)
+    return Zone::None;
 
   // Entprellte Flanke. Als Zeitpunkt zaehlt der Beginn des stabilen Pegels:
   // Haltedauer, Overlay und Zonen hinken so nicht um DEBOUNCE_MS hinterher,
@@ -50,7 +56,7 @@ Zone Button::update(bool level, uint32_t now) {
     pressSince_ = rawSince_;
     return Zone::None;
   }
-  if (ignore_) {  // Weck-Druck vom Boot: nur Aktivitaet, keine Aktion
+  if (ignore_) { // Weck-Druck vom Boot: nur Aktivitaet, keine Aktion
     ignore_ = false;
     return Zone::None;
   }
@@ -59,19 +65,22 @@ Zone Button::update(bool level, uint32_t now) {
 }
 
 uint32_t Button::heldMs(uint32_t now) const {
-  if (!pressed_ || ignore_) return 0;
+  if (!pressed_ || ignore_)
+    return 0;
   uint32_t held = since(now, pressSince_);
   // Loslassen erkannt, aber noch nicht entprellt: Dauer einfrieren, damit die
   // Anzeige bis zum Ereignis dieselbe Zone zeigt, die das Ereignis liefert.
   if (!raw_) {
     uint32_t upTo = since(rawSince_, pressSince_);
-    if (upTo < held) held = upTo;
+    if (upTo < held)
+      held = upTo;
   }
   return held;
 }
 
 Zone Button::zone(uint32_t now) const {
-  if (!pressed_ || ignore_) return Zone::None;
+  if (!pressed_ || ignore_)
+    return Zone::None;
   return zoneFor(heldMs(now));
 }
 
@@ -85,4 +94,4 @@ bool Button::takeEdge() {
   return e;
 }
 
-}  // namespace button
+} // namespace button

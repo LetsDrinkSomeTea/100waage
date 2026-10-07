@@ -6,16 +6,21 @@ namespace game {
 Rating rate(int32_t drankCg, int32_t goalCg) {
   int32_t d = drankCg - goalCg;
   int32_t ad = d < 0 ? -d : d;
-  if (d == 0) return Rating::Perfect;
-  if (ad <= 10) return Rating::NotBad;
-  if (ad <= 100) return Rating::Ok;
+  if (d == 0)
+    return Rating::Perfect;
+  if (ad <= 10)
+    return Rating::NotBad;
+  if (ad <= 100)
+    return Rating::Ok;
   return d < 0 ? Rating::Shy : Rating::Greedy;
 }
 
 bool isGood(int32_t drankCg, int32_t goalCg, uint8_t autoResetRange) {
-  if (goalCg <= 0) return false;
+  if (goalCg <= 0)
+    return false;
   int64_t d = (int64_t)drankCg - goalCg;
-  if (d < 0) d = -d;
+  if (d < 0)
+    d = -d;
   return d * 100 <= (int64_t)autoResetRange * goalCg;
 }
 
@@ -45,7 +50,8 @@ void Game::stopTimers() {
 }
 
 void Game::reset(const cfg::Config &c, uint32_t now, ScaleReq tare) {
-  if (port_) port_->leave();
+  if (port_)
+    port_->leave();
   phase_ = Phase::Idle;
   duel_ = Duel::Offline;
   stopTimers();
@@ -63,14 +69,16 @@ void Game::reset(const cfg::Config &c, uint32_t now, ScaleReq tare) {
   view_.isFinal = view_.forfeit = false;
   view_.drankCg = 0;
   view_.durationMs = 0;
-  view_.screen = c.scaleMode == cfg::ScaleMode::Game ? Screen::IdleGame : Screen::IdleStandard;
+  view_.screen = c.scaleMode == cfg::ScaleMode::Game ? Screen::IdleGame
+                                                     : Screen::IdleStandard;
   view_.screenSince = now;
   req_ = tare;
 }
 
 void Game::applyGoalSettings(const cfg::Config &c, uint32_t now) {
   (void)now;
-  if (c.scaleMode != cfg::ScaleMode::Game || phase_ != Phase::Idle) return;
+  if (c.scaleMode != cfg::ScaleMode::Game || phase_ != Phase::Idle)
+    return;
   localGoal_ = c.randomModeEnabled ? cfg::rollGoal(c, nextRandom()) : c.goal;
   place_.stop();
 }
@@ -82,7 +90,8 @@ ScaleReq Game::takeScaleReq() {
 }
 
 bool Game::ownRoundOpen() const {
-  if (!port_) return false;
+  if (!port_)
+    return false;
   duell::View v = port_->view();
   return v.inRound && !v.isFinal;
 }
@@ -94,7 +103,8 @@ void Game::update(const cfg::Config &c, const Input &in) {
   if (!in.weightValid) {
     // Tara laeuft oder Sensorfehler: nichts aendert sich
     stopTimers();
-    if (phase_ == Phase::Idle) setScreen(Screen::Taring, in.now);
+    if (phase_ == Phase::Idle)
+      setScreen(Screen::Taring, in.now);
     return;
   }
   if (c.scaleMode == cfg::ScaleMode::Standard) {
@@ -102,10 +112,18 @@ void Game::update(const cfg::Config &c, const Input &in) {
     return;
   }
   switch (phase_) {
-    case Phase::Idle: updateIdle(c, in); break;
-    case Phase::Ready: updateReady(c, in); break;
-    case Phase::Drinking: updateDrinking(c, in); break;
-    case Phase::Result: updateResult(c, in); break;
+  case Phase::Idle:
+    updateIdle(c, in);
+    break;
+  case Phase::Ready:
+    updateReady(c, in);
+    break;
+  case Phase::Drinking:
+    updateDrinking(c, in);
+    break;
+  case Phase::Result:
+    updateResult(c, in);
+    break;
   }
   view_.soloFallbackSeq = soloSeq_;
 }
@@ -119,11 +137,13 @@ void Game::updateAutoZero(const cfg::Config &c, const Input &in) {
   }
   uint32_t delayMs = (uint32_t)c.autoZeroDelay * 1000UL;
   if (autoZeroDone_ && (uint32_t)(in.now - autoZeroLast_) < 3 * delayMs) {
-    autoZeroStable_.stop();  // Pause nach dem letzten Nullen
+    autoZeroStable_.stop(); // Pause nach dem letzten Nullen
     return;
   }
-  if (fabsf(in.weight) < c.autoZeroThreshold && in.stable) autoZeroStable_.start(in.now);
-  else autoZeroStable_.stop();
+  if (fabsf(in.weight) < c.autoZeroThreshold && in.stable)
+    autoZeroStable_.start(in.now);
+  else
+    autoZeroStable_.stop();
   if (autoZeroStable_.held(in.now, delayMs)) {
     request(ScaleReq::AutoZero);
     autoZeroStable_.stop();
@@ -151,17 +171,22 @@ void Game::updateIdle(const cfg::Config &c, const Input &in) {
   updateAutoZero(c, in);
 
   // NegZero: mit Glas tariert und Glas abgehoben → leere Waage nullen
-  if (w < -c.tolerance && in.stable) negZero_.start(now);
-  else negZero_.stop();
+  if (w < -c.tolerance && in.stable)
+    negZero_.start(now);
+  else
+    negZero_.stop();
   if (negZero_.held(now, NEGZERO_MS)) {
     request(ScaleReq::NegZero);
     negZero_.stop();
   }
 
   // Volles Glas steht stabil → Bereit
-  if (w >= localGoal_ && in.stable) place_.start(now);
-  else place_.stop();
-  if (!place_.held(now, PLACE_STABLE_MS)) return;
+  if (w >= localGoal_ && in.stable)
+    place_.start(now);
+  else
+    place_.stop();
+  if (!place_.held(now, PLACE_STABLE_MS))
+    return;
 
   place_.stop();
   negZero_.stop();
@@ -197,7 +222,8 @@ void Game::updateReady(const cfg::Config &c, const Input &in) {
       view_.goal = target;
       setScreen(Screen::DuelStart, now);
       // Laufendes Anheben zaehlt weiter (lift_ bleibt erhalten)
-    } else if (!port_->active() || (uint32_t)(now - waitReady_.since) >= WAITREADY_TIMEOUT_MS) {
+    } else if (!port_->active() ||
+               (uint32_t)(now - waitReady_.since) >= WAITREADY_TIMEOUT_MS) {
       // Gegner weg oder Timeout → solo weiterspielen
       duel_ = Duel::Offline;
       waitReady_.stop();
@@ -207,8 +233,10 @@ void Game::updateReady(const cfg::Config &c, const Input &in) {
     } else {
       port_->readyCount(&view_.ready, &view_.readyTotal);
       // Glas lange genug abgehoben → solo, Trinken laeuft schon
-      if (below) lift_.start(now);
-      else lift_.stop();
+      if (below)
+        lift_.start(now);
+      else
+        lift_.stop();
       if (lift_.held(now, LIFT_MS)) {
         duel_ = Duel::Offline;
         waitReady_.stop();
@@ -224,9 +252,12 @@ void Game::updateReady(const cfg::Config &c, const Input &in) {
     soloSeq_++;
   }
 
-  if (below) lift_.start(now);
-  else lift_.stop();
-  if (lift_.held(now, LIFT_MS)) startDrinking(in, lift_.since);
+  if (below)
+    lift_.start(now);
+  else
+    lift_.stop();
+  if (lift_.held(now, LIFT_MS))
+    startDrinking(in, lift_.since);
 }
 
 // ── Drinking ──────────────────────────────────────────────────────────────────
@@ -247,12 +278,15 @@ void Game::updateDrinking(const cfg::Config &c, const Input &in) {
       ret_.start(now);
       timeEnd_ = now;
     }
-    if ((ret_.held(now, RETURN_STABLE_MS) && in.stable) || ret_.held(now, RETURN_MAX_MS)) finishDrinking(in);
+    if ((ret_.held(now, RETURN_STABLE_MS) && in.stable) ||
+        ret_.held(now, RETURN_MAX_MS))
+      finishDrinking(in);
     return;
   }
   ret_.stop();
   // Leere Waage nachfuehren, solange das Glas weg ist
-  if (in.stable) emptyWeight_ = in.weight;
+  if (in.stable)
+    emptyWeight_ = in.weight;
 }
 
 void Game::finishDrinking(const Input &in) {
@@ -284,9 +318,12 @@ void Game::finishDrinking(const Input &in) {
 
 void Game::updateResult(const cfg::Config &c, const Input &in) {
   const uint32_t now = in.now;
-  // Glas weg, relativ zur gemessenen leeren Waage (klappt auch nach Tara mit Glas)
-  if (in.weight < emptyWeight_ + c.tolerance) removed_.start(now);
-  else removed_.stop();
+  // Glas weg, relativ zur gemessenen leeren Waage (klappt auch nach Tara mit
+  // Glas)
+  if (in.weight < emptyWeight_ + c.tolerance)
+    removed_.start(now);
+  else
+    removed_.stop();
   const bool removed = removed_.held(now, REMOVED_MS);
 
   if (duel_ == Duel::Live) {
@@ -297,7 +334,7 @@ void Game::updateResult(const cfg::Config &c, const Input &in) {
       haveCached_ = true;
       v = live;
     } else if (haveCached_ && cachedView_.isFinal) {
-      v = cachedView_;  // Funk nach dem Final aus: Rang bleibt
+      v = cachedView_; // Funk nach dem Final aus: Rang bleibt
     } else {
       // Runde vor dem Final verloren → solo gegen das Duell-Ziel
       duel_ = Duel::Offline;
@@ -312,12 +349,17 @@ void Game::updateResult(const cfg::Config &c, const Input &in) {
     view_.total = v.total;
     view_.isFinal = v.isFinal;
     view_.forfeit = forfeit;
-    view_.resultSig = (uint32_t)v.rank | ((uint32_t)v.settled << 8) | ((uint32_t)v.total << 16) |
-                      ((uint32_t)v.isFinal << 24) | ((uint32_t)forfeit << 25);
-    if (v.isFinal) final_.start(now);
-    else final_.stop();
-    const bool bad = forfeit || !isGood(view_.drankCg, toCg(v.target), c.autoResetRange);
-    if (bad && removed && final_.held(now, FINAL_MIN_SHOW_MS)) reset(c, now, ScaleReq::TareEmpty);
+    view_.resultSig = (uint32_t)v.rank | ((uint32_t)v.settled << 8) |
+                      ((uint32_t)v.total << 16) | ((uint32_t)v.isFinal << 24) |
+                      ((uint32_t)forfeit << 25);
+    if (v.isFinal)
+      final_.start(now);
+    else
+      final_.stop();
+    const bool bad =
+        forfeit || !isGood(view_.drankCg, toCg(v.target), c.autoResetRange);
+    if (bad && removed && final_.held(now, FINAL_MIN_SHOW_MS))
+      reset(c, now, ScaleReq::TareEmpty);
     return;
   }
 
@@ -327,4 +369,4 @@ void Game::updateResult(const cfg::Config &c, const Input &in) {
   }
 }
 
-}  // namespace game
+} // namespace game

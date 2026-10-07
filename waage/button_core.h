@@ -9,17 +9,20 @@
 namespace button {
 
 constexpr uint32_t DEBOUNCE_MS = 30;
-constexpr uint32_t MIN_PRESS_MS = 50;   // kuerzere Druecke loesen nichts aus
-constexpr uint32_t OVERLAY_MS = 300;    // ab hier zeigt das Display den Haltebalken
-constexpr uint32_t MODE_MS = 3000;      // Moduswechsel
-constexpr uint32_t RADIO_MS = 5000;     // Funk/AP
-constexpr uint32_t CANCEL_MS = 8000;    // Abbruch, nichts tun
+constexpr uint32_t MIN_PRESS_MS = 50; // kuerzere Druecke loesen nichts aus
+constexpr uint32_t OVERLAY_MS =
+    300;                            // ab hier zeigt das Display den Haltebalken
+constexpr uint32_t MODE_MS = 3000;  // Moduswechsel
+constexpr uint32_t RADIO_MS = 5000; // Funk/AP
+constexpr uint32_t CANCEL_MS = 8000; // Abbruch, nichts tun
 
-enum class Zone : uint8_t { None,     // nicht gedrueckt
-                            Short,    // < MODE_MS: Reset + Tara
-                            Mode,     // MODE_MS..RADIO_MS: Game/Standard wechseln
-                            Radio,    // RADIO_MS..CANCEL_MS: Funk/AP schalten
-                            Cancel };  // >= CANCEL_MS: nichts
+enum class Zone : uint8_t {
+  None,  // nicht gedrueckt
+  Short, // < MODE_MS: Reset + Tara
+  Mode,  // MODE_MS..RADIO_MS: Game/Standard wechseln
+  Radio, // RADIO_MS..CANCEL_MS: Funk/AP schalten
+  Cancel
+}; // >= CANCEL_MS: nichts
 
 class Button {
 public:
@@ -31,15 +34,15 @@ public:
   // sonst Zone::None. Druecke < MIN_PRESS_MS liefern None.
   Zone update(bool level, uint32_t now);
 
-  bool pressed() const { return pressed_; }   // entprellt
-  uint32_t heldMs(uint32_t now) const;        // 0 wenn nicht gedrueckt
-  Zone zone(uint32_t now) const;              // aktuelle Zone waehrend des Haltens
-  bool overlay(uint32_t now) const;           // gedrueckt und >= OVERLAY_MS
-  bool takeEdge();                            // true einmal nach jeder entprellten Flanke (Aktivitaet)
+  bool pressed() const { return pressed_; } // entprellt
+  uint32_t heldMs(uint32_t now) const;      // 0 wenn nicht gedrueckt
+  Zone zone(uint32_t now) const;    // aktuelle Zone waehrend des Haltens
+  bool overlay(uint32_t now) const; // gedrueckt und >= OVERLAY_MS
+  bool takeEdge(); // true einmal nach jeder entprellten Flanke (Aktivitaet)
 
 private:
   bool raw_ = false, pressed_ = false, ignore_ = false, edge_ = false;
   uint32_t rawSince_ = 0, pressSince_ = 0;
 };
 
-}  // namespace button
+} // namespace button

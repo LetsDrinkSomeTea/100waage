@@ -1,0 +1,5 @@
+# C++-Formatvorlage. clangd (Editor) und tools/format.sh lesen diese Datei.
+BasedOnStyle: LLVM
+ColumnLimit: 80
+# Abschnitts-Trenner "// ── Titel ───…" nicht umbrechen.
+CommentPragmas: '^ ──'

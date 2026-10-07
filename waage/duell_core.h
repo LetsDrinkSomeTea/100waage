@@ -28,50 +28,50 @@ constexpr uint32_t HEARTBEAT_IDLE_MS = 1000;
 constexpr uint32_t HEARTBEAT_ACTIVE_MS = 250;
 constexpr uint32_t PEER_ACTIVE_MS = 5000;
 constexpr uint32_t PEER_FORGET_MS = 10000;
-constexpr uint32_t STARTUP_GUARD_MS = 5000;       // so lange nach Funkstart nicht Leader sein
-constexpr uint32_t READY_GRACE_MS = 1500;         // alle bereit so lange, dann Start
-constexpr uint32_t JOIN_WINDOW_MS = 10000;        // Beitritt nur so lange nach Rundenstart
-constexpr uint32_t INVISIBLE_FORFEIT_MS = 30000;  // Teilnehmer so lange nicht gehoert = aufgegeben
-constexpr uint32_t ROUND_MAX_MS = 180000;         // danach gilt jeder Pending als aufgegeben
-constexpr uint32_t LINGER_MS = 20000;             // verlassene Runde so lange weitersenden
+constexpr uint32_t STARTUP_GUARD_MS =
+    5000; // so lange nach Funkstart nicht Leader sein
+constexpr uint32_t READY_GRACE_MS = 1500; // alle bereit so lange, dann Start
+constexpr uint32_t JOIN_WINDOW_MS =
+    10000; // Beitritt nur so lange nach Rundenstart
+constexpr uint32_t INVISIBLE_FORFEIT_MS =
+    30000; // Teilnehmer so lange nicht gehoert = aufgegeben
+constexpr uint32_t ROUND_MAX_MS =
+    180000; // danach gilt jeder Pending als aufgegeben
+constexpr uint32_t LINGER_MS = 20000; // verlassene Runde so lange weitersenden
 
-enum class Phase : uint8_t { Idle = 0,
-                             Ready = 1,
-                             InRound = 2 };
+enum class Phase : uint8_t { Idle = 0, Ready = 1, InRound = 2 };
 
-enum class Status : uint8_t { Pending = 0,
-                              Forfeit = 1,
-                              Done = 2 };
+enum class Status : uint8_t { Pending = 0, Forfeit = 1, Done = 2 };
 
 struct Entry {
   uint8_t mac[6];
   Status status;
-  float result;         // getrunkene Gramm, gueltig bei Done
-  uint16_t durationCs;  // Trinkzeit in 1/100 s, gueltig bei Done
+  float result;        // getrunkene Gramm, gueltig bei Done
+  uint16_t durationCs; // Trinkzeit in 1/100 s, gueltig bei Done
 };
 
 struct Round {
-  uint16_t id;  // 0 = keine Runde
+  uint16_t id; // 0 = keine Runde
   float target;
   uint8_t n;
-  Entry e[MAX_PLAYERS];  // nach MAC aufsteigend sortiert
+  Entry e[MAX_PLAYERS]; // nach MAC aufsteigend sortiert
 };
 
 struct Message {
   Phase phase;
-  float goal;          // eigenes Ziel, Kandidat fuer das Rundenziel
-  uint32_t elapsedMs;  // Zeit seit Rundenstart (Aufloesung 100 ms)
-  Round round;         // round.id == 0: keine Tabelle
+  float goal;         // eigenes Ziel, Kandidat fuer das Rundenziel
+  uint32_t elapsedMs; // Zeit seit Rundenstart (Aufloesung 100 ms)
+  Round round;        // round.id == 0: keine Tabelle
 };
 
 // ── Wire-Format (little endian, wie ESP32 und x86) ───────────────────────────
-// magic u8 | phase u8 | goal f32 | roundId u16 | elapsedDs u16 | target f32 | n u8
-// n × { mac[6] | status u8 | result f32 | durationCs u16 }
+// magic u8 | phase u8 | goal f32 | roundId u16 | elapsedDs u16 | target f32 | n
+// u8 n × { mac[6] | status u8 | result f32 | durationCs u16 }
 constexpr size_t HEADER_SIZE = 15;
 constexpr size_t ENTRY_SIZE = 13;
 constexpr size_t MAX_MSG_SIZE = HEADER_SIZE + MAX_PLAYERS * ENTRY_SIZE;
 
-size_t encode(const Message &m, uint8_t *buf, size_t cap);  // 0 = Fehler
+size_t encode(const Message &m, uint8_t *buf, size_t cap); // 0 = Fehler
 bool decode(const uint8_t *data, size_t len, Message &out);
 
 int findEntry(const Round &r, const uint8_t mac[6]);
@@ -89,10 +89,10 @@ void computeRanks(const Round &r, uint8_t ranks[MAX_PLAYERS]);
 
 struct View {
   bool inRound;
-  bool isFinal;     // kein Teilnehmer mehr Pending
+  bool isFinal; // kein Teilnehmer mehr Pending
   Status myStatus;
-  uint8_t rank;     // 0 = (noch) kein Platz
-  uint8_t settled;  // Teilnehmer mit Done oder Forfeit
+  uint8_t rank;    // 0 = (noch) kein Platz
+  uint8_t settled; // Teilnehmer mit Done oder Forfeit
   uint8_t total;
   float target;
 };
@@ -108,11 +108,13 @@ struct Peer {
 class Core {
 public:
   typedef void (*SendFn)(void *ctx, const uint8_t *data, size_t len);
-  typedef uint32_t (*RandFn)(void *ctx, uint32_t lo, uint32_t hi);  // [lo, hi)
+  typedef uint32_t (*RandFn)(void *ctx, uint32_t lo, uint32_t hi); // [lo, hi)
 
-  void begin(const uint8_t mac[6], uint32_t now, SendFn send, RandFn rnd, void *ctx);
+  void begin(const uint8_t mac[6], uint32_t now, SendFn send, RandFn rnd,
+             void *ctx);
 
-  void onReceive(const uint8_t mac[6], const uint8_t *data, size_t len, uint32_t now);
+  void onReceive(const uint8_t mac[6], const uint8_t *data, size_t len,
+                 uint32_t now);
   void tick(uint32_t now, float localGoal);
 
   // Ereignisse aus der State-Machine
@@ -121,14 +123,15 @@ public:
   void leave(uint32_t now);
 
   // Sofort senden, unabhaengig vom Heartbeat (z. B. Ausstieg vor Funk-aus:
-  // leave() und dann mehrmals flush(), weil Broadcasts ohne ACK verloren gehen).
+  // leave() und dann mehrmals flush(), weil Broadcasts ohne ACK verloren
+  // gehen).
   void flush(uint32_t now) { send(now); }
 
   int activePeers(uint32_t now) const;
-  int readyCount(uint32_t now) const;  // bereite Waagen inkl. mir
+  int readyCount(uint32_t now) const; // bereite Waagen inkl. mir
   bool startSignal(float *target) const;
   View view() const;
-  bool busy(uint32_t now) const;  // Runde oder Nachlauf aktiv
+  bool busy(uint32_t now) const; // Runde oder Nachlauf aktiv
 
   // Fuer Debug-Ausgaben (Web)
   const uint8_t *mac() const { return myMac_; }
@@ -158,12 +161,12 @@ private:
   Phase phase_ = Phase::Idle;
   float goal_ = 0.0f;
 
-  Round cur_ = {};  // aktuelle Runde, cur_.id != 0 genau bei Phase::InRound
+  Round cur_ = {}; // aktuelle Runde, cur_.id != 0 genau bei Phase::InRound
   int myIdx_ = -1;
   uint32_t curStartedAt_ = 0;
   uint32_t lastHeard_[MAX_PLAYERS] = {};
 
-  Round linger_ = {};  // zuletzt verlassene Runde, wird noch mitgesendet
+  Round linger_ = {}; // zuletzt verlassene Runde, wird noch mitgesendet
   uint32_t lingerStartedAt_ = 0;
   uint32_t lingerSince_ = 0;
 
@@ -181,4 +184,4 @@ private:
   uint32_t lastTx_ = 0;
 };
 
-}  // namespace duell
+} // namespace duell

@@ -23,7 +23,8 @@ public:
   }
   void setReady() override { setReadyCalls++; }
   bool startSignal(float *t) override {
-    if (start) *t = target;
+    if (start)
+      *t = target;
     return start;
   }
   duell::View view() override { return v; }

@@ -7,7 +7,7 @@
 using namespace duell;
 
 static void setMac(uint8_t *mac, uint8_t last) {
-  const uint8_t base[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 };
+  const uint8_t base[6] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
   memcpy(mac, base, 6);
   mac[5] = last;
 }
@@ -17,7 +17,8 @@ static Round makeRound(int n, float target) {
   r.id = 4711;
   r.target = target;
   r.n = (uint8_t)n;
-  for (int i = 0; i < n; i++) setMac(r.e[i].mac, (uint8_t)(i + 1));
+  for (int i = 0; i < n; i++)
+    setMac(r.e[i].mac, (uint8_t)(i + 1));
   return r;
 }
 
@@ -44,7 +45,7 @@ static void testRoundtrip() {
   CHECK(decode(buf, len, d));
   CHECK(d.phase == Phase::InRound);
   CHECK(d.goal == 123.5f);
-  CHECK(d.elapsedMs == 4500);  // 100-ms-Aufloesung
+  CHECK(d.elapsedMs == 4500); // 100-ms-Aufloesung
   CHECK(d.round.id == 4711);
   CHECK(d.round.target == 99.5f);
   CHECK(d.round.n == 3);
@@ -90,25 +91,25 @@ static void testDecodeRejects() {
   uint8_t buf[MAX_MSG_SIZE + 1];
 
   memcpy(buf, good, len);
-  buf[0] = 0xD2;  // alte Protokollversion
+  buf[0] = 0xD2; // alte Protokollversion
   CHECK(!decode(buf, len, d));
 
-  CHECK(!decode(good, HEADER_SIZE - 1, d));  // zu kurz
-  CHECK(!decode(good, len - 1, d));          // abgeschnittener Eintrag
+  CHECK(!decode(good, HEADER_SIZE - 1, d)); // zu kurz
+  CHECK(!decode(good, len - 1, d));         // abgeschnittener Eintrag
   memcpy(buf, good, len);
   buf[len] = 0;
-  CHECK(!decode(buf, len + 1, d));  // Muell am Ende
+  CHECK(!decode(buf, len + 1, d)); // Muell am Ende
 
   memcpy(buf, good, len);
-  buf[1] = 7;  // ungueltige Phase
+  buf[1] = 7; // ungueltige Phase
   CHECK(!decode(buf, len, d));
 
   memcpy(buf, good, len);
-  buf[HEADER_SIZE - 1] = MAX_PLAYERS + 1;  // n zu gross
+  buf[HEADER_SIZE - 1] = MAX_PLAYERS + 1; // n zu gross
   CHECK(!decode(buf, len, d));
 
   memcpy(buf, good, len);
-  buf[HEADER_SIZE + 6] = 9;  // ungueltiger Status
+  buf[HEADER_SIZE + 6] = 9; // ungueltiger Status
   CHECK(!decode(buf, len, d));
 
   // roundId 0 mit Eintraegen
@@ -123,7 +124,7 @@ static void testDecodeRejects() {
   uint8_t hb[MAX_MSG_SIZE];
   size_t hl = encode(noEntries, hb, sizeof(hb));
   CHECK(hl == HEADER_SIZE);
-  hb[6] = 5;  // roundId wieder setzen, encode hat n=0 geschrieben
+  hb[6] = 5; // roundId wieder setzen, encode hat n=0 geschrieben
   CHECK(!decode(hb, hl, d));
 
   // Doppelte MAC
@@ -203,14 +204,14 @@ static void testRanking() {
 
 static void testMerge() {
   Round local = makeRound(4, 100.0f);
-  setDone(local, 0, 100.0f, 100);  // eigener Eintrag
+  setDone(local, 0, 100.0f, 100); // eigener Eintrag
   local.e[3].status = Status::Forfeit;
 
   Round in = makeRound(4, 100.0f);
-  in.e[0].status = Status::Forfeit;  // darf eigenen Eintrag nicht ueberschreiben
-  in.e[1].status = Status::Forfeit;  // Pending -> Forfeit
-  setDone(in, 2, 101.0f, 200);       // Pending -> Done
-  setDone(in, 3, 102.0f, 300);       // Forfeit -> Done
+  in.e[0].status = Status::Forfeit; // darf eigenen Eintrag nicht ueberschreiben
+  in.e[1].status = Status::Forfeit; // Pending -> Forfeit
+  setDone(in, 2, 101.0f, 200);      // Pending -> Done
+  setDone(in, 3, 102.0f, 300);      // Forfeit -> Done
 
   CHECK(mergeRound(local, in, 0));
   CHECK(local.e[0].status == Status::Done && local.e[0].result == 100.0f);

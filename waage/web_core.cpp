@@ -10,7 +10,7 @@ namespace {
 constexpr uint8_t MAX_DEPTH = 16;
 
 // Ziel fuer Writer ohne Puffer: c_str() liefert dann "" (wird nie beschrieben).
-char g_empty[1] = { 0 };
+char g_empty[1] = {0};
 
 const char HEX_DIGITS[] = "0123456789abcdef";
 
@@ -22,21 +22,21 @@ size_t fmtU32(uint32_t v, char *out) {
     tmp[n++] = (char)('0' + v % 10);
     v /= 10;
   } while (v);
-  for (size_t i = 0; i < n; i++) out[i] = tmp[n - 1 - i];
+  for (size_t i = 0; i < n; i++)
+    out[i] = tmp[n - 1 - i];
   out[n] = '\0';
   return n;
 }
 
-bool isSpace(char c) {
-  return c == ' ' || c == '\t';
-}
+bool isSpace(char c) { return c == ' ' || c == '\t'; }
 
-}  // namespace
+} // namespace
 
 // ── JsonWriter ────────────────────────────────────────────────────────────────
 
 JsonWriter::JsonWriter(char *buf, size_t cap) : buf_(buf), cap_(cap) {
-  static_assert(sizeof(first_) / sizeof(first_[0]) == MAX_DEPTH, "first_ passt nicht zu MAX_DEPTH");
+  static_assert(sizeof(first_) / sizeof(first_[0]) == MAX_DEPTH,
+                "first_ passt nicht zu MAX_DEPTH");
   static_assert(sizeof(objMask_) * 8 >= MAX_DEPTH, "objMask_ zu klein");
   if (!buf || cap == 0) {
     // Nicht einmal Platz fuer NUL: nichts schreiben, aber terminiert bleiben
@@ -49,8 +49,9 @@ JsonWriter::JsonWriter(char *buf, size_t cap) : buf_(buf), cap_(cap) {
 }
 
 void JsonWriter::rawChar(char c) {
-  if (!ok_) return;
-  if (cap_ - len_ < 2) {  // Zeichen + NUL muessen passen
+  if (!ok_)
+    return;
+  if (cap_ - len_ < 2) { // Zeichen + NUL muessen passen
     ok_ = false;
     return;
   }
@@ -59,31 +60,37 @@ void JsonWriter::rawChar(char c) {
 }
 
 void JsonWriter::raw(const char *s) {
-  while (ok_ && *s) rawChar(*s++);
+  while (ok_ && *s)
+    rawChar(*s++);
 }
 
 // Komma bzw. Pruefung vor jedem Wert; setzt ok_ = false bei falscher Nutzung.
 void JsonWriter::valuePrefix() {
-  if (!ok_) return;
+  if (!ok_)
+    return;
   if (depth_ == 0) {
-    if (len_ > 0) ok_ = false;  // nur ein Wurzelwert
+    if (len_ > 0)
+      ok_ = false; // nur ein Wurzelwert
     return;
   }
   uint8_t lvl = depth_ - 1;
   if (objMask_ & (1u << lvl)) {
-    if (!afterKey_) ok_ = false;  // im Objekt nur nach key()
+    if (!afterKey_)
+      ok_ = false; // im Objekt nur nach key()
     afterKey_ = false;
     return;
   }
-  if (first_[lvl]) first_[lvl] = false;
-  else rawChar(',');
+  if (first_[lvl])
+    first_[lvl] = false;
+  else
+    rawChar(',');
 }
 
 namespace {
 
-// String in Anfuehrungszeichen mit Escapes; UTF-8 (>= 0x80) bleibt unveraendert.
-template <typename W>
-void quoted(W &&put, const char *s) {
+// String in Anfuehrungszeichen mit Escapes; UTF-8 (>= 0x80) bleibt
+// unveraendert.
+template <typename W> void quoted(W &&put, const char *s) {
   put('"');
   for (; *s; s++) {
     unsigned char c = (unsigned char)*s;
@@ -104,17 +111,19 @@ void quoted(W &&put, const char *s) {
   put('"');
 }
 
-}  // namespace
+} // namespace
 
 JsonWriter &JsonWriter::beginObject() {
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   if (depth_ >= MAX_DEPTH) {
     ok_ = false;
     return *this;
   }
   valuePrefix();
   rawChar('{');
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   first_[depth_] = true;
   objMask_ |= (uint16_t)(1u << depth_);
   depth_++;
@@ -122,25 +131,29 @@ JsonWriter &JsonWriter::beginObject() {
 }
 
 JsonWriter &JsonWriter::endObject() {
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   if (depth_ == 0 || !(objMask_ & (1u << (depth_ - 1))) || afterKey_) {
-    ok_ = false;  // keine offene Ebene, falscher Typ oder key() ohne Wert
+    ok_ = false; // keine offene Ebene, falscher Typ oder key() ohne Wert
     return *this;
   }
   rawChar('}');
-  if (ok_) depth_--;
+  if (ok_)
+    depth_--;
   return *this;
 }
 
 JsonWriter &JsonWriter::beginArray() {
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   if (depth_ >= MAX_DEPTH) {
     ok_ = false;
     return *this;
   }
   valuePrefix();
   rawChar('[');
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   first_[depth_] = true;
   objMask_ &= (uint16_t)~(1u << depth_);
   depth_++;
@@ -148,25 +161,30 @@ JsonWriter &JsonWriter::beginArray() {
 }
 
 JsonWriter &JsonWriter::endArray() {
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   if (depth_ == 0 || (objMask_ & (1u << (depth_ - 1)))) {
     ok_ = false;
     return *this;
   }
   rawChar(']');
-  if (ok_) depth_--;
+  if (ok_)
+    depth_--;
   return *this;
 }
 
 JsonWriter &JsonWriter::key(const char *k) {
-  if (!ok_) return *this;
+  if (!ok_)
+    return *this;
   if (!k || depth_ == 0 || !(objMask_ & (1u << (depth_ - 1))) || afterKey_) {
-    ok_ = false;  // nur im Objekt, und nicht zwei Schluessel hintereinander
+    ok_ = false; // nur im Objekt, und nicht zwei Schluessel hintereinander
     return *this;
   }
   uint8_t lvl = depth_ - 1;
-  if (first_[lvl]) first_[lvl] = false;
-  else rawChar(',');
+  if (first_[lvl])
+    first_[lvl] = false;
+  else
+    rawChar(',');
   quoted([this](char c) { rawChar(c); }, k);
   rawChar(':');
   afterKey_ = true;
@@ -174,19 +192,24 @@ JsonWriter &JsonWriter::key(const char *k) {
 }
 
 JsonWriter &JsonWriter::str(const char *s) {
-  if (!s) return null();
+  if (!s)
+    return null();
   valuePrefix();
   quoted([this](char c) { rawChar(c); }, s);
   return *this;
 }
 
 JsonWriter &JsonWriter::num(float v, int decimals) {
-  if (!std::isfinite(v)) return null();
+  if (!std::isfinite(v))
+    return null();
   valuePrefix();
-  if (!ok_) return *this;
-  if (decimals < 0) decimals = 0;
-  if (decimals > 6) decimals = 6;
-  char tmp[64];  // FLT_MAX mit 6 Stellen braucht 47 Zeichen
+  if (!ok_)
+    return *this;
+  if (decimals < 0)
+    decimals = 0;
+  if (decimals > 6)
+    decimals = 6;
+  char tmp[64]; // FLT_MAX mit 6 Stellen braucht 47 Zeichen
   int n = snprintf(tmp, sizeof(tmp), "%.*f", decimals, (double)v);
   if (n < 0 || (size_t)n >= sizeof(tmp)) {
     ok_ = false;
@@ -197,9 +220,11 @@ JsonWriter &JsonWriter::num(float v, int decimals) {
   if (tmp[0] == '-') {
     bool zero = true;
     for (const char *q = tmp + 1; *q; q++) {
-      if (*q != '0' && *q != '.') zero = false;
+      if (*q != '0' && *q != '.')
+        zero = false;
     }
-    if (zero) p++;
+    if (zero)
+      p++;
   }
   raw(p);
   return *this;
@@ -240,35 +265,48 @@ JsonWriter &JsonWriter::null() {
 
 // ── Cookies ───────────────────────────────────────────────────────────────────
 
-bool cookieValue(const char *header, const char *name, char *out, size_t outSize) {
-  if (!out || outSize == 0) return false;
+bool cookieValue(const char *header, const char *name, char *out,
+                 size_t outSize) {
+  if (!out || outSize == 0)
+    return false;
   out[0] = '\0';
-  if (!header || !name || !name[0]) return false;
+  if (!header || !name || !name[0])
+    return false;
   size_t nameLen = strlen(name);
 
   const char *p = header;
   while (*p) {
     // Ein Eintrag reicht bis ';' oder Ende
     const char *seg = p;
-    while (*p && *p != ';') p++;
+    while (*p && *p != ';')
+      p++;
     const char *segEnd = p;
-    if (*p == ';') p++;
+    if (*p == ';')
+      p++;
 
-    while (seg < segEnd && isSpace(*seg)) seg++;
+    while (seg < segEnd && isSpace(*seg))
+      seg++;
     const char *eq = seg;
-    while (eq < segEnd && *eq != '=') eq++;
-    if (eq == segEnd) continue;  // kein '=': kein Cookie
+    while (eq < segEnd && *eq != '=')
+      eq++;
+    if (eq == segEnd)
+      continue; // kein '=': kein Cookie
 
     const char *nEnd = eq;
-    while (nEnd > seg && isSpace(nEnd[-1])) nEnd--;
-    if ((size_t)(nEnd - seg) != nameLen || memcmp(seg, name, nameLen) != 0) continue;
+    while (nEnd > seg && isSpace(nEnd[-1]))
+      nEnd--;
+    if ((size_t)(nEnd - seg) != nameLen || memcmp(seg, name, nameLen) != 0)
+      continue;
 
     const char *v = eq + 1;
     const char *vEnd = segEnd;
-    while (v < vEnd && isSpace(*v)) v++;
-    while (vEnd > v && isSpace(vEnd[-1])) vEnd--;
+    while (v < vEnd && isSpace(*v))
+      v++;
+    while (vEnd > v && isSpace(vEnd[-1]))
+      vEnd--;
     size_t len = (size_t)(vEnd - v);
-    if (len + 1 > outSize) return false;  // erster Treffer zaehlt
+    if (len + 1 > outSize)
+      return false; // erster Treffer zaehlt
     memcpy(out, v, len);
     out[len] = '\0';
     return true;
@@ -279,7 +317,8 @@ bool cookieValue(const char *header, const char *name, char *out, size_t outSize
 // ── Token ─────────────────────────────────────────────────────────────────────
 
 bool ctEquals(const char *a, const char *b) {
-  if (!a || !b) return false;
+  if (!a || !b)
+    return false;
   // Laufzeit haengt nur von der Laenge von b ab; a wird nie ueber sein NUL
   // hinaus gelesen (j bleibt dort stehen).
   unsigned diff = 0;
@@ -289,7 +328,7 @@ bool ctEquals(const char *a, const char *b) {
     diff |= (unsigned char)(ca ^ b[i]);
     j += (ca != '\0');
   }
-  diff |= (unsigned char)a[j];  // a laenger als b
+  diff |= (unsigned char)a[j]; // a laenger als b
   return diff == 0;
 }
 
@@ -312,8 +351,9 @@ bool LoginThrottle::locked(uint32_t now) const {
 }
 
 void LoginThrottle::failure(uint32_t now) {
-  if (locked(now)) return;  // waehrend der Sperre zaehlt nichts (keine Verlaengerung)
-  if (locked_) {            // Sperre abgelaufen: neu zaehlen
+  if (locked(now))
+    return;      // waehrend der Sperre zaehlt nichts (keine Verlaengerung)
+  if (locked_) { // Sperre abgelaufen: neu zaehlen
     locked_ = false;
     fails_ = 0;
   }
@@ -328,4 +368,4 @@ void LoginThrottle::success() {
   locked_ = false;
 }
 
-}  // namespace web
+} // namespace web

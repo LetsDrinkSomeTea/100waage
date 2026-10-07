@@ -1,7 +1,7 @@
 #pragma once
-#include <stdint.h>
 #include "config_core.h"
 #include "duell_core.h"
+#include <stdint.h>
 
 // ── Spiellogik (rein, ohne Arduino) ───────────────────────────────────────────
 // Kompletter Solo- und Duell-Ablauf. Zeit, Gewicht, Zufall und die Duell-
@@ -19,7 +19,8 @@
 //  - Ready → Drinking: Gewicht <= full - tol fuer LIFT_MS; timeStarted = erstes
 //    Unterschreiten; emptyWeight = Gewicht; waehrend Drinking wird emptyWeight
 //    nachgefuehrt, solange das Glas weg (w < empty + tol) und stabil ist.
-//  - Drinking → Result: Gewicht >= empty + tol (timeEnd = erstes Ueberschreiten),
+//  - Drinking → Result: Gewicht >= empty + tol (timeEnd = erstes
+//  Ueberschreiten),
 //    dann stabil fuer RETURN_STABLE_MS oder spaetestens RETURN_MAX_MS nach dem
 //    Ueberschreiten; finalWeight = Gewicht; getrunken in Centigramm
 //    (lroundf(g * 100)), Bewertung gegen das Ziel (Duell: Duell-Ziel).
@@ -55,37 +56,29 @@ constexpr uint32_t FINAL_MIN_SHOW_MS = 3000;
 constexpr uint32_t WAITREADY_TIMEOUT_MS = 60000;
 constexpr uint32_t NEGZERO_MS = 1000;
 
-enum class Phase : uint8_t { Idle,
-                             Ready,
-                             Drinking,
-                             Result };
+enum class Phase : uint8_t { Idle, Ready, Drinking, Result };
 
-enum class Duel : uint8_t { Offline,
-                            WaitReady,
-                            WaitStart,
-                            Live };
+enum class Duel : uint8_t { Offline, WaitReady, WaitStart, Live };
 
-enum class Rating : uint8_t { Perfect,  // "Perfekt!"
-                              NotBad,   // "Not Bad!"
-                              Ok,       // "Ganz ok!"
-                              Shy,      // "Schüchtern"
-                              Greedy };  // "Zu gierig!"
+enum class Rating : uint8_t {
+  Perfect, // "Perfekt!"
+  NotBad,  // "Not Bad!"
+  Ok,      // "Ganz ok!"
+  Shy,     // "Schüchtern"
+  Greedy
+}; // "Zu gierig!"
 
 // Was die Waage tun soll (die App fuehrt es aus):
 //  Tare      frische, nicht blockierende Tara
 //  TareEmpty Waage ist leer: zeroFromWindow(tol, stableSpread), sonst Tare
 //  AutoZero  zeroFromWindow(autoZeroThreshold, autoZeroThreshold)
 //  NegZero   zeroFromWindow(unbegrenzt, stableSpread)
-enum class ScaleReq : uint8_t { None,
-                                Tare,
-                                TareEmpty,
-                                AutoZero,
-                                NegZero };
+enum class ScaleReq : uint8_t { None, Tare, TareEmpty, AutoZero, NegZero };
 
 // Anbindung ans Duell (Implementierung: duell.cpp bzw. Fakes im Test).
 class DuelPort {
 public:
-  virtual bool active() = 0;  // andere Waagen sichtbar
+  virtual bool active() = 0; // andere Waagen sichtbar
   virtual void readyCount(int *ready, int *total) = 0;
   virtual void setReady() = 0;
   virtual bool startSignal(float *target) = 0;
@@ -99,27 +92,29 @@ protected:
 
 struct Input {
   uint32_t now;
-  bool weightValid;  // Waage ok, keine Tara, nicht in Kalibrierung
-  float weight;      // [g], adaptiv geglaettet
+  bool weightValid; // Waage ok, keine Tara, nicht in Kalibrierung
+  float weight;     // [g], adaptiv geglaettet
   bool stable;
   bool radioOn;
 };
 
-enum class Screen : uint8_t { IdleGame,      // Ziel "100.0g?", Rahmen wenn Glas drauf
-                              IdleStandard,  // aktuelles Gewicht
-                              Taring,        // "Tara..."
-                              WaitDuel,      // "Warte..." / "2/3 bereit"
-                              Ready,         // "Bereit?" dann Trinkspruch
-                              DuelStart,     // Duell-Ziel
-                              Drinking,      // Ladeanimation
-                              ResultSolo,
-                              ResultDuel };
+enum class Screen : uint8_t {
+  IdleGame,     // Ziel "100.0g?", Rahmen wenn Glas drauf
+  IdleStandard, // aktuelles Gewicht
+  Taring,       // "Tara..."
+  WaitDuel,     // "Warte..." / "2/3 bereit"
+  Ready,        // "Bereit?" dann Trinkspruch
+  DuelStart,    // Duell-Ziel
+  Drinking,     // Ladeanimation
+  ResultSolo,
+  ResultDuel
+};
 
 struct View {
   Screen screen;
-  uint32_t screenSince;   // Beginn des aktuellen Bildschirms
-  float weight;           // IdleStandard (0, wenn Auto-Zero aktiv und |w| < Schwelle)
-  float goal;             // IdleGame: lokales Ziel; DuelStart: Duell-Ziel
+  uint32_t screenSince; // Beginn des aktuellen Bildschirms
+  float weight; // IdleStandard (0, wenn Auto-Zero aktiv und |w| < Schwelle)
+  float goal;   // IdleGame: lokales Ziel; DuelStart: Duell-Ziel
   bool randomMode;
   bool glassOn;           // IdleGame: w > tol
   int ready, readyTotal;  // WaitDuel
@@ -130,8 +125,8 @@ struct View {
   uint8_t rank;           // ResultDuel (0 = noch kein Platz)
   uint8_t settled, total; // ResultDuel: fertige / alle Teilnehmer
   bool isFinal, forfeit;
-  uint32_t resultSig;     // aendert sich, wenn sich die Duell-Anzeige aendert
-  uint32_t soloFallbackSeq;  // erhoeht bei stillem Wechsel auf Solo
+  uint32_t resultSig;       // aendert sich, wenn sich die Duell-Anzeige aendert
+  uint32_t soloFallbackSeq; // erhoeht bei stillem Wechsel auf Solo
 };
 
 inline int32_t toCg(float g) {
@@ -148,7 +143,8 @@ public:
 
   // Einziger Reset (Entscheidung 1): Phase Idle, Duell verlassen, Ziel neu
   // (Zufallsmodus: neu gewuerfelt), Tara angefordert (Tare oder TareEmpty).
-  void reset(const cfg::Config &c, uint32_t now, ScaleReq tare = ScaleReq::Tare);
+  void reset(const cfg::Config &c, uint32_t now,
+             ScaleReq tare = ScaleReq::Tare);
 
   // Web-Aenderung von Ziel/Zufall: nur in Idle (Game) sofort wirksam, ohne
   // Tara; sonst ab dem naechsten Reset.
@@ -156,14 +152,16 @@ public:
 
   void update(const cfg::Config &c, const Input &in);
 
-  ScaleReq takeScaleReq();  // liefert die offene Anforderung einmal
+  ScaleReq takeScaleReq(); // liefert die offene Anforderung einmal
   const View &view() const { return view_; }
 
   Phase phase() const { return phase_; }
   Duel duel() const { return duel_; }
   float localGoal() const { return localGoal_; }
-  bool gameRunning() const { return phase_ == Phase::Ready || phase_ == Phase::Drinking; }
-  bool ownRoundOpen() const;  // Duell-Runde laeuft und ist noch nicht final
+  bool gameRunning() const {
+    return phase_ == Phase::Ready || phase_ == Phase::Drinking;
+  }
+  bool ownRoundOpen() const; // Duell-Runde laeuft und ist noch nicht final
 
 private:
   DuelPort *port_ = nullptr;
@@ -173,7 +171,8 @@ private:
   Duel duel_ = Duel::Offline;
   ScaleReq req_ = ScaleReq::None;
   View view_ = {};
-  float localGoal_ = 0.0f, fullWeight_ = 0.0f, emptyWeight_ = 0.0f, finalWeight_ = 0.0f;
+  float localGoal_ = 0.0f, fullWeight_ = 0.0f, emptyWeight_ = 0.0f,
+        finalWeight_ = 0.0f;
   float duelTarget_ = 0.0f;
   bool duelTargetSet_ = false;
   uint32_t timeStarted_ = 0, timeEnd_ = 0;
@@ -190,7 +189,9 @@ private:
       }
     }
     void stop() { on = false; }
-    bool held(uint32_t now, uint32_t ms) const { return on && (uint32_t)(now - since) >= ms; }
+    bool held(uint32_t now, uint32_t ms) const {
+      return on && (uint32_t)(now - since) >= ms;
+    }
   };
   void setScreen(Screen s, uint32_t now);
   float refGoal() const { return duelTargetSet_ ? duelTarget_ : localGoal_; }
@@ -204,12 +205,14 @@ private:
   void finishDrinking(const Input &in);
   void updateResult(const cfg::Config &c, const Input &in);
   void request(ScaleReq r) {
-    if (req_ == ScaleReq::None || r == ScaleReq::Tare) req_ = r;
+    if (req_ == ScaleReq::None || r == ScaleReq::Tare)
+      req_ = r;
   }
   uint32_t nextRandom() { return rnd_ ? rnd_(rndCtx_) : 0; }
-  Timer place_, lift_, ret_, removed_, final_, waitReady_, autoZeroStable_, negZero_, emptyTrack_;
+  Timer place_, lift_, ret_, removed_, final_, waitReady_, autoZeroStable_,
+      negZero_, emptyTrack_;
   uint32_t autoZeroLast_ = 0;
   bool autoZeroDone_ = false;
 };
 
-}  // namespace game
+} // namespace game

@@ -2,9 +2,9 @@ name: Build Firmware
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   release:
     types: [published]
 
@@ -16,14 +16,14 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Host-Tests
-      run: ./test/run.sh
+      - name: Host-Tests
+        run: ./test/run.sh
 
-    - name: Host-Tests (ASan/UBSan)
-      run: SANITIZE=1 ./test/run.sh
+      - name: Host-Tests (ASan/UBSan)
+        run: SANITIZE=1 ./test/run.sh
 
   build:
     needs: test
@@ -31,63 +31,63 @@ jobs:
     outputs:
       fw: ${{ steps.version.outputs.FW_VERSION }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0   # Tags fuer git describe
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Tags fuer git describe
 
-    - name: Setup Arduino CLI
-      uses: arduino/setup-arduino-cli@v2
-      with:
-        version: 1.3.1
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+        with:
+          version: 1.3.1
 
-    - name: Cache Arduino
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.arduino15
-          ~/Arduino
-        key: arduino-${{ hashFiles('waage/sketch.yaml') }}
+      - name: Cache Arduino
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino
+          key: arduino-${{ hashFiles('waage/sketch.yaml') }}
 
-    - name: Firmware-Version
-      id: version
-      run: ./tools/gen_version.sh | tee -a "$GITHUB_OUTPUT"
+      - name: Firmware-Version
+        id: version
+        run: ./tools/gen_version.sh | tee -a "$GITHUB_OUTPUT"
 
-    # Feste Versionen kommen aus dem Profil in waage/sketch.yaml.
-    # Erneuter Versuch nur bei Download-Problemen, nicht bei Compile-Fehlern.
-    - name: Compile
-      shell: bash
-      run: |
-        for i in 1 2 3; do
-          if arduino-cli compile --profile c3 --warnings default --output-dir build_output waage/ > compile.log 2>&1; then
+      # Feste Versionen kommen aus dem Profil in waage/sketch.yaml.
+      # Erneuter Versuch nur bei Download-Problemen, nicht bei Compile-Fehlern.
+      - name: Compile
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            if arduino-cli compile --profile c3 --warnings default --output-dir build_output waage/ > compile.log 2>&1; then
+              cat compile.log
+              exit 0
+            fi
             cat compile.log
-            exit 0
-          fi
-          cat compile.log
-          if ! grep -qiE "download|network|timeout|connection|EOF" compile.log; then
-            exit 1
-          fi
-          echo "Download-Fehler, neuer Versuch ($i/3)..."
-          sleep 10
-        done
-        exit 1
+            if ! grep -qiE "download|network|timeout|connection|EOF" compile.log; then
+              exit 1
+            fi
+            echo "Download-Fehler, neuer Versuch ($i/3)..."
+            sleep 10
+          done
+          exit 1
 
-    - name: Firmware-Groesse
-      shell: bash
-      run: |
-        MAX=1310720
-        SIZE=$(grep -oE "Sketch uses [0-9]+" compile.log | grep -oE "[0-9]+" || stat -c %s build_output/waage.ino.bin)
-        PCT=$(( SIZE * 100 / MAX ))
-        echo "Firmware: $SIZE B von $MAX B ($PCT %)"
-        echo "### Firmware ${{ steps.version.outputs.FW_VERSION }}: $SIZE B ($PCT % der App-Partition)" >> "$GITHUB_STEP_SUMMARY"
-        if [ "$PCT" -ge 97 ]; then echo "::error::Firmware zu gross ($PCT %)"; exit 1; fi
-        if [ "$PCT" -ge 92 ]; then echo "::warning::Firmware nahe am Limit ($PCT %)"; fi
+      - name: Firmware-Groesse
+        shell: bash
+        run: |
+          MAX=1310720
+          SIZE=$(grep -oE "Sketch uses [0-9]+" compile.log | grep -oE "[0-9]+" || stat -c %s build_output/waage.ino.bin)
+          PCT=$(( SIZE * 100 / MAX ))
+          echo "Firmware: $SIZE B von $MAX B ($PCT %)"
+          echo "### Firmware ${{ steps.version.outputs.FW_VERSION }}: $SIZE B ($PCT % der App-Partition)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PCT" -ge 97 ]; then echo "::error::Firmware zu gross ($PCT %)"; exit 1; fi
+          if [ "$PCT" -ge 92 ]; then echo "::warning::Firmware nahe am Limit ($PCT %)"; fi
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: 100-Waage-${{ steps.version.outputs.FW_VERSION }}
-        path: build_output/waage.ino.bin
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 100-Waage-${{ steps.version.outputs.FW_VERSION }}
+          path: build_output/waage.ino.bin
 
   release:
     needs: build
@@ -96,12 +96,12 @@ jobs:
     permissions:
       contents: write
     steps:
-    - name: Download Artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: 100-Waage-${{ needs.build.outputs.fw }}
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: 100-Waage-${{ needs.build.outputs.fw }}
 
-    - name: Upload to Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: waage.ino.bin
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: waage.ino.bin

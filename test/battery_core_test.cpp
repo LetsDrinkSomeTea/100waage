@@ -1,4 +1,5 @@
-// Unit-Tests fuer die reine Akku-Logik (OCV-Kurve, Mittelung, Kalibrierung, Anzeige).
+// Unit-Tests fuer die reine Akku-Logik (OCV-Kurve, Mittelung, Kalibrierung,
+// Anzeige).
 #include "battery_core.h"
 #include "check.h"
 #include <cmath>
@@ -19,10 +20,12 @@ static void testPercentTable() {
   struct {
     float v, pct;
   } pts[] = {
-    { 4.20f, 100 }, { 4.10f, 90 }, { 4.00f, 79 }, { 3.92f, 70 }, { 3.87f, 60 }, { 3.82f, 50 },
-    { 3.79f, 40 },  { 3.75f, 30 }, { 3.70f, 20 }, { 3.62f, 10 }, { 3.50f, 5 },  { 3.35f, 0 },
+      {4.20f, 100}, {4.10f, 90}, {4.00f, 79}, {3.92f, 70},
+      {3.87f, 60},  {3.82f, 50}, {3.79f, 40}, {3.75f, 30},
+      {3.70f, 20},  {3.62f, 10}, {3.50f, 5},  {3.35f, 0},
   };
-  for (auto &p : pts) CHECK(near(percentFromVoltage(p.v), p.pct, 1e-3f));
+  for (auto &p : pts)
+    CHECK(near(percentFromVoltage(p.v), p.pct, 1e-3f));
   // Stuetzpunkte exakt
   CHECK(percentFromVoltage(3.70f) == 20.0f);
   CHECK(percentFromVoltage(4.00f) == 79.0f);
@@ -32,14 +35,14 @@ static void testPercentTable() {
 
 static void testPercentInterpolation() {
   // Mitte zwischen zwei Stuetzpunkten
-  CHECK(near(percentFromVoltage(3.66f), 15.0f));     // 3,62→10 .. 3,70→20
-  CHECK(near(percentFromVoltage(3.96f), 74.5f));     // 3,92→70 .. 4,00→79
-  CHECK(near(percentFromVoltage(4.15f), 95.0f));     // 4,10→90 .. 4,20→100
-  CHECK(near(percentFromVoltage(3.425f), 2.5f));     // 3,35→0 .. 3,50→5
-  CHECK(near(percentFromVoltage(3.56f), 7.5f));      // 3,50→5 .. 3,62→10
-  CHECK(near(percentFromVoltage(3.845f), 55.0f));    // 3,82→50 .. 3,87→60
+  CHECK(near(percentFromVoltage(3.66f), 15.0f));  // 3,62→10 .. 3,70→20
+  CHECK(near(percentFromVoltage(3.96f), 74.5f));  // 3,92→70 .. 4,00→79
+  CHECK(near(percentFromVoltage(4.15f), 95.0f));  // 4,10→90 .. 4,20→100
+  CHECK(near(percentFromVoltage(3.425f), 2.5f));  // 3,35→0 .. 3,50→5
+  CHECK(near(percentFromVoltage(3.56f), 7.5f));   // 3,50→5 .. 3,62→10
+  CHECK(near(percentFromVoltage(3.845f), 55.0f)); // 3,82→50 .. 3,87→60
   // Viertel
-  CHECK(near(percentFromVoltage(3.7125f), 22.5f));   // 3,70→20 .. 3,75→30
+  CHECK(near(percentFromVoltage(3.7125f), 22.5f)); // 3,70→20 .. 3,75→30
 }
 
 static void testPercentClamp() {
@@ -65,23 +68,28 @@ static void testPercentMonotonic() {
   bool mono = true, inRange = true;
   for (int mv = 3000; mv <= 4500; mv++) {
     float p = percentFromVoltage(mv / 1000.0f);
-    if (p < prev) mono = false;
-    if (p < 0.0f || p > 100.0f) inRange = false;
+    if (p < prev)
+      mono = false;
+    if (p < 0.0f || p > 100.0f)
+      inRange = false;
     prev = p;
   }
   CHECK(mono);
   CHECK(inRange);
   // feiner um jeden Stuetzpunkt herum (Float-Nachbarn)
-  const float knots[] = { 3.35f, 3.50f, 3.62f, 3.70f, 3.75f, 3.79f, 3.82f, 3.87f, 3.92f, 4.00f, 4.10f, 4.20f };
+  const float knots[] = {3.35f, 3.50f, 3.62f, 3.70f, 3.75f, 3.79f,
+                         3.82f, 3.87f, 3.92f, 4.00f, 4.10f, 4.20f};
   bool knotMono = true;
   for (float k : knots) {
     float v = k;
-    for (int i = 0; i < 64; i++) v = std::nextafter(v, 0.0f);
+    for (int i = 0; i < 64; i++)
+      v = std::nextafter(v, 0.0f);
     float pv = percentFromVoltage(v);
     for (int i = 0; i < 128; i++) {
       v = std::nextafter(v, 10.0f);
       float p = percentFromVoltage(v);
-      if (p < pv) knotMono = false;
+      if (p < pv)
+        knotMono = false;
       pv = p;
     }
   }
@@ -92,42 +100,46 @@ static void testPercentMonotonic() {
 
 static void testTrimmedMeanSmall() {
   CHECK(trimmedMean(nullptr, 0) == 0.0f);
-  uint16_t one[1] = { 1234 };
-  CHECK(trimmedMean(one, 0) == 0.0f);  // n == 0 → 0, Daten egal
+  uint16_t one[1] = {1234};
+  CHECK(trimmedMean(one, 0) == 0.0f); // n == 0 → 0, Daten egal
   CHECK(trimmedMean(one, 1) == 1234.0f);
 
   // n < 8: normales Mittel, Ausreisser bleiben drin
-  uint16_t seven[7] = { 1000, 1000, 1000, 1000, 1000, 1000, 8000 };
+  uint16_t seven[7] = {1000, 1000, 1000, 1000, 1000, 1000, 8000};
   CHECK(trimmedMean(seven, 7) == 2000.0f);
-  uint16_t two[2] = { 1, 2 };
+  uint16_t two[2] = {1, 2};
   CHECK(trimmedMean(two, 2) == 1.5f);
 }
 
 static void testTrimmedMeanTrims() {
   // n == 8: je 1 Wert oben/unten weg
-  uint16_t a[8] = { 5000, 10, 1000, 1002, 998, 1001, 999, 1000 };
+  uint16_t a[8] = {5000, 10, 1000, 1002, 998, 1001, 999, 1000};
   CHECK(trimmedMean(a, 8) == 1000.0f);
   // sortiert in place
-  const uint16_t sortedA[8] = { 10, 998, 999, 1000, 1000, 1001, 1002, 5000 };
+  const uint16_t sortedA[8] = {10, 998, 999, 1000, 1000, 1001, 1002, 5000};
   CHECK(memcmp(a, sortedA, sizeof(a)) == 0);
 
   // n == 15: 15/8 == 1 → je 1 weg
   uint16_t b[15];
-  for (int i = 0; i < 15; i++) b[i] = (uint16_t)(100 * (15 - i));  // 1500..100 absteigend
+  for (int i = 0; i < 15; i++)
+    b[i] = (uint16_t)(100 * (15 - i)); // 1500..100 absteigend
   // ohne 100 und 1500: Mittel von 200..1400 = 800
   CHECK(trimmedMean(b, 15) == 800.0f);
   bool sorted = true;
   for (int i = 1; i < 15; i++)
-    if (b[i - 1] > b[i]) sorted = false;
+    if (b[i - 1] > b[i])
+      sorted = false;
   CHECK(sorted);
 
   // n == 16: je 2 weg; zwei Ausreisser auf jeder Seite verschwinden
-  uint16_t c[16] = { 0, 65535, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1, 65000 };
+  uint16_t c[16] = {0,    65535, 1500, 1500, 1500, 1500, 1500, 1500,
+                    1500, 1500,  1500, 1500, 1500, 1500, 1,    65000};
   CHECK(trimmedMean(c, 16) == 1500.0f);
 
   // n == 64: je 8 weg
   uint16_t d[64];
-  for (int i = 0; i < 64; i++) d[i] = (uint16_t)(i < 8 ? 0 : (i >= 56 ? 4095 : 2000 + (i % 2)));
+  for (int i = 0; i < 64; i++)
+    d[i] = (uint16_t)(i < 8 ? 0 : (i >= 56 ? 4095 : 2000 + (i % 2)));
   CHECK(trimmedMean(d, 64) == 2000.5f);
 }
 
@@ -137,11 +149,11 @@ static void testTrimmedMeanLarge() {
   CHECK(trimmedMean(v.data(), v.size()) == 65535.0f);
 
   // nicht ganzzahliges Mittel
-  uint16_t e[3] = { 1, 1, 2 };
+  uint16_t e[3] = {1, 1, 2};
   CHECK(near(trimmedMean(e, 3), 4.0f / 3.0f, 1e-6f));
 
   // gleiche Werte, Duplikate
-  uint16_t f[9] = { 7, 7, 7, 7, 7, 7, 7, 7, 7 };
+  uint16_t f[9] = {7, 7, 7, 7, 7, 7, 7, 7, 7};
   CHECK(trimmedMean(f, 9) == 7.0f);
 }
 
@@ -150,7 +162,8 @@ static void testTrimmedMeanLarge() {
 static bool calOk(float v, float pin, float *r) {
   const char *err = "unveraendert";
   bool ok = calibrateRatio(v, pin, r, &err);
-  if (ok) CHECK(err == nullptr);
+  if (ok)
+    CHECK(err == nullptr);
   return ok;
 }
 
@@ -159,7 +172,7 @@ static std::string calErr(float v, float pin) {
   const char *err = nullptr;
   bool ok = calibrateRatio(v, pin, &r, &err);
   CHECK(!ok);
-  CHECK(r == -42.0f);  // bei Fehler unveraendert
+  CHECK(r == -42.0f); // bei Fehler unveraendert
   CHECK(err != nullptr);
   return err ? std::string(err) : std::string();
 }
@@ -192,7 +205,7 @@ static void testCalibrateErrors() {
   CHECK(calErr(4.51f, 1000.0f) == e1);
   CHECK(calErr(0.0f, 1000.0f) == e1);
   CHECK(calErr(-3.7f, 1000.0f) == e1);
-  CHECK(calErr(3700.0f, 1850.0f) == e1);  // mV statt V eingegeben
+  CHECK(calErr(3700.0f, 1850.0f) == e1); // mV statt V eingegeben
   CHECK(calErr(std::nanf(""), 1000.0f) == e1);
   CHECK(calErr(std::numeric_limits<float>::infinity(), 1000.0f) == e1);
 
@@ -201,22 +214,24 @@ static void testCalibrateErrors() {
   CHECK(e2.find("Pin-Spannung") != std::string::npos);
   CHECK(e2 != e1);
   CHECK(calErr(3.7f, 2501.0f) == e2);
-  CHECK(calErr(3.7f, 0.0f) == e2);  // kein Akku → Pin 0 mV, keine Division durch 0
+  CHECK(calErr(3.7f, 0.0f) ==
+        e2); // kein Akku → Pin 0 mV, keine Division durch 0
   CHECK(calErr(3.7f, std::nanf("")) == e2);
   CHECK(calErr(3.7f, -1000.0f) == e2);
 
   // Ergebnis ausserhalb 1..6
-  std::string e3 = calErr(4.5f, 300.0f);  // 15
+  std::string e3 = calErr(4.5f, 300.0f); // 15
   CHECK(e3.find("1–6") != std::string::npos);
   CHECK(e3 != e1 && e3 != e2);
-  CHECK(calErr(3.7f, 600.0f) == e3);   // 6,17
-  CHECK(calErr(4.2f, 699.0f) == e3);   // 6,008
+  CHECK(calErr(3.7f, 600.0f) == e3); // 6,17
+  CHECK(calErr(4.2f, 699.0f) == e3); // 6,008
 
   // Spannung wird zuerst geprueft
   CHECK(calErr(1.0f, 1.0f) == e1);
 
   // Meldungen sind UTF-8 mit echten Umlauten (Ratio-Meldung)
-  CHECK(e3.find("ä") != std::string::npos || e3.find("ü") != std::string::npos || e3.find("ß") != std::string::npos);
+  CHECK(e3.find("ä") != std::string::npos ||
+        e3.find("ü") != std::string::npos || e3.find("ß") != std::string::npos);
 
   // ratio == nullptr darf nicht abstuerzen
   const char *err = nullptr;
@@ -229,13 +244,16 @@ static void testCalibrateErrors() {
 
 // ── Gauge ─────────────────────────────────────────────────────────────────────
 
-// Spannung zu einem Prozentwert (Umkehrung der Tabelle, fuer konstante Eingaben)
+// Spannung zu einem Prozentwert (Umkehrung der Tabelle, fuer konstante
+// Eingaben)
 static float voltsFor(float pct) {
   float lo = EMPTY_V, hi = FULL_V;
   for (int i = 0; i < 60; i++) {
     float mid = 0.5f * (lo + hi);
-    if (percentFromVoltage(mid) < pct) lo = mid;
-    else hi = mid;
+    if (percentFromVoltage(mid) < pct)
+      lo = mid;
+    else
+      hi = mid;
   }
   return hi;
 }
@@ -248,22 +266,22 @@ static void testGaugeInitial() {
 
   g.update(3.82f);
   CHECK(g.valid());
-  CHECK(g.voltage() == 3.82f);  // erster Wert ohne Glaettung
+  CHECK(g.voltage() == 3.82f); // erster Wert ohne Glaettung
   CHECK(g.percent() == 50);
   CHECK(!g.low());
 
   // Rundung auf ganze Prozent
   Gauge h;
-  h.update(3.96f);  // 74,5
+  h.update(3.96f); // 74,5
   CHECK(h.percent() == 74 || h.percent() == 75);
   Gauge k;
-  k.update(3.71f);  // 22
+  k.update(3.71f); // 22
   CHECK(k.percent() == 22);
   Gauge up;
-  up.update(3.7135f);  // 22,7 → 23 (gerundet, nicht abgeschnitten)
+  up.update(3.7135f); // 22,7 → 23 (gerundet, nicht abgeschnitten)
   CHECK(up.percent() == 23);
   Gauge dn;
-  dn.update(3.7115f);  // 22,3 → 22
+  dn.update(3.7115f); // 22,3 → 22
   CHECK(dn.percent() == 22);
 
   // Klemmen
@@ -281,12 +299,13 @@ static void testGaugeEma() {
   Gauge g;
   g.update(4.0f);
   g.update(3.5f);
-  CHECK(near(g.voltage(), 4.0f + EMA_ALPHA * (3.5f - 4.0f), 1e-5f));  // 3,9
+  CHECK(near(g.voltage(), 4.0f + EMA_ALPHA * (3.5f - 4.0f), 1e-5f)); // 3,9
   float e = g.voltage();
   g.update(3.5f);
   CHECK(near(g.voltage(), e + EMA_ALPHA * (3.5f - e), 1e-5f));
   // konvergiert gegen konstante Eingabe
-  for (int i = 0; i < 200; i++) g.update(3.75f);
+  for (int i = 0; i < 200; i++)
+    g.update(3.75f);
   CHECK(near(g.voltage(), 3.75f, 1e-4f));
   CHECK(g.percent() == 30);
 }
@@ -296,15 +315,18 @@ static void testGaugeSmallChangesIgnored() {
   g.update(voltsFor(50.0f));
   CHECK(g.percent() == 50);
   // 1 Punkt tiefer: Anzeige bleibt, auch nach vielen Messungen
-  for (int i = 0; i < 100; i++) g.update(voltsFor(49.0f));
+  for (int i = 0; i < 100; i++)
+    g.update(voltsFor(49.0f));
   CHECK(g.percent() == 50);
   // bis 4 Punkte hoeher: bleibt
-  for (int i = 0; i < 100; i++) g.update(voltsFor(54.0f));
+  for (int i = 0; i < 100; i++)
+    g.update(voltsFor(54.0f));
   CHECK(g.percent() == 50);
 }
 
 // Eingabe so waehlen, dass die EMA nach dieser Messung genau auf pct liegt
-// (EMA-Formel rueckgerechnet). Damit sind die Schritte der Anzeige exakt steuerbar.
+// (EMA-Formel rueckgerechnet). Damit sind die Schritte der Anzeige exakt
+// steuerbar.
 static void steer(Gauge &g, float pct) {
   float e = g.voltage();
   float target = voltsFor(pct);
@@ -337,7 +359,8 @@ static void testGaugeDownNeedsTwo() {
   CHECK(g.percent() == 58);
 
   // nur 1 Punkt tiefer, beliebig oft → bleibt
-  for (int i = 0; i < 10; i++) steer(g, 57);
+  for (int i = 0; i < 10; i++)
+    steer(g, 57);
   CHECK(g.percent() == 58);
 
   // zweite Messung tiefer als die erste → neuer Wert ist der aktuelle
@@ -365,26 +388,26 @@ static void testGaugeDownCounterResets() {
   steer(g, 59);
   steer(g, 58);
   CHECK(g.percent() == 60);
-  steer(g, 58);  // jetzt 2x in Folge
+  steer(g, 58); // jetzt 2x in Folge
   CHECK(g.percent() == 58);
 
   // Zaehler wird auch durch einen Anstieg zurueckgesetzt
   steer(g, 50);
-  CHECK(g.percent() == 58);  // 1x tief
-  steer(g, 63);              // +5 → steigt sofort, Zaehler weg
+  CHECK(g.percent() == 58); // 1x tief
+  steer(g, 63);             // +5 → steigt sofort, Zaehler weg
   CHECK(g.percent() == 63);
-  steer(g, 61);              // 1x tief (bezogen auf 63)
+  steer(g, 61); // 1x tief (bezogen auf 63)
   CHECK(g.percent() == 63);
-  steer(g, 62);              // nicht tief genug → Zaehler weg
+  steer(g, 62); // nicht tief genug → Zaehler weg
   steer(g, 61);
   CHECK(g.percent() == 63);
   steer(g, 61);
   CHECK(g.percent() == 61);
 
   // Zaehler bleibt ueber unveraenderte Werte nicht stehen
-  steer(g, 59);  // 1x
-  steer(g, 61);  // gleich → zurueck
-  steer(g, 59);  // 1x
+  steer(g, 59); // 1x
+  steer(g, 61); // gleich → zurueck
+  steer(g, 59); // 1x
   CHECK(g.percent() == 61);
 }
 
@@ -392,15 +415,15 @@ static void testGaugeUp() {
   Gauge g;
   g.update(voltsFor(30.0f));
   CHECK(g.percent() == 30);
-  steer(g, 34);  // +4 → bleibt
+  steer(g, 34); // +4 → bleibt
   CHECK(g.percent() == 30);
   steer(g, 34);
   CHECK(g.percent() == 30);
-  steer(g, 35);  // +5 → sofort, ohne zweite Messung
+  steer(g, 35); // +5 → sofort, ohne zweite Messung
   CHECK(g.percent() == 35);
   steer(g, 100);
   CHECK(g.percent() == 100);
-  steer(g, 99);  // 1 Punkt tiefer → bleibt
+  steer(g, 99); // 1 Punkt tiefer → bleibt
   CHECK(g.percent() == 100);
 
   // Laden mit echten Eingaben: Anzeige steigt nur in Schritten >= UP_STEP
@@ -412,8 +435,10 @@ static void testGaugeUp() {
   for (int i = 0; i < 100; i++) {
     h.update(v);
     int now = h.percent();
-    if (now != last && now - last < UP_STEP) smallJump = true;
-    if (now < last) fell = true;
+    if (now != last && now - last < UP_STEP)
+      smallJump = true;
+    if (now < last)
+      fell = true;
     last = now;
   }
   CHECK(!smallJump);
@@ -430,15 +455,15 @@ static void testGaugeLowHysteresis() {
   steer(g, 10);
   steer(g, 10);
   CHECK(g.percent() == 10);
-  CHECK(!g.low());  // nur < 10 warnt
+  CHECK(!g.low()); // nur < 10 warnt
   steer(g, 8);
   steer(g, 8);
   CHECK(g.percent() == 8);
   CHECK(g.low());
-  steer(g, 12);     // +4 → Anzeige bleibt 8
+  steer(g, 12); // +4 → Anzeige bleibt 8
   CHECK(g.percent() == 8);
   CHECK(g.low());
-  steer(g, 13);     // +5 → 13 → Warnung aus (>= 13)
+  steer(g, 13); // +5 → 13 → Warnung aus (>= 13)
   CHECK(g.percent() == 13);
   CHECK(!g.low());
 
@@ -448,7 +473,7 @@ static void testGaugeLowHysteresis() {
   CHECK(h.low());
   steer(h, 12);
   CHECK(h.percent() == 12);
-  CHECK(h.low());   // 12 < 13 → bleibt an
+  CHECK(h.low()); // 12 < 13 → bleibt an
   steer(h, 10);
   steer(h, 10);
   CHECK(h.percent() == 10);
@@ -459,7 +484,7 @@ static void testGaugeLowHysteresis() {
   steer(h, 12);
   steer(h, 12);
   CHECK(h.percent() == 12);
-  CHECK(!h.low());  // 12 >= 10 → bleibt aus
+  CHECK(!h.low()); // 12 >= 10 → bleibt aus
   steer(h, 10);
   steer(h, 10);
   CHECK(h.percent() == 10);
@@ -489,7 +514,7 @@ static void testGaugeReset() {
   CHECK(g.percent() == 100);
   g.reset();
   CHECK(!g.valid());
-  g.update(3.70f);  // neuer Startwert ohne Glaettung, ohne Hysterese
+  g.update(3.70f); // neuer Startwert ohne Glaettung, ohne Hysterese
   CHECK(g.valid());
   CHECK(g.voltage() == 3.70f);
   CHECK(g.percent() == 20);
@@ -502,25 +527,25 @@ static void testGaugeReset() {
   // reset loescht auch einen halben Abwaerts-Zaehler
   Gauge h;
   h.update(voltsFor(60.0f));
-  h.update(voltsFor(20.0f));  // 1x tiefer
+  h.update(voltsFor(20.0f)); // 1x tiefer
   CHECK(h.percent() == 60);
   h.reset();
   h.update(voltsFor(60.0f));
   CHECK(h.percent() == 60);
-  h.update(voltsFor(20.0f));  // wieder nur 1x tiefer
+  h.update(voltsFor(20.0f)); // wieder nur 1x tiefer
   CHECK(h.percent() == 60);
 }
 
 static void testGaugeInvalidInput() {
   Gauge g;
-  g.update(std::nanf(""));  // vor dem Start: ignoriert
+  g.update(std::nanf("")); // vor dem Start: ignoriert
   CHECK(!g.valid());
   g.update(std::numeric_limits<float>::infinity());
   CHECK(!g.valid());
   g.update(3.82f);
   CHECK(g.valid());
   CHECK(g.percent() == 50);
-  g.update(std::nanf(""));  // danach: EMA unveraendert
+  g.update(std::nanf("")); // danach: EMA unveraendert
   CHECK(g.voltage() == 3.82f);
   CHECK(g.percent() == 50);
   g.update(-std::numeric_limits<float>::infinity());
@@ -547,12 +572,15 @@ static void testGaugeDischargeCurve() {
   for (int i = 0; i <= 1700; i++) {
     float v = 4.2f - i * 0.0005f;
     g.update(v);
-    if (g.percent() > prev) mono = false;
+    if (g.percent() > prev)
+      mono = false;
     prev = g.percent();
-    if (g.low() && !prevLow) lowOnCount++;
+    if (g.low() && !prevLow)
+      lowOnCount++;
     prevLow = g.low();
   }
-  for (int i = 0; i < 100; i++) g.update(3.35f);
+  for (int i = 0; i < 100; i++)
+    g.update(3.35f);
   CHECK(mono);
   CHECK(lowOnCount == 1);
   CHECK(g.low());
@@ -568,7 +596,8 @@ static void testGaugeNoise() {
   for (int i = 0; i < 500; i++) {
     float noise = ((i * 7919) % 21 - 10) / 1000.0f;
     g.update(3.80f + noise);
-    if (g.percent() != start) stable = false;
+    if (g.percent() != start)
+      stable = false;
   }
   CHECK(stable);
 
@@ -580,8 +609,10 @@ static void testGaugeNoise() {
   for (int i = 0; i < 500; i++) {
     float noise = ((i * 7919) % 41 - 20) / 1000.0f;
     h.update(3.80f + noise);
-    if (h.percent() < minP) minP = h.percent();
-    if (h.percent() > maxP) maxP = h.percent();
+    if (h.percent() < minP)
+      minP = h.percent();
+    if (h.percent() > maxP)
+      maxP = h.percent();
   }
   CHECK(maxP - start <= UP_STEP);
   CHECK(start - minP <= UP_STEP);
@@ -598,28 +629,32 @@ static void testPercentSignedZero() {
 
 static void testTrimmedMeanBounds() {
   // liest und schreibt nichts hinter mv[n-1]
-  uint16_t a[10] = { 9, 8, 7, 6, 5, 4, 3, 2, 1, 0xBEEF };
-  CHECK(trimmedMean(a, 9) == 5.0f);  // 9/8 == 1 → ohne 1 und 9: 2..8
+  uint16_t a[10] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0xBEEF};
+  CHECK(trimmedMean(a, 9) == 5.0f); // 9/8 == 1 → ohne 1 und 9: 2..8
   CHECK(a[9] == 0xBEEF);
   CHECK(a[0] == 1 && a[8] == 9);
-  uint16_t b[5] = { 3, 1, 2, 0xFFFF, 0xFFFF };
+  uint16_t b[5] = {3, 1, 2, 0xFFFF, 0xFFFF};
   CHECK(trimmedMean(b, 3) == 2.0f);
-  CHECK(b[0] == 1 && b[1] == 2 && b[2] == 3 && b[3] == 0xFFFF && b[4] == 0xFFFF);
+  CHECK(b[0] == 1 && b[1] == 2 && b[2] == 3 && b[3] == 0xFFFF &&
+        b[4] == 0xFFFF);
 
   // Kappgrenzen: 23 → je 2, 24 → je 3
   uint16_t c[23];
-  for (int i = 0; i < 23; i++) c[i] = 100;
+  for (int i = 0; i < 23; i++)
+    c[i] = 100;
   c[0] = c[1] = 0;
   c[21] = c[22] = 60000;
   CHECK(trimmedMean(c, 23) == 100.0f);
   uint16_t d[24];
-  for (int i = 0; i < 24; i++) d[i] = 100;
+  for (int i = 0; i < 24; i++)
+    d[i] = 100;
   d[0] = d[1] = d[2] = 0;
   d[21] = d[22] = d[23] = 60000;
   CHECK(trimmedMean(d, 24) == 100.0f);
   // 23 mit drei Ausreissern pro Seite: der dritte bleibt drin
   uint16_t e[23];
-  for (int i = 0; i < 23; i++) e[i] = 100;
+  for (int i = 0; i < 23; i++)
+    e[i] = 100;
   e[0] = e[1] = e[2] = 0;
   e[20] = e[21] = e[22] = 1000;
   CHECK(near(trimmedMean(e, 23), (17 * 100 + 0 + 1000) / 19.0f, 1e-3f));
@@ -645,8 +680,9 @@ static void testCalibrateOrderAtPinLimit() {
 }
 
 static void testGaugeExtremeFinite() {
-  // Endliche, aber absurde Werte duerfen die EMA nicht dauerhaft auf inf/NaN setzen
-  // (vorher: -3e38 dann 3e38 → inf, danach NaN fuer immer, Anzeige 0 % + Warnung).
+  // Endliche, aber absurde Werte duerfen die EMA nicht dauerhaft auf inf/NaN
+  // setzen (vorher: -3e38 dann 3e38 → inf, danach NaN fuer immer, Anzeige 0 % +
+  // Warnung).
   const float big = std::numeric_limits<float>::max();
   Gauge g;
   g.update(3.8f);
@@ -656,10 +692,12 @@ static void testGaugeExtremeFinite() {
   bool finite = true;
   for (int i = 0; i < 50; i++) {
     g.update(i % 2 ? big : -big);
-    if (!std::isfinite(g.voltage())) finite = false;
+    if (!std::isfinite(g.voltage()))
+      finite = false;
   }
   CHECK(finite);
-  for (int i = 0; i < 3000; i++) g.update(3.8f);
+  for (int i = 0; i < 3000; i++)
+    g.update(3.8f);
   CHECK(std::isfinite(g.voltage()));
   CHECK(near(g.voltage(), 3.8f, 1e-3f));
   CHECK(g.percent() > 43 - UP_STEP && g.percent() <= 43);
@@ -671,9 +709,11 @@ static void testGaugeExtremeFinite() {
   CHECK(h.percent() == 100);
   h.update(-big);
   CHECK(std::isfinite(h.voltage()));
-  for (int i = 0; i < 3000; i++) h.update(3.70f);
+  for (int i = 0; i < 3000; i++)
+    h.update(3.70f);
   CHECK(near(h.voltage(), 3.70f, 1e-3f));
-  CHECK(h.percent() >= 20 && h.percent() < 20 + DOWN_STEP);  // Hysterese nach unten
+  CHECK(h.percent() >= 20 &&
+        h.percent() < 20 + DOWN_STEP); // Hysterese nach unten
 }
 
 static void testGaugeSignedZero() {
@@ -681,7 +721,7 @@ static void testGaugeSignedZero() {
   g.update(-0.0f);
   CHECK(g.valid());
   CHECK(g.voltage() == 0.0f);
-  CHECK(!std::signbit(g.voltage()));  // sonst "-0.00 V" in Web/Anzeige
+  CHECK(!std::signbit(g.voltage())); // sonst "-0.00 V" in Web/Anzeige
   CHECK(g.percent() == 0);
   CHECK(g.low());
   g.update(-0.0f);
@@ -695,15 +735,17 @@ static void testGaugeSignedZero() {
 // nach oben verlangt (sonst bliebe die Anzeige z. B. bei 97 % haengen)
 static void testGaugeReachesEnds() {
   Gauge g;
-  g.update(4.17f);  // ~97 %
+  g.update(4.17f); // ~97 %
   CHECK(g.percent() > 90 && g.percent() < 100);
-  for (int i = 0; i < 60; i++) g.update(4.20f);
+  for (int i = 0; i < 60; i++)
+    g.update(4.20f);
   CHECK(g.percent() == 100);
 
   Gauge h;
-  h.update(3.37f);  // ~1 %
+  h.update(3.37f); // ~1 %
   CHECK(h.percent() >= 0 && h.percent() <= DOWN_STEP);
-  for (int i = 0; i < 60; i++) h.update(3.30f);
+  for (int i = 0; i < 60; i++)
+    h.update(3.30f);
   CHECK(h.percent() == 0);
   CHECK(h.low());
 }

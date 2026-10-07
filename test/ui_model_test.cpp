@@ -23,7 +23,8 @@ static Status status() {
 static const Hold NO_HOLD = {};
 
 // Frame-Text entspricht dem Layout dieser UTF-8-Zeilen?
-static bool textIs(const Frame &f, const char *a, const char *b = nullptr, const char *c = nullptr) {
+static bool textIs(const Frame &f, const char *a, const char *b = nullptr,
+                   const char *c = nullptr) {
   text::Layout l;
   text::layout(a, b, c, l);
   return memcmp(&l, &f.text, sizeof(l)) == 0;
@@ -31,13 +32,20 @@ static bool textIs(const Frame &f, const char *a, const char *b = nullptr, const
 
 static void testLabels() {
   using button::Zone;
-  CHECK(!strcmp(holdLabel(Zone::Short, cfg::ScaleMode::Game, false, false), "Tara"));
-  CHECK(!strcmp(holdLabel(Zone::Mode, cfg::ScaleMode::Game, false, false), "Standard-Modus"));
-  CHECK(!strcmp(holdLabel(Zone::Mode, cfg::ScaleMode::Standard, false, false), "Game-Modus"));
-  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, false, false), "Funk + AP an"));
-  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, true, false), "AP an"));
-  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, true, true), "Alles aus"));
-  CHECK(!strcmp(holdLabel(Zone::Cancel, cfg::ScaleMode::Game, true, true), "Abbrechen"));
+  CHECK(!strcmp(holdLabel(Zone::Short, cfg::ScaleMode::Game, false, false),
+                "Tara"));
+  CHECK(!strcmp(holdLabel(Zone::Mode, cfg::ScaleMode::Game, false, false),
+                "Standard-Modus"));
+  CHECK(!strcmp(holdLabel(Zone::Mode, cfg::ScaleMode::Standard, false, false),
+                "Game-Modus"));
+  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, false, false),
+                "Funk + AP an"));
+  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, true, false),
+                "AP an"));
+  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, true, true),
+                "Alles aus"));
+  CHECK(!strcmp(holdLabel(Zone::Cancel, cfg::ScaleMode::Game, true, true),
+                "Abbrechen"));
   CHECK(!strcmp(ratingText(game::Rating::Shy), "Schüchtern"));
   CHECK(!strcmp(ratingText(game::Rating::Perfect), "Perfekt!"));
 }
@@ -46,7 +54,7 @@ static void testLayers() {
   Model m;
   game::View v = idleView();
   Status s = status();
-  const char *sys[3] = { "Kalibrierung", "Waage leeren", nullptr };
+  const char *sys[3] = {"Kalibrierung", "Waage leeren", nullptr};
   uint32_t now = 1000;
 
   Frame f = m.build(v, s, NO_HOLD, nullptr, now);
@@ -57,11 +65,11 @@ static void testLayers() {
   f = m.build(v, s, NO_HOLD, nullptr, now + 100);
   CHECK(textIs(f, "Hallo"));
   CHECK(!f.icons);
-  f = m.build(v, s, NO_HOLD, sys, now + 200);  // System vor Toast
+  f = m.build(v, s, NO_HOLD, sys, now + 200); // System vor Toast
   CHECK(textIs(f, "Kalibrierung", "Waage leeren"));
 
-  Hold h = { true, button::Zone::Mode, 3200 };
-  f = m.build(v, s, h, sys, now + 300);  // Haltebalken vor allem
+  Hold h = {true, button::Zone::Mode, 3200};
+  f = m.build(v, s, h, sys, now + 300); // Haltebalken vor allem
   CHECK(f.kind == Kind::Hold);
   CHECK(textIs(f, "Standard-Modus"));
 
@@ -76,23 +84,32 @@ static void testToastWrap() {
   game::View v = idleView();
   uint32_t now = 0xFFFFFF00u;
   m.toast("Funk aus", now, 2000);
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, now + 1000), "Funk aus"));  // nach Ueberlauf
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, now + 1000),
+               "Funk aus")); // nach Ueberlauf
   CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, now + 2000), "100.0g?"));
   // lange UTF-8-Meldung wird nicht mitten im Zeichen gekuerzt
   char longMsg[200] = {};
-  for (int i = 0; i < 40; i++) strcat(longMsg, "ü");
+  for (int i = 0; i < 40; i++)
+    strcat(longMsg, "ü");
   m.toast(longMsg, now + 3000);
   Frame f = m.build(v, status(), NO_HOLD, nullptr, now + 3001);
-  for (int l = 0; l < f.text.lines; l++) CHECK(strchr(f.text.line[l], '?') == nullptr);
+  for (int l = 0; l < f.text.lines; l++)
+    CHECK(strchr(f.text.line[l], '?') == nullptr);
 }
 
 static void testHoldBar() {
   Model m;
   game::View v = idleView();
-  struct { uint32_t ms; int px; } cases[] = { { 300, 4 }, { 3000, TICK_MODE_PX }, { 5000, TICK_RADIO_PX },
-                                              { 8000, BAR_W }, { 20000, BAR_W } };
+  struct {
+    uint32_t ms;
+    int px;
+  } cases[] = {{300, 4},
+               {3000, TICK_MODE_PX},
+               {5000, TICK_RADIO_PX},
+               {8000, BAR_W},
+               {20000, BAR_W}};
   for (auto &c : cases) {
-    Hold h = { true, button::Zone::Short, c.ms };
+    Hold h = {true, button::Zone::Short, c.ms};
     Frame f = m.build(v, status(), h, nullptr, 1000);
     CHECK(f.barPx == c.px);
   }
@@ -112,7 +129,7 @@ static void testIcons() {
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
   CHECK(f.border && f.shuffle);
 
-  s.radioOn = true;  // Funk an: kein Akku
+  s.radioOn = true; // Funk an: kein Akku
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
   CHECK(f.right == RightIcon::Wifi);
   s.peers = 2;
@@ -121,7 +138,7 @@ static void testIcons() {
   s.apOn = true;
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
   CHECK(f.apBadge);
-  s.mode = cfg::ScaleMode::Standard;  // kein Duell im Standard-Modus
+  s.mode = cfg::ScaleMode::Standard; // kein Duell im Standard-Modus
   v.screen = game::Screen::IdleStandard;
   v.weight = 12.34f;
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
@@ -145,8 +162,10 @@ static void testLowBattBlink() {
   bool on = false, off = false;
   for (uint32_t t = 0; t < 2000; t += 100) {
     Frame f = m.build(idleView(), s, NO_HOLD, nullptr, t);
-    if (f.lowBatt) on = true;
-    else off = true;
+    if (f.lowBatt)
+      on = true;
+    else
+      off = true;
     CHECK(f.lowBatt == ((t / BLINK_MS) % 2 == 0));
   }
   CHECK(on && off);
@@ -165,12 +184,16 @@ static void testReadyAndDrinking() {
   v.screenSince = 5000;
   v.toastIdx = 3;
   CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 5000), "Bereit?"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 5000 + READY_PROMPT_MS - 1), "Bereit?"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 5000 + READY_PROMPT_MS), text::trinkspruch(3)));
+  CHECK(
+      textIs(m.build(v, status(), NO_HOLD, nullptr, 5000 + READY_PROMPT_MS - 1),
+             "Bereit?"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 5000 + READY_PROMPT_MS),
+               text::trinkspruch(3)));
 
   v.screen = game::Screen::Drinking;
   for (int i = 0; i < 10; i++) {
-    Frame f = m.build(v, status(), NO_HOLD, nullptr, 5000 + (uint32_t)i * ANIM_MS);
+    Frame f =
+        m.build(v, status(), NO_HOLD, nullptr, 5000 + (uint32_t)i * ANIM_MS);
     CHECK(f.kind == Kind::Anim);
     CHECK(f.animFrame == i % 5);
     CHECK(!f.icons);
@@ -179,7 +202,8 @@ static void testReadyAndDrinking() {
   v.screen = game::Screen::WaitDuel;
   v.ready = 2;
   v.readyTotal = 3;
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 6000), "Warte...", "2/3 bereit"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 6000), "Warte...",
+               "2/3 bereit"));
   v.screen = game::Screen::DuelStart;
   v.goal = 73.0f;
   CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 6000), "Ziel", "73.0g"));
@@ -195,18 +219,23 @@ static void testResultSoloAlternates() {
   v.drankCg = 9995;
   v.durationMs = 4567;
   v.rating = game::Rating::Shy;
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 10000), "99.95g", "Schüchtern"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 12999), "99.95g", "Schüchtern"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 13000), "4.57s", "Schüchtern"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 16000), "99.95g", "Schüchtern"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 10000), "99.95g",
+               "Schüchtern"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 12999), "99.95g",
+               "Schüchtern"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 13000), "4.57s",
+               "Schüchtern"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 16000), "99.95g",
+               "Schüchtern"));
   // Umlaut als CP437 0x81
   Frame f = m.build(v, status(), NO_HOLD, nullptr, 16001);
   CHECK(strchr(f.text.line[1], (char)0x81) != nullptr);
 
   // neues Ergebnis → beginnt wieder mit dem Wert
-  m.build(v, status(), NO_HOLD, nullptr, 19000);  // jetzt Zeit
+  m.build(v, status(), NO_HOLD, nullptr, 19000); // jetzt Zeit
   v.screenSince = 19100;
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 19100), "99.95g", "Schüchtern"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 19100), "99.95g",
+               "Schüchtern"));
 }
 
 static void testResultDuel() {
@@ -220,14 +249,18 @@ static void testResultDuel() {
   v.settled = 2;
   v.total = 3;
   v.resultSig = 1;
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 1000), "80.12g", "~2. Platz"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 4000), "2/3 fertig", "3.00s"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 1000), "80.12g",
+               "~2. Platz"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 4000), "2/3 fertig",
+               "3.00s"));
   // neuer Duell-Stand → Wechsel startet neu
   v.isFinal = true;
   v.settled = 3;
   v.resultSig = 2;
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 4100), "80.12g", "2. Platz!"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 7100), "80.12g", "3.00s"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 4100), "80.12g",
+               "2. Platz!"));
+  CHECK(
+      textIs(m.build(v, status(), NO_HOLD, nullptr, 7100), "80.12g", "3.00s"));
   v.forfeit = true;
   v.resultSig = 3;
   Frame f = m.build(v, status(), NO_HOLD, nullptr, 7200);
@@ -238,11 +271,12 @@ static void testResultDuel() {
 static void testSoloToast() {
   Model m;
   game::View v = idleView();
-  v.soloFallbackSeq = 5;  // Startwert loest nichts aus
+  v.soloFallbackSeq = 5; // Startwert loest nichts aus
   CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 1000), "100.0g?"));
   v.soloFallbackSeq = 6;
   CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 1100), "Solo!"));
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 1100 + TOAST_MS), "100.0g?"));
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 1100 + TOAST_MS),
+               "100.0g?"));
 }
 
 static void testSameFrame() {

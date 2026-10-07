@@ -8,24 +8,35 @@ bool sameFrame(const Frame &a, const Frame &b) {
   return memcmp(&a, &b, sizeof(Frame)) == 0;
 }
 
-const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool radioOn, bool apOn) {
+const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool radioOn,
+                      bool apOn) {
   switch (z) {
-    case button::Zone::Short: return "Tara";
-    case button::Zone::Mode: return mode == cfg::ScaleMode::Game ? "Standard-Modus" : "Game-Modus";
-    case button::Zone::Radio: return apOn ? "Alles aus" : (radioOn ? "AP an" : "Funk + AP an");
-    case button::Zone::Cancel: return "Abbrechen";
-    case button::Zone::None: break;
+  case button::Zone::Short:
+    return "Tara";
+  case button::Zone::Mode:
+    return mode == cfg::ScaleMode::Game ? "Standard-Modus" : "Game-Modus";
+  case button::Zone::Radio:
+    return apOn ? "Alles aus" : (radioOn ? "AP an" : "Funk + AP an");
+  case button::Zone::Cancel:
+    return "Abbrechen";
+  case button::Zone::None:
+    break;
   }
   return "";
 }
 
 const char *ratingText(game::Rating r) {
   switch (r) {
-    case game::Rating::Perfect: return "Perfekt!";
-    case game::Rating::NotBad: return "Not Bad!";
-    case game::Rating::Ok: return "Ganz ok!";
-    case game::Rating::Shy: return "Schüchtern";
-    case game::Rating::Greedy: return "Zu gierig!";
+  case game::Rating::Perfect:
+    return "Perfekt!";
+  case game::Rating::NotBad:
+    return "Not Bad!";
+  case game::Rating::Ok:
+    return "Ganz ok!";
+  case game::Rating::Shy:
+    return "Schüchtern";
+  case game::Rating::Greedy:
+    return "Zu gierig!";
   }
   return "";
 }
@@ -35,7 +46,8 @@ static void copyText(char *dst, const char *src, size_t n) {
   size_t len = strlen(src);
   if (len > n - 1) {
     len = n - 1;
-    while (len > 0 && ((unsigned char)src[len] & 0xC0) == 0x80) len--;
+    while (len > 0 && ((unsigned char)src[len] & 0xC0) == 0x80)
+      len--;
   }
   memcpy(dst, src, len);
   dst[len] = 0;
@@ -47,7 +59,8 @@ void Model::toast(const char *utf8, uint32_t now, uint32_t ms) {
   toastOn_ = true;
 }
 
-static void setText(Frame &f, const char *a, const char *b = nullptr, const char *c = nullptr) {
+static void setText(Frame &f, const char *a, const char *b = nullptr,
+                    const char *c = nullptr) {
   text::layout(a, b, c, f.text);
 }
 
@@ -63,7 +76,10 @@ static void setIcons(Frame &f, const Status &s) {
     }
   } else if (s.battShown) {
     f.right = RightIcon::Battery;
-    f.battPercent = (uint8_t)(s.battPercent < 0 ? 0 : (s.battPercent > 100 ? 100 : s.battPercent));
+    f.battPercent =
+        (uint8_t)(s.battPercent < 0
+                      ? 0
+                      : (s.battPercent > 100 ? 100 : s.battPercent));
   }
 }
 
@@ -74,80 +90,84 @@ static void fmtHundredths(int32_t v, const char *suffix, char *out, size_t n) {
   snprintf(out, n, "%s%s", num, suffix);
 }
 
-static void buildGame(Frame &f, const game::View &v, const Status &s, bool altTime, uint32_t now) {
+static void buildGame(Frame &f, const game::View &v, const Status &s,
+                      bool altTime, uint32_t now) {
   char a[32], b[32];
   switch (v.screen) {
-    case game::Screen::IdleGame:
-      text::fmtGrams1(v.goal, a, sizeof(a));
-      strncat(a, "g?", sizeof(a) - strlen(a) - 1);
-      setText(f, a);
-      setIcons(f, s);
-      f.border = v.glassOn;
-      f.shuffle = v.randomMode;
-      break;
+  case game::Screen::IdleGame:
+    text::fmtGrams1(v.goal, a, sizeof(a));
+    strncat(a, "g?", sizeof(a) - strlen(a) - 1);
+    setText(f, a);
+    setIcons(f, s);
+    f.border = v.glassOn;
+    f.shuffle = v.randomMode;
+    break;
 
-    case game::Screen::IdleStandard:
-      text::fmtGrams1(v.weight, a, sizeof(a));
-      strncat(a, "g", sizeof(a) - strlen(a) - 1);
-      setText(f, a);
-      setIcons(f, s);
-      break;
+  case game::Screen::IdleStandard:
+    text::fmtGrams1(v.weight, a, sizeof(a));
+    strncat(a, "g", sizeof(a) - strlen(a) - 1);
+    setText(f, a);
+    setIcons(f, s);
+    break;
 
-    case game::Screen::Taring:
-      setText(f, "Tara...");
-      break;
+  case game::Screen::Taring:
+    setText(f, "Tara...");
+    break;
 
-    case game::Screen::WaitDuel:
-      snprintf(b, sizeof(b), "%d/%d bereit", v.ready, v.readyTotal);
-      setText(f, "Warte...", b);
-      break;
+  case game::Screen::WaitDuel:
+    snprintf(b, sizeof(b), "%d/%d bereit", v.ready, v.readyTotal);
+    setText(f, "Warte...", b);
+    break;
 
-    case game::Screen::Ready:
-      if ((uint32_t)(now - v.screenSince) < READY_PROMPT_MS) setText(f, "Bereit?");
-      else setText(f, text::trinkspruch(v.toastIdx));
-      break;
+  case game::Screen::Ready:
+    if ((uint32_t)(now - v.screenSince) < READY_PROMPT_MS)
+      setText(f, "Bereit?");
+    else
+      setText(f, text::trinkspruch(v.toastIdx));
+    break;
 
-    case game::Screen::DuelStart:
-      text::fmtGrams1(v.goal, a, sizeof(a));
-      strncat(a, "g", sizeof(a) - strlen(a) - 1);
-      setText(f, "Ziel", a);
-      break;
+  case game::Screen::DuelStart:
+    text::fmtGrams1(v.goal, a, sizeof(a));
+    strncat(a, "g", sizeof(a) - strlen(a) - 1);
+    setText(f, "Ziel", a);
+    break;
 
-    case game::Screen::Drinking:
-      f.kind = Kind::Anim;
-      f.animFrame = (uint8_t)(((uint32_t)(now - v.screenSince) / ANIM_MS) % 5);
-      break;
+  case game::Screen::Drinking:
+    f.kind = Kind::Anim;
+    f.animFrame = (uint8_t)(((uint32_t)(now - v.screenSince) / ANIM_MS) % 5);
+    break;
 
-    case game::Screen::ResultSolo: {
-      char grams[24], dur[24];
-      fmtHundredths(v.drankCg, "g", grams, sizeof(grams));
-      fmtHundredths((int32_t)((v.durationMs + 5) / 10), "s", dur, sizeof(dur));
-      setText(f, altTime ? dur : grams, ratingText(v.rating));
-      break;
-    }
+  case game::Screen::ResultSolo: {
+    char grams[24], dur[24];
+    fmtHundredths(v.drankCg, "g", grams, sizeof(grams));
+    fmtHundredths((int32_t)((v.durationMs + 5) / 10), "s", dur, sizeof(dur));
+    setText(f, altTime ? dur : grams, ratingText(v.rating));
+    break;
+  }
 
-    case game::Screen::ResultDuel: {
-      char grams[24], dur[24];
-      fmtHundredths(v.drankCg, "g", grams, sizeof(grams));
-      fmtHundredths((int32_t)((v.durationMs + 5) / 10), "s", dur, sizeof(dur));
-      if (v.forfeit) {
-        setText(f, grams, "Zu spät!");
-      } else if (v.rank == 0) {
-        setText(f, grams, "Auswertung");
-      } else if (!v.isFinal) {
-        if (!altTime) {
-          snprintf(b, sizeof(b), "~%u. Platz", (unsigned)v.rank);
-          setText(f, grams, b);
-        } else {
-          snprintf(a, sizeof(a), "%u/%u fertig", (unsigned)v.settled, (unsigned)v.total);
-          setText(f, a, dur);
-        }
+  case game::Screen::ResultDuel: {
+    char grams[24], dur[24];
+    fmtHundredths(v.drankCg, "g", grams, sizeof(grams));
+    fmtHundredths((int32_t)((v.durationMs + 5) / 10), "s", dur, sizeof(dur));
+    if (v.forfeit) {
+      setText(f, grams, "Zu spät!");
+    } else if (v.rank == 0) {
+      setText(f, grams, "Auswertung");
+    } else if (!v.isFinal) {
+      if (!altTime) {
+        snprintf(b, sizeof(b), "~%u. Platz", (unsigned)v.rank);
+        setText(f, grams, b);
       } else {
-        snprintf(b, sizeof(b), "%u. Platz!", (unsigned)v.rank);
-        setText(f, grams, altTime ? dur : b);
+        snprintf(a, sizeof(a), "%u/%u fertig", (unsigned)v.settled,
+                 (unsigned)v.total);
+        setText(f, a, dur);
       }
-      break;
+    } else {
+      snprintf(b, sizeof(b), "%u. Platz!", (unsigned)v.rank);
+      setText(f, grams, altTime ? dur : b);
     }
+    break;
+  }
   }
 }
 
@@ -167,8 +187,10 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
     toast("Solo!", now);
   }
 
-  // Ergebnis-Wechsel (Wert/Zeit) neu starten bei neuem Bildschirm oder neuem Duell-Stand
-  bool isResult = v.screen == game::Screen::ResultSolo || v.screen == game::Screen::ResultDuel;
+  // Ergebnis-Wechsel (Wert/Zeit) neu starten bei neuem Bildschirm oder neuem
+  // Duell-Stand
+  bool isResult = v.screen == game::Screen::ResultSolo ||
+                  v.screen == game::Screen::ResultDuel;
   if (v.screen != lastScreen_ || v.screenSince != lastScreenSince_ ||
       (v.screen == game::Screen::ResultDuel && v.resultSig != lastSig_)) {
     lastScreen_ = v.screen;
@@ -203,4 +225,4 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
   return f;
 }
 
-}  // namespace ui
+} // namespace ui

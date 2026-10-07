@@ -1,11 +1,11 @@
 #include "radio.h"
-#include <Arduino.h>
-#include <WiFi.h>
-#include <esp_wifi.h>
 #include "battery.h"
 #include "duell.h"
 #include "power_core.h"
 #include "web.h"
+#include <Arduino.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
 
 constexpr char AP_PASSWORD[] = "";
 constexpr int AP_MAX_CLIENTS = 4;
@@ -15,29 +15,26 @@ static bool radioOn = false;
 static bool apOn = false;
 static char apName[cfg::SSID_MAX + 1] = "";
 
-static bool apRestartPending = false, rebootPending = false, apAfterBoot = false;
+static bool apRestartPending = false, rebootPending = false,
+            apAfterBoot = false;
 static uint32_t apRestartAt = 0, rebootAt = 0;
 
 // Ueberlebt den Software-Reset (nicht den Deep-Sleep): AP nach OTA wieder an
 static RTC_NOINIT_ATTR uint32_t apAfterBootFlag;
 
-bool radio_isOn() {
-  return radioOn;
-}
+bool radio_isOn() { return radioOn; }
 
-bool radio_apOn() {
-  return apOn;
-}
+bool radio_apOn() { return apOn; }
 
-const char *radio_apName() {
-  return apName;
-}
+const char *radio_apName() { return apName; }
 
 void radio_start() {
-  if (radioOn) return;
+  if (radioOn)
+    return;
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect();     // nie mit einem gespeicherten Netz verbinden (Kanalwechsel)
-  WiFi.setSleep(false);  // Modem-Sleep wuerde ESP-NOW-Pakete verschlucken
+  WiFi.disconnect();    // nie mit einem gespeicherten Netz verbinden
+                        // (Kanalwechsel)
+  WiFi.setSleep(false); // Modem-Sleep wuerde ESP-NOW-Pakete verschlucken
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   esp_wifi_set_channel(DUELL_CHANNEL, WIFI_SECOND_CHAN_NONE);
   duell_init();
@@ -46,7 +43,8 @@ void radio_start() {
 }
 
 void radio_stopAP() {
-  if (!apOn) return;
+  if (!apOn)
+    return;
   apOn = false;
   web_stop();
   WiFi.softAPdisconnect(true);
@@ -55,16 +53,18 @@ void radio_stopAP() {
 }
 
 void radio_stop() {
-  if (!radioOn) return;
+  if (!radioOn)
+    return;
   radio_stopAP();
-  duell_deinit();  // verlaesst eine laufende Runde und sendet das vorher
+  duell_deinit(); // verlaesst eine laufende Runde und sendet das vorher
   WiFi.mode(WIFI_OFF);
   radioOn = false;
   battery_noteRadioToggle(millis());
 }
 
 void radio_startAP(const cfg::Config &c) {
-  if (apOn) return;
+  if (apOn)
+    return;
   radio_start();
   uint8_t mac[6];
   WiFi.macAddress(mac);
@@ -95,9 +95,7 @@ void radio_requestReboot(uint32_t delayMs, bool apAfter) {
   apAfterBoot = apAfter;
 }
 
-bool radio_actionPending() {
-  return apRestartPending || rebootPending;
-}
+bool radio_actionPending() { return apRestartPending || rebootPending; }
 
 bool radio_takeApAfterBoot() {
   bool r = apAfterBootFlag == AP_AFTER_BOOT_MAGIC;
@@ -109,7 +107,7 @@ RadioEvent radio_loop(const cfg::Config &c, uint32_t now) {
   RadioEvent ev = RadioEvent::None;
   if (apOn) {
     web_handle();
-    now = millis();  // Anfragen koennen gedauert haben
+    now = millis(); // Anfragen koennen gedauert haben
     if (power::apTimedOut(now, web_lastActivity(), c.wifiTimeout)) {
       radio_stopAP();
       ev = RadioEvent::ApTimedOut;
@@ -125,7 +123,7 @@ RadioEvent radio_loop(const cfg::Config &c, uint32_t now) {
   }
   if (rebootPending && (int32_t)(now - rebootAt) >= 0) {
     rebootPending = false;
-    radio_stop();  // Runde sauber verlassen
+    radio_stop(); // Runde sauber verlassen
     apAfterBootFlag = apAfterBoot ? AP_AFTER_BOOT_MAGIC : 0;
     Serial.flush();
     ESP.restart();
