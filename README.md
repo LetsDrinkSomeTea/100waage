@@ -99,13 +99,13 @@ Einfache Waage mit 0,1 g Anzeige.
 
 ### Symbole
 
-| Symbol                  | Bedeutung                                   |
-| ----------------------- | ------------------------------------------- |
-| 🔀 oben links           | Zufallsziel aktiv                           |
-| WLAN-Bogen              | Config-Access-Point läuft                   |
-| `Vs n`                  | Duell-Modus, n andere Duell-Waagen sichtbar |
-| Akku                    | Ladezustand                                 |
-| blinkender Akku mit `!` | Akku unter 10 %                             |
+| Symbol        | Bedeutung                                   |
+| ------------- | ------------------------------------------- |
+| 🔀 oben links | Zufallsziel aktiv                           |
+| WLAN-Bogen    | Config-Access-Point läuft                   |
+| `Vs n`        | Duell-Modus, n andere Duell-Waagen sichtbar |
+| Akku          | Ladezustand                                 |
+| Akku mit `!`  | Akku unter 10 %                             |
 
 ### Energie
 

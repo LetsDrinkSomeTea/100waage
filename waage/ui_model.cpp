@@ -97,6 +97,7 @@ static void setIcons(Frame &f, const Status &s) {
   }
   if (s.battShown) {
     f.battIcon = true;
+    f.lowBatt = s.battLow;
     f.battPercent =
         (uint8_t)(s.battPercent < 0
                       ? 0
@@ -207,7 +208,6 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
   Frame f;
   memset(&f, 0, sizeof(f));
   f.kind = Kind::Text;
-  f.lowBatt = s.battLow && ((now / BLINK_MS) % 2 == 0);
 
   // Stiller Wechsel von Duell auf Solo → kurzer Hinweis
   if (!seqInit_) {

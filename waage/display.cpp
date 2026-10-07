@@ -68,21 +68,18 @@ void drawHoldBar(int filledPx, int tickA, int tickB) {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-void drawBatteryIcon(int16_t x, int16_t y, int percent) {
+void drawBatteryIcon(int16_t x, int16_t y, int percent, bool low) {
   display.drawRect(x, y, 12, 7, SSD1306_WHITE);
   display.fillRect(x + 12, y + 2, 2, 3, SSD1306_WHITE);
+  if (low) {
+    // Warnung: Ausrufezeichen statt Fuellung
+    display.drawFastVLine(x + 6, y + 1, 3, SSD1306_WHITE);
+    display.drawPixel(x + 6, y + 5, SSD1306_WHITE);
+    return;
+  }
   int fill = map(constrain(percent, 0, 100), 0, 100, 0, 10);
   if (fill > 0)
     display.fillRect(x + 1, y + 1, fill, 5, SSD1306_WHITE);
-}
-
-// Leeres Akkusymbol mit Ausrufezeichen auf schwarzem Grund (Warnung < 10 %)
-void drawLowBatteryIcon(int16_t x, int16_t y) {
-  display.fillRect(x - 1, y, 16, 9, SSD1306_BLACK);
-  display.drawRect(x, y + 1, 12, 7, SSD1306_WHITE);
-  display.fillRect(x + 12, y + 3, 2, 3, SSD1306_WHITE);
-  display.drawFastVLine(x + 6, y + 2, 3, SSD1306_WHITE);
-  display.drawPixel(x + 6, y + 6, SSD1306_WHITE);
 }
 
 void drawWifiIcon(int16_t x, int16_t y) {

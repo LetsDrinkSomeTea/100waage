@@ -208,26 +208,24 @@ static void testModeDots() {
   CHECK(f.modeDots == 0 && textIs(f, "AP an"));
 }
 
-static void testLowBattBlink() {
+static void testLowBatt() {
   Model m;
   Status s = status();
   s.battLow = true;
-  bool on = false, off = false;
+  // Akkusymbol mit "!", dauerhaft (kein Blinken)
   for (uint32_t t = 0; t < 2000; t += 100) {
     Frame f = m.build(idleView(), s, NO_HOLD, nullptr, t);
-    if (f.lowBatt)
-      on = true;
-    else
-      off = true;
-    CHECK(f.lowBatt == ((t / BLINK_MS) % 2 == 0));
+    CHECK(f.battIcon && f.lowBatt);
   }
-  CHECK(on && off);
-  // auch ueber anderen Bildschirmen
+  // nur in der Statusleiste: nicht ueber anderen Bildschirmen
   game::View v = idleView();
   v.screen = game::Screen::Drinking;
-  CHECK(m.build(v, s, NO_HOLD, nullptr, 0).lowBatt);
-  s.battLow = false;
   CHECK(!m.build(v, s, NO_HOLD, nullptr, 0).lowBatt);
+  // ohne Akku keine Warnung
+  s.battShown = false;
+  CHECK(!m.build(idleView(), s, NO_HOLD, nullptr, 0).lowBatt);
+  s = status();
+  CHECK(!m.build(idleView(), s, NO_HOLD, nullptr, 0).lowBatt);
 }
 
 static void testReadyAndDrinking() {
@@ -360,7 +358,7 @@ int main() {
   testHoldBar();
   testIcons();
   testModeDots();
-  testLowBattBlink();
+  testLowBatt();
   testReadyAndDrinking();
   testResultSoloAlternates();
   testResultDuel();
