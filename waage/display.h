@@ -19,8 +19,8 @@ void drawCentered(const char *cp437, int textSize, int y, int h);
 void drawLoadingAnimation(int frame);
 void drawHoldBar(int filledPx, int tickA, int tickB);
 
-void drawBatteryIcon(int16_t x, int16_t y, int percentage);
-void drawLowBatteryIcon(int16_t x, int16_t y);
+// low: Ausrufezeichen statt Fuellung (Akku-Warnung)
+void drawBatteryIcon(int16_t x, int16_t y, int percentage, bool low);
 void drawWifiIcon(int16_t x, int16_t y);
 void drawDuellIcon(int16_t x, int16_t y, int peerCount);
 // n Punkte mittig um y = 17 (zwischen Text und Haltebalken), Punkt filled

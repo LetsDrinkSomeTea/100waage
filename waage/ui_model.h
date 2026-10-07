@@ -16,9 +16,8 @@ constexpr uint32_t READY_PROMPT_MS = 400; // "Bereit?" vor dem Trinkspruch
 constexpr uint32_t RESULT_ALT_MS = 3000;  // Ergebnis-Wechsel (Wert/Zeit)
 constexpr uint32_t ANIM_MS = 300;         // Ladeanimation
 constexpr uint32_t TOAST_MS = 1500;
-constexpr uint32_t BLINK_MS = 500; // Akku-Warnung blinkt im 1-Hz-Takt
-constexpr int MODE_DOTS = 3;       // Game, Duell, Standard
-constexpr int BAR_W = 128;         // Haltebalken ueber CANCEL_MS
+constexpr int MODE_DOTS = 3; // Game, Duell, Standard
+constexpr int BAR_W = 128;   // Haltebalken ueber CANCEL_MS
 constexpr int TICK_MODE_PX =
     (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS);
 constexpr int TICK_RADIO_PX =
@@ -42,8 +41,7 @@ struct Frame {
   bool duelIcon; // Duell-Modus, auch mit 0 Gegnern
   uint8_t peers;
   bool apIcon;
-  bool lowBatt; // Akku-Warnsymbol in dieser Blinkphase sichtbar (alle
-                // Bildschirme)
+  bool lowBatt; // Akku-Warnung: Akkusymbol mit "!" statt Fuellung
   // Modus-Punkte (Game, Duell, Standard) unter einer Zeile in Groesse 1:
   // 0 = keine, sonst 1 + Position des gefuellten Punkts
   uint8_t modeDots;

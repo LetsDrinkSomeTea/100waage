@@ -382,13 +382,13 @@ Duell teil und ist für andere unsichtbar.
   Ergebnisse wechseln alle 3 s zwischen Wert und Zeit. Ladeanimation mit 300 ms
   pro Schritt.
 
-| Symbol                  | Bedingung                                      |
-| ----------------------- | ---------------------------------------------- |
-| Zufall (oben links)     | Zufallsziel aktiv                              |
-| WLAN-Bogen              | Config-AP läuft                                |
-| `Vs n`                  | Duell-Modus, n andere Waagen sichtbar (auch 0) |
-| Akku mit Prozent        | Akku angeschlossen (ganz rechts)               |
-| blinkender Akku mit `!` | Akku-Warnung (1 Hz)                            |
+| Symbol              | Bedingung                                      |
+| ------------------- | ---------------------------------------------- |
+| Zufall (oben links) | Zufallsziel aktiv                              |
+| WLAN-Bogen          | Config-AP läuft                                |
+| `Vs n`              | Duell-Modus, n andere Waagen sichtbar (auch 0) |
+| Akku mit Prozent    | Akku angeschlossen (ganz rechts)               |
+| Akku mit `!`        | Akku-Warnung (statt der Füllung)               |
 
 Rechts oben von rechts nach links: Akku, `Vs n`, WLAN-Bogen.
 

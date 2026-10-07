@@ -25,7 +25,7 @@ static void drawIcons(const ui::Frame &f) {
   int x = SCREEN_WIDTH;
   if (f.battIcon) {
     x -= 14;
-    drawBatteryIcon(x, 0, f.battPercent);
+    drawBatteryIcon(x, 0, f.battPercent, f.lowBatt);
   }
   if (f.duelIcon) {
     x -= f.peers > 9 ? 28 : 22;
@@ -66,9 +66,6 @@ static void draw(const ui::Frame &f) {
     drawLoadingAnimation(f.animFrame);
     break;
   }
-  // Akku-Warnung auf jedem Bildschirm; im Idle neben dem Zufallssymbol
-  if (f.lowBatt)
-    drawLowBatteryIcon((f.icons && f.shuffle) ? 12 : 1, 0);
   display.display();
 }
 
