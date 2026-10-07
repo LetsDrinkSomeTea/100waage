@@ -12,14 +12,14 @@ Duell-Modus per Funk gegeneinander antreten. Technische Details stehen in [Specs
 | Wägezelle  | HX711-Verstärker (10 Messungen/s, 80/s bei umgelötetem RATE-Pin) |
 | Display    | SSD1306 OLED 128×32, I2C                                         |
 | Taster     | GPIO 5 (HIGH = gedrückt, weckt aus dem Deep-Sleep)               |
-| Akku       | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 2            |
+| Akku       | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 0            |
 
 | Funktion        | GPIO    |
 | --------------- | ------- |
 | OLED SDA / SCL  | 8 / 9   |
 | HX711 DAT / CLK | 21 / 20 |
 | Taster          | 5       |
-| Akku-ADC        | 2       |
+| Akku-ADC        | 0       |
 
 ## Bedienung
 
