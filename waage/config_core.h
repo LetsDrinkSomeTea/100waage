@@ -60,9 +60,9 @@ constexpr uint8_t AZ_DELAY_MIN = 1, AZ_DELAY_MAX = 60;
 constexpr uint8_t AUTO_RESET_MAX = 100;
 constexpr float BATT_RATIO_MIN = 1.0f, BATT_RATIO_MAX = 6.0f,
                 BATT_RATIO_DEFAULT = 2.0f;
-constexpr uint8_t STATS_AFTER_MIN = 1, STATS_AFTER_DEFAULT = 20;
+constexpr uint8_t STATS_AFTER_MIN = 1, STATS_AFTER_DEFAULT = 15;
 constexpr uint8_t STATS_SHOW_MIN = 1, STATS_SHOW_MAX = 60;
-constexpr uint8_t STATS_GOAL_DEFAULT = 6, STATS_STEP_DEFAULT = 3;
+constexpr uint8_t STATS_GOAL_DEFAULT = 6, STATS_STEP_DEFAULT = 4;
 
 Config defaults();
 

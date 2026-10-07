@@ -130,7 +130,7 @@ static void testDefaults() {
   CHECK(c.randomModeEnabled == false);
   CHECK(c.randomMin == 20.0f);
   CHECK(c.statsRotation == true);
-  CHECK(c.statsAfterS == 20 && c.statsGoalS == 6 && c.statsStepS == 3);
+  CHECK(c.statsAfterS == 15 && c.statsGoalS == 6 && c.statsStepS == 4);
   CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT &&
         c.battDividerRatio == BATT_RATIO_DEFAULT);
 
@@ -331,13 +331,13 @@ static void testSanitizeAutoZero() {
   CHECK(sanU8(&Config::autoZeroDelay, 255, u) && u == 5);
   CHECK(!sanU8(&Config::statsAfterS, 1, u) && u == 1);
   CHECK(!sanU8(&Config::statsAfterS, 255, u) && u == 255);
-  CHECK(sanU8(&Config::statsAfterS, 0, u) && u == 20);
+  CHECK(sanU8(&Config::statsAfterS, 0, u) && u == 15);
   CHECK(!sanU8(&Config::statsGoalS, 60, u) && u == 60);
   CHECK(sanU8(&Config::statsGoalS, 0, u) && u == 6);
   CHECK(sanU8(&Config::statsGoalS, 61, u) && u == 6);
   CHECK(!sanU8(&Config::statsStepS, 1, u) && u == 1);
-  CHECK(sanU8(&Config::statsStepS, 0, u) && u == 3);
-  CHECK(sanU8(&Config::statsStepS, 61, u) && u == 3);
+  CHECK(sanU8(&Config::statsStepS, 0, u) && u == 4);
+  CHECK(sanU8(&Config::statsStepS, 61, u) && u == 4);
 }
 
 static void testSanitizeSmallFields() {
@@ -1226,7 +1226,7 @@ static void testDiff() {
   b.statsGoalS = 5;
   CHECK(diff(a, b) == CH_STATS);
   b = a;
-  b.statsStepS = 4;
+  b.statsStepS = 5;
   CHECK(diff(a, b) == CH_STATS);
 
   // Kombination und Symmetrie
