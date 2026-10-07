@@ -1,5 +1,6 @@
 #include "game_core.h"
 #include <math.h>
+#include <string.h>
 
 namespace game {
 
@@ -47,6 +48,16 @@ void Game::stopTimers() {
   removed_.stop();
   autoZeroStable_.stop();
   negZero_.stop();
+  glassPlace_.stop();
+}
+
+void Game::rollLocalGoal(const cfg::Config &c) {
+  pct_ = cfg::percentGoal(c);
+  if (pct_)
+    localGoal_ = c.randomModeEnabled ? (float)cfg::rollGoalPct(c, nextRandom())
+                                     : (float)c.goalPct;
+  else
+    localGoal_ = c.randomModeEnabled ? cfg::rollGoal(c, nextRandom()) : c.goal;
 }
 
 void Game::reset(const cfg::Config &c, uint32_t now, ScaleReq tare) {
@@ -61,7 +72,9 @@ void Game::reset(const cfg::Config &c, uint32_t now, ScaleReq tare) {
   duelTargetSet_ = false;
   haveCached_ = false;
   cachedView_ = duell::View();
-  localGoal_ = c.randomModeEnabled ? cfg::rollGoal(c, nextRandom()) : c.goal;
+  rollLocalGoal(c);
+  pctTargetG_ = pctContentG_ = 0.0f;
+  roundGlass_ = false;
   // Nach einer Tara erst nach der Auto-Zero-Pause erneut nullen
   autoZeroLast_ = now;
   autoZeroDone_ = true;
@@ -69,6 +82,9 @@ void Game::reset(const cfg::Config &c, uint32_t now, ScaleReq tare) {
   view_.isFinal = view_.forfeit = false;
   view_.drankCg = 0;
   view_.durationMs = 0;
+  view_.goal = localGoal_;
+  view_.pct = pct_;
+  view_.glassUnknown = false;
   view_.screen =
       cfg::playsGame(c.scaleMode) ? Screen::IdleGame : Screen::IdleStandard;
   view_.screenSince = now;
@@ -79,7 +95,7 @@ void Game::applyGoalSettings(const cfg::Config &c, uint32_t now) {
   (void)now;
   if (!cfg::playsGame(c.scaleMode) || phase_ != Phase::Idle)
     return;
-  localGoal_ = c.randomModeEnabled ? cfg::rollGoal(c, nextRandom()) : c.goal;
+  rollLocalGoal(c);
   place_.stop();
 }
 
@@ -184,9 +200,13 @@ void Game::updateIdle(const cfg::Config &c, const Input &in) {
   const float w = in.weight;
   setScreen(Screen::IdleGame, now);
   view_.goal = localGoal_;
+  view_.pct = pct_;
   view_.glassOn = w > c.tolerance;
 
   updateAutoZero(c, in);
+  updateGlass(c, in);
+  view_.glassUnknown =
+      pct_ && view_.glassOn && glassActive_ && detection_.id == 0;
 
   // NegZero: mit Glas tariert und Glas abgehoben → leere Waage nullen
   if (w < -c.tolerance && in.stable)
@@ -198,17 +218,27 @@ void Game::updateIdle(const cfg::Config &c, const Input &in) {
     negZero_.stop();
   }
 
-  // Volles Glas steht stabil → Bereit
-  if (w >= localGoal_ && in.stable)
-    place_.start(now);
-  else
-    place_.stop();
-  if (!place_.held(now, PLACE_STABLE_MS))
-    return;
+  if (pct_) {
+    // Prozent: bestimmtes Glas mit Inhalt steht ruhig → Bereit
+    if (!glassKnown() || detection_.contentG <= c.tolerance || !in.stable ||
+        !view_.glassOn)
+      return;
+    pctContentG_ = detection_.contentG;
+    pctTargetG_ = localGoal_ / 100.0f * pctContentG_;
+  } else {
+    // Volles Glas steht stabil → Bereit
+    if (w >= localGoal_ && in.stable)
+      place_.start(now);
+    else
+      place_.stop();
+    if (!place_.held(now, PLACE_STABLE_MS))
+      return;
+  }
 
   place_.stop();
   negZero_.stop();
   fullWeight_ = w;
+  roundGlass_ = glassKnown();
   phase_ = Phase::Ready;
   view_.toastIdx = (uint16_t)(nextRandom() & 0xFFFF);
   if (in.radioOn && port_ && port_->active()) {
@@ -222,6 +252,36 @@ void Game::updateIdle(const cfg::Config &c, const Input &in) {
     duel_ = Duel::Offline;
     setScreen(Screen::Ready, now);
   }
+}
+
+// Glasbestimmung im Idle: einmal pro Aufstellen (und bei Gewichtsaenderung)
+void Game::updateGlass(const cfg::Config &c, const Input &in) {
+  if (in.weight <= c.tolerance) {
+    glassActive_ = false; // Glas weg
+    glassPlace_.stop();
+    return;
+  }
+  if (in.stable)
+    glassPlace_.start(in.now);
+  else
+    glassPlace_.stop();
+  if (!glassPlace_.held(in.now, PLACE_STABLE_MS))
+    return;
+  if (glassActive_ && fabsf(in.absWeight - glassAtAbs_) <= c.tolerance)
+    return;
+  glassActive_ = true;
+  glassAtAbs_ = in.absWeight;
+  if (list_ && in.absValid)
+    detection_ = det_.place(*list_, in.absWeight, c.tolerance);
+  else
+    detection_ = {0, glass::Source::None, 0.0f};
+  const glass::Glass *g = list_ ? list_->find(detection_.id) : nullptr;
+  if (g)
+    memcpy(view_.glassName, g->name, sizeof view_.glassName);
+  else
+    view_.glassName[0] = 0;
+  view_.glassSource = detection_.source;
+  view_.glassSeq++;
 }
 
 // ── Ready ─────────────────────────────────────────────────────────────────────
@@ -284,6 +344,7 @@ void Game::startDrinking(const Input &in, uint32_t since) {
   phase_ = Phase::Drinking;
   timeStarted_ = since;
   emptyWeight_ = in.weight;
+  glassActive_ = false; // nach der Runde neu bestimmen (Regel 1)
   lift_.stop();
   ret_.stop();
   setScreen(Screen::Drinking, in.now);
@@ -318,8 +379,26 @@ void Game::finishDrinking(const Input &in) {
   view_.rank = view_.settled = view_.total = 0;
   view_.isFinal = view_.forfeit = false;
   view_.roundSeq++;
-  round_ = {view_.drankCg, toCg(refGoal()), view_.durationMs,
-            duel_ != Duel::Offline};
+  if (roundGlass_ && in.absValid)
+    det_.settle(in.absWeight); // Referenz = Endgewicht
+  view_.pct = pct_;
+  view_.goalCg = toCg(refGoal());
+  view_.drankPctD = 0;
+  if (pct_ && pctContentG_ > 0.0f) {
+    float p = (fullWeight_ - finalWeight_) / pctContentG_ * 1000.0f;
+    view_.drankPctD =
+        (uint16_t)(p <= 0.0f ? 0 : (p >= 65535.0f ? 65535 : lroundf(p)));
+  }
+  round_ = {view_.drankCg,
+            toCg(refGoal()),
+            view_.durationMs,
+            duel_ != Duel::Offline,
+            0,
+            {}};
+  if (pct_) {
+    round_.goalPct = (uint8_t)localGoal_;
+    memcpy(round_.glass, view_.glassName, sizeof round_.glass);
+  }
   roundPending_ = true;
   duelFinalSeen_ = false;
 

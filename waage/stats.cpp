@@ -4,8 +4,24 @@
 static constexpr char NS[] = "stats";
 static constexpr char K_TOTALS[] = "t";
 static constexpr char K_VERSION[] = "v";
-// Bei Aenderungen an stats::Totals erhoehen: alte Daten werden verworfen
-static constexpr uint8_t VERSION = 1;
+// Bei Aenderungen an stats::Totals erhoehen; aeltere Versionen werden in
+// stats_begin() uebernommen (neue Felder am Ende, mit 0 vorbelegt).
+static constexpr uint8_t VERSION = 2;
+
+// Version 1: stats::Totals ohne bestPct/bestGlass
+struct TotalsV1 {
+  uint32_t rounds;
+  uint32_t perfect, notBad, ok;
+  bool hasBest;
+  int32_t bestDevCg;
+  int32_t bestGoalCg;
+  uint32_t bestMs;
+  bool hasFastest;
+  uint32_t fastestMs;
+  int32_t fastestGoalCg;
+  int32_t fastestDevCg;
+  uint32_t duels, wins;
+};
 
 static stats::Tracker tracker;
 
@@ -24,18 +40,38 @@ void stats_begin() {
   if (!p.begin(NS, true)) // Namespace fehlt beim ersten Start
     return;
   stats::Totals t = {};
-  if (p.getUChar(K_VERSION, 0) == VERSION &&
-      p.getBytesLength(K_TOTALS) == sizeof(t) &&
-      p.getBytes(K_TOTALS, &t, sizeof(t)) == sizeof(t))
+  const uint8_t v = p.getUChar(K_VERSION, 0);
+  const size_t len = p.getBytesLength(K_TOTALS);
+  TotalsV1 o = {};
+  if (v == VERSION && len == sizeof(t) &&
+      p.getBytes(K_TOTALS, &t, sizeof(t)) == sizeof(t)) {
     tracker.load(t);
+  } else if (v == 1 && len == sizeof(o) &&
+             p.getBytes(K_TOTALS, &o, sizeof(o)) == sizeof(o)) {
+    t.rounds = o.rounds;
+    t.perfect = o.perfect;
+    t.notBad = o.notBad;
+    t.ok = o.ok;
+    t.hasBest = o.hasBest;
+    t.bestDevCg = o.bestDevCg;
+    t.bestGoalCg = o.bestGoalCg;
+    t.bestMs = o.bestMs;
+    t.hasFastest = o.hasFastest;
+    t.fastestMs = o.fastestMs;
+    t.fastestGoalCg = o.fastestGoalCg;
+    t.fastestDevCg = o.fastestDevCg;
+    t.duels = o.duels;
+    t.wins = o.wins;
+    tracker.load(t);
+  }
   p.end();
 }
 
 const stats::Tracker &stats_tracker() { return tracker; }
 
 stats::Achievement stats_record(const game::RoundDone &r) {
-  stats::Achievement a =
-      tracker.record({r.drankCg, r.goalCg, r.durationMs, r.duel});
+  stats::Achievement a = tracker.record(
+      {r.drankCg, r.goalCg, r.durationMs, r.duel, r.goalPct, r.glass});
   save();
   return a;
 }
@@ -68,6 +104,8 @@ void stats_writeJson(web::JsonWriter &j) {
     j.key("dev").num(cgToG(t.bestDevCg), 2);
     j.key("goal").num(cgToG(t.bestGoalCg), 1);
     j.key("time").num(msToS(t.bestMs), 2);
+    j.key("pct").uinteger(t.bestPct);
+    j.key("glass").str(t.bestPct ? t.bestGlass : nullptr);
     j.endObject();
   } else {
     j.null();
@@ -91,6 +129,7 @@ void stats_writeJson(web::JsonWriter &j) {
     j.key("time").num(msToS(e.durationMs), 2);
     j.key("duel").flag(e.duel);
     j.key("rank").uinteger(e.rank);
+    j.key("pct").uinteger(e.pct);
     j.endObject();
   }
   j.endArray();

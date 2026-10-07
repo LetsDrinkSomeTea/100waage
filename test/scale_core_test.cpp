@@ -1533,6 +1533,82 @@ static void testCalMisc() {
   CHECK(cal.state() == CalState::Off);
 }
 
+// Leer-Referenz: absolutes Gewicht auch nach einer Tara mit Glas
+static void testEmptyReference() {
+  Feed f;
+  auto run = [&](float g, int n = 12) {
+    for (int i = 0; i < n; i++)
+      f.add(g);
+  };
+  auto tare = [&](float g) {
+    f.core.startTare(f.t + 1);
+    run(g, 20);
+    CHECK(!f.core.taring());
+  };
+  auto absG = [&]() { return f.r().grams + f.core.load(); };
+
+  CHECK(!f.core.emptyKnown());
+  CHECK(f.core.load() == 0.0f);
+  run(0.0f);
+  tare(0.0f); // Boot-Tara: gilt als leer
+  CHECK(f.core.emptyKnown());
+  CHECK(near(f.core.load(), 0.0, 0.01));
+
+  // Kurzdruck mit Glas: Anzeige 0, absolut weiter 400 g
+  run(400.0f);
+  tare(400.0f);
+  CHECK(near(f.r().grams, 0.0, 0.01));
+  CHECK(near(f.core.load(), 400.0, 0.01));
+  CHECK(near(absG(), 400.0, 0.01));
+  // Glas abgetrunken und zurueck
+  run(250.0f);
+  CHECK(near(absG(), 250.0, 0.01));
+  // Glas weg: relativ -400, absolut 0; NegZero nullt → Referenz bleibt leer
+  run(0.0f);
+  CHECK(near(absG(), 0.0, 0.01));
+  CHECK(f.core.zeroFromWindow(1e9f, 2.0f, f.t));
+  CHECK(near(f.core.load(), 0.0, 0.01));
+
+  // Drift: Nullung der leeren Waage bis Toleranz gleicht die Referenz an
+  run(3.0f);
+  tare(3.0f);
+  CHECK(f.core.load() == 0.0f);
+  CHECK(near(f.r().grams, 0.0, 0.01));
+  // Ueber der Toleranz bleibt die Referenz (Glas mitgenullt)
+  f.core.setEmptyTolerance(2.0f);
+  run(8.0f);
+  CHECK(f.core.zeroFromWindow(20.0f, 2.0f, f.t));
+  CHECK(near(f.core.load(), 5.0, 0.01));
+  f.core.markEmpty();
+  CHECK(f.core.load() == 0.0f);
+
+  // Start mit Glas: erste Tara gilt als leer (falsch), markEmpty korrigiert,
+  // sobald die Waage nachweislich leer ist
+  Feed g;
+  for (int i = 0; i < 12; i++)
+    g.add(400.0f);
+  g.core.startTare(g.t + 1);
+  for (int i = 0; i < 20; i++)
+    g.add(400.0f);
+  CHECK(g.core.load() == 0.0f);
+  for (int i = 0; i < 12; i++)
+    g.add(0.0f);
+  CHECK(g.core.zeroFromWindow(1e9f, 2.0f, g.t));
+  CHECK(near(g.core.load(), -400.0, 0.01)); // nicht uebernommen
+  g.core.markEmpty();
+  CHECK(g.core.load() == 0.0f);
+
+  // Referenz aus dem RTC-Speicher; begin() vergisst sie
+  Feed h;
+  h.core.setEmptyOffset(8e6f - 708.0f * 100.0f);
+  CHECK(h.core.emptyKnown());
+  CHECK(near(h.core.load(), 100.0, 0.01));
+  h.core.setEmptyOffset(NaN);
+  CHECK(near(h.core.load(), 100.0, 0.01));
+  h.core.begin(708.0f, 8e6f);
+  CHECK(!h.core.emptyKnown());
+}
+
 int main() {
   testBasics();
   testSetters();
@@ -1563,6 +1639,7 @@ int main() {
   testTareDeadline();
   testTareAbortRestart();
   testZeroFromWindow();
+  testEmptyReference();
   testRawWindow();
   testBufferWrap();
   // Faktor auf 0,1 %. Fehler je Sigma (0,3 g Rauschen, Tara aus 5 Samples):

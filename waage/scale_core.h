@@ -69,6 +69,19 @@ public:
   // und sammelt neu.
   void clear();
 
+  // Leer-Referenz (absolutes Gewicht fuer die Glasbestimmung): Offset der
+  // leeren Waage. load() = Gewicht, das beim aktuellen Nullpunkt auf der Waage
+  // stand (Tara mit Glas → Glasgewicht; leer genullt → 0), absolut = grams +
+  // load(). Die erste Tara/Nullung nach begin() gilt als leer; danach jede
+  // Tara/Nullung mit |load| <= emptyTolerance (gleicht Drift aus). markEmpty()
+  // setzt die Referenz ausdruecklich (Waage nachweislich leer).
+  bool emptyKnown() const { return emptyKnown_; }
+  float load() const;
+  float emptyOffset() const { return emptyOffset_; }
+  void setEmptyOffset(float offset); // z. B. aus dem RTC-Speicher
+  void markEmpty();
+  void setEmptyTolerance(float grams) { emptyTol_ = grams; }
+
 private:
   struct Sample {
     uint32_t t;
@@ -88,8 +101,12 @@ private:
   // fuer den Offset benutzten Samples uebrig.
   Sample buf_[BUF_MAX] = {};
   int head_ = 0, count_ = 0; // naechster Schreibplatz, Anzahl
-  int filterN_ = 0; // neueste Samples seit letztem Neustart der Glaettung
+  int filterN_ = 0;  // neueste Samples seit letztem Neustart der Glaettung
+  void noteZeroed(); // nach jeder Tara/Nullung: Leer-Referenz nachfuehren
+
   float factor_ = 708.0f, offset_ = 0.0f, stableSpread_ = 2.0f;
+  float emptyOffset_ = 0.0f, emptyTol_ = 10.0f;
+  bool emptyKnown_ = false;
   bool taring_ = false;
   uint32_t tareStart_ = 0;
   int tareCount_ = 0;

@@ -1,6 +1,7 @@
 // Statistik: Stufen, Bestwert, schnellste Zeit, Erfolge, Duell, Verlauf.
 #include "check.h"
 #include "stats_core.h"
+#include <cstring>
 
 using namespace stats;
 
@@ -122,7 +123,26 @@ static void testLoadReset() {
         !u.totals().hasFastest && u.recentCount() == 0);
 }
 
+// Prozent-Runden: Bestwert merkt Prozent und Glas, Verlauf das Prozent-Ziel
+static void testPercentRounds() {
+  Tracker t;
+  Round r = {14790, 14820, 4000, false, 50, "Tulpe 0,3"};
+  CHECK(t.record(r) == Achievement::Record);
+  CHECK(t.totals().bestPct == 50);
+  CHECK(strcmp(t.totals().bestGlass, "Tulpe 0,3") == 0);
+  CHECK(t.recent(0).pct == 50);
+  // Neuer Rekord in Gramm loescht Prozent und Glas
+  CHECK(t.record({10000, 10000, 3000, false}) == Achievement::Record);
+  CHECK(t.totals().bestPct == 0 && t.totals().bestGlass[0] == 0);
+  CHECK(t.recent(0).pct == 0 && t.recent(1).pct == 50);
+  // Prozent ohne Glasname
+  Tracker u;
+  u.record({100, 200, 1000, false, 30, nullptr});
+  CHECK(u.totals().bestPct == 30 && u.totals().bestGlass[0] == 0);
+}
+
 int main() {
+  testPercentRounds();
   testLevels();
   testRecord();
   testFastest();

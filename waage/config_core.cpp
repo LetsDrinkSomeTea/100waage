@@ -187,6 +187,12 @@ float normRandomMin(const Config &c) {
   return round10(clampF(r, randomMinLow(c), c.goal));
 }
 
+// randomMinPct klemmen; goalPct muss gueltig sein.
+uint8_t normRandomMinPct(const Config &c) {
+  uint8_t r = c.randomMinPct < GOAL_PCT_MIN ? GOAL_PCT_MIN : c.randomMinPct;
+  return r > c.goalPct ? c.goalPct : r;
+}
+
 uint32_t readU32le(const uint8_t *p) {
   return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) |
          ((uint32_t)p[3] << 24);
@@ -298,6 +304,9 @@ Config defaults() {
   c.autoZeroDelay = AZ_DELAY_DEFAULT;
   c.randomModeEnabled = false;
   c.randomMin = RANDOM_MIN_DEFAULT;
+  c.goalPercent = false;
+  c.goalPct = GOAL_PCT_DEFAULT;
+  c.randomMinPct = RANDOM_MIN_PCT_DEFAULT;
   c.statsRotation = true;
   c.statsAfterS = STATS_AFTER_DEFAULT;
   c.statsGoalS = STATS_GOAL_DEFAULT;
@@ -327,6 +336,7 @@ bool sanitize(Config &c) {
   fixBool(c.randomModeEnabled, ch);
   fixBool(c.statsRotation, ch);
   fixBool(c.batteryPresent, ch);
+  fixBool(c.goalPercent, ch);
 
   if (!scaleFactorOk(c.scaleFactor))
     setF(c.scaleFactor, SCALE_FACTOR_DEFAULT, ch);
@@ -344,6 +354,10 @@ bool sanitize(Config &c) {
 
   // randomMin haengt von tolerance und goal ab
   setF(c.randomMin, normRandomMin(c), ch);
+
+  if (c.goalPct < GOAL_PCT_MIN || c.goalPct > GOAL_PCT_MAX)
+    setU8(c.goalPct, GOAL_PCT_DEFAULT, ch);
+  setU8(c.randomMinPct, normRandomMinPct(c), ch);
 
   float az = std::isfinite(c.autoZeroThreshold) ? c.autoZeroThreshold
                                                 : AZ_THRESHOLD_DEFAULT;
@@ -408,6 +422,8 @@ Error validate(Config &c) {
 
   if (!std::isfinite(c.randomMin))
     return {"randomMin", "Zufalls-Minimum ist keine gültige Zahl"};
+  if (c.goalPct < GOAL_PCT_MIN || c.goalPct > GOAL_PCT_MAX)
+    return {"goalPct", "Ziel muss zwischen 1 und 100 % liegen"};
 
   if (c.autoResetRange > AUTO_RESET_MAX)
     return {"autoResetRange",
@@ -445,6 +461,7 @@ Error validate(Config &c) {
   // Alles gueltig: erst jetzt aendern
   c.goal = g;
   c.randomMin = normRandomMin(c);
+  c.randomMinPct = normRandomMinPct(c);
   return {nullptr, nullptr};
 }
 
@@ -581,8 +598,10 @@ uint32_t diff(const Config &a, const Config &b) {
     m |= CH_SCALE;
   if (!sameBits(a.goal, b.goal))
     m |= CH_GOAL;
+  if (a.goalPercent != b.goalPercent || a.goalPct != b.goalPct)
+    m |= CH_GOAL;
   if (a.randomModeEnabled != b.randomModeEnabled ||
-      !sameBits(a.randomMin, b.randomMin))
+      !sameBits(a.randomMin, b.randomMin) || a.randomMinPct != b.randomMinPct)
     m |= CH_RANDOM;
   if (a.displayRotation != b.displayRotation)
     m |= CH_ROTATION;
@@ -661,6 +680,15 @@ float rollGoal(const Config &c, uint32_t r) {
   uint32_t span = b - a + 1;
   uint32_t k = (uint32_t)(((uint64_t)r * span) >> 32); // 0 → a, 0xFFFFFFFF → b
   return (float)(a + k);
+}
+
+uint8_t rollGoalPct(const Config &c, uint32_t r) {
+  uint8_t hi = c.goalPct;
+  uint8_t lo = c.randomMinPct < GOAL_PCT_MIN ? GOAL_PCT_MIN : c.randomMinPct;
+  if (hi < GOAL_PCT_MIN || hi > GOAL_PCT_MAX || lo > hi)
+    return hi;
+  uint32_t span = (uint32_t)(hi - lo) + 1;
+  return (uint8_t)(lo + (uint32_t)(((uint64_t)r * span) >> 32));
 }
 
 } // namespace cfg

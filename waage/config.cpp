@@ -24,8 +24,11 @@ static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
     p.putString("pw", c.adminPassword);
   if (mask & cfg::CH_SCALE)
     p.putFloat("scale", c.scaleFactor);
-  if (mask & cfg::CH_GOAL)
+  if (mask & cfg::CH_GOAL) {
     p.putFloat("goal", c.goal);
+    p.putBool("goalPctOn", c.goalPercent);
+    p.putUChar("goalPct", c.goalPct);
+  }
   if (mask & cfg::CH_GAME) {
     p.putFloat("tol", c.tolerance);
     p.putUChar("arRange", c.autoResetRange);
@@ -50,6 +53,7 @@ static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
   if (mask & cfg::CH_RANDOM) {
     p.putBool("rndOn", c.randomModeEnabled);
     p.putFloat("rndMin", c.randomMin);
+    p.putUChar("rndMinPct", c.randomMinPct);
   }
   if (mask & cfg::CH_STATS) {
     p.putBool("statsRot", c.statsRotation);
@@ -85,6 +89,9 @@ static void readAll(Preferences &p, cfg::Config &c) {
   c.autoZeroDelay = p.getUChar("azDelay", d.autoZeroDelay);
   c.randomModeEnabled = p.getBool("rndOn", d.randomModeEnabled);
   c.randomMin = p.getFloat("rndMin", d.randomMin);
+  c.goalPercent = p.getBool("goalPctOn", d.goalPercent);
+  c.goalPct = p.getUChar("goalPct", d.goalPct);
+  c.randomMinPct = p.getUChar("rndMinPct", d.randomMinPct);
   c.statsRotation = p.getBool("statsRot", d.statsRotation);
   c.statsAfterS = p.getUChar("statsAfter", d.statsAfterS);
   c.statsGoalS = p.getUChar("statsGoal", d.statsGoalS);

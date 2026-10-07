@@ -523,7 +523,117 @@ static void testStatsRotationTimes() {
                "noch keiner"));
 }
 
+// Prozent-Modus: Ziel, "Glas?", Glas + Bereit, Ergebnis-Wechsel, Toast
+static void testPercentScreens() {
+  Model m;
+  Status s = status();
+  game::View v = idleView();
+  v.pct = true;
+  v.goal = 50.0f;
+  uint32_t now = 1000;
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, now), "50%?"));
+  v.glassOn = true;
+  v.glassUnknown = true;
+  Frame f = m.build(v, s, NO_HOLD, nullptr, now);
+  CHECK(textIs(f, "Glas?"));
+  CHECK(f.border);
+  v.screen = game::Screen::Taring;
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, now), "50%?"));
+
+  // Leeres Glas erkannt → Name als Toast
+  v = idleView();
+  v.pct = true;
+  v.goal = 50.0f;
+  m.build(v, s, NO_HOLD, nullptr, now);
+  v.glassSeq++;
+  v.glassSource = glass::Source::Empty;
+  strcpy(v.glassName, "Tulpe 0,3");
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, now + 10), "Tulpe 0,3"));
+  // Andere Bestimmung: kein Toast
+  Model m2;
+  m2.build(v, s, NO_HOLD, nullptr, now);
+  v.glassSeq++;
+  v.glassSource = glass::Source::Auto;
+  CHECK(textIs(m2.build(v, s, NO_HOLD, nullptr, now + 10), "50%?"));
+  // Gramm-Modus: kein Toast
+  Model m3;
+  game::View g = idleView();
+  m3.build(g, s, NO_HOLD, nullptr, now);
+  g.glassSeq++;
+  g.glassSource = glass::Source::Empty;
+  strcpy(g.glassName, "Tulpe 0,3");
+  CHECK(textIs(m3.build(g, s, NO_HOLD, nullptr, now + 10), "100.0g?"));
+
+  // Bereit: erkanntes Glas, dann Trinkspruch
+  Model r;
+  game::View rv = {};
+  rv.screen = game::Screen::Ready;
+  rv.screenSince = now;
+  rv.pct = true;
+  strcpy(rv.glassName, "Krug 0,4");
+  CHECK(textIs(r.build(rv, s, NO_HOLD, nullptr, now), "Krug 0,4", "Bereit?"));
+  CHECK(textIs(r.build(rv, s, NO_HOLD, nullptr, now + GLASS_PROMPT_MS - 1),
+               "Krug 0,4", "Bereit?"));
+  CHECK(textIs(r.build(rv, s, NO_HOLD, nullptr, now + GLASS_PROMPT_MS),
+               text::trinkspruch(0)));
+
+  // Ergebnis: Prozent → Ziel → Gramm/Zeit → von vorn
+  Model e;
+  game::View ev = {};
+  ev.screen = game::Screen::ResultSolo;
+  ev.screenSince = now;
+  ev.pct = true;
+  ev.goal = 50.0f;
+  ev.drankCg = 14790;
+  ev.goalCg = 14820;
+  ev.drankPctD = 499;
+  ev.durationMs = 4210;
+  ev.rating = game::Rating::Ok;
+  CHECK(textIs(e.build(ev, s, NO_HOLD, nullptr, now), "49.9%", "Ganz ok!"));
+  CHECK(textIs(e.build(ev, s, NO_HOLD, nullptr, now + RESULT_ALT_MS),
+               "Ziel 50%", "=148.20g"));
+  CHECK(textIs(e.build(ev, s, NO_HOLD, nullptr, now + 2 * RESULT_ALT_MS),
+               "147.90g", "4.21s"));
+  CHECK(textIs(e.build(ev, s, NO_HOLD, nullptr, now + 3 * RESULT_ALT_MS),
+               "49.9%", "Ganz ok!"));
+
+  // Mit Rekord: vierter Zustand
+  stats::Tracker t;
+  t.record({14790, 14820, 4210, false, 50, "Krug 0,4"});
+  Status sa = status();
+  sa.stats = &t;
+  sa.ach = stats::Achievement::Record;
+  sa.achSeq = ev.roundSeq;
+  Model a;
+  a.build(ev, sa, NO_HOLD, nullptr, now);
+  for (int i = 1; i <= 3; i++)
+    a.build(ev, sa, NO_HOLD, nullptr, now + i * RESULT_ALT_MS);
+  CHECK(textIs(a.build(ev, sa, NO_HOLD, nullptr, now + 3 * RESULT_ALT_MS),
+               "Neuer Rekord!", "0.30g daneben"));
+  CHECK(textIs(a.build(ev, sa, NO_HOLD, nullptr, now + 4 * RESULT_ALT_MS),
+               "49.9%", "Ganz ok!"));
+}
+
+// Statistik: bester Treffer im Prozent-Modus mit Glas
+static void testPercentBestStats() {
+  stats::Tracker t;
+  t.record({14790, 14820, 4210, false, 50, "Krug 0,4"});
+  Status s = status();
+  s.stats = &t;
+  s.statsRotation = true;
+  s.statsAfterMs = 1000;
+  s.statsStepMs = 1000;
+  s.statsGoalMs = 1000;
+  Model m;
+  game::View v = idleView();
+  m.build(v, s, NO_HOLD, nullptr, 0);
+  Frame f = m.build(v, s, NO_HOLD, nullptr, 1000);
+  CHECK(textIs(f, "Bester Treffer", "0.30g daneben", "Ziel 50% Krug 0,4"));
+}
+
 int main() {
+  testPercentScreens();
+  testPercentBestStats();
   testLabels();
   testLayers();
   testToastWrap();

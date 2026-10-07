@@ -182,7 +182,29 @@ void Core::begin(float factor, float offset) {
   setFactor(factor);
   setOffset(offset);
   taring_ = false; // frischer Start, auch wenn der Offset ungueltig war
+  emptyKnown_ = false;
   clear();
+}
+
+float Core::load() const {
+  return emptyKnown_ ? (offset_ - emptyOffset_) / factor_ : 0.0f;
+}
+
+void Core::setEmptyOffset(float offset) {
+  if (!std::isfinite(offset))
+    return;
+  emptyOffset_ = offset;
+  emptyKnown_ = true;
+}
+
+void Core::markEmpty() {
+  emptyOffset_ = offset_;
+  emptyKnown_ = true;
+}
+
+void Core::noteZeroed() {
+  if (!emptyKnown_ || std::fabs(load()) <= emptyTol_)
+    markEmpty();
 }
 
 void Core::setFactor(float factor) {
@@ -264,6 +286,7 @@ void Core::finishTare(int k) {
     for (int i = 0; i < k; i++)
       sum += at(i).raw - base;
     offset_ = base + sum / (float)k;
+    noteZeroed();
   }
   count_ = k;
   filterN_ = k;
@@ -308,6 +331,7 @@ bool Core::zeroFromWindow(float maxAbsG, float maxSpreadG, uint32_t now) {
   // die Glaettung beginnt bei den Fenster-Samples, die Anzeige steht auf 0.
   offset_ = w.ref + w.meanD;
   filterN_ = w.n;
+  noteZeroed();
   return true;
 }
 

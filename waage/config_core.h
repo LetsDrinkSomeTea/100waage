@@ -44,11 +44,14 @@ struct Config {
   float autoZeroThreshold; // [g]
   uint8_t autoZeroDelay;   // [s]
   bool randomModeEnabled;
-  float randomMin;     // [g] Untergrenze des Zufallsziels
-  bool statsRotation;  // Statistik im Ruhezustand im Wechsel mit dem Ziel
-  uint8_t statsAfterS; // [s] ohne Glas bis zur ersten Statistik
-  uint8_t statsGoalS;  // [s] Anzeigedauer des Ziels in der Rotation
-  uint8_t statsStepS;  // [s] Anzeigedauer je Statistik-Bildschirm
+  float randomMin;      // [g] Untergrenze des Zufallsziels
+  bool goalPercent;     // Ziel in % vom Glasinhalt (nur Game-Modus)
+  uint8_t goalPct;      // [%] Ziel im Prozent-Modus
+  uint8_t randomMinPct; // [%] Untergrenze des Zufallsziels im Prozent-Modus
+  bool statsRotation;   // Statistik im Ruhezustand im Wechsel mit dem Ziel
+  uint8_t statsAfterS;  // [s] ohne Glas bis zur ersten Statistik
+  uint8_t statsGoalS;   // [s] Anzeigedauer des Ziels in der Rotation
+  uint8_t statsStepS;   // [s] Anzeigedauer je Statistik-Bildschirm
 };
 
 // Bereiche (gelten fuer sanitize und validate)
@@ -64,6 +67,8 @@ constexpr float BATT_RATIO_MIN = 1.0f, BATT_RATIO_MAX = 6.0f,
 constexpr uint8_t STATS_AFTER_MIN = 1, STATS_AFTER_DEFAULT = 15;
 constexpr uint8_t STATS_SHOW_MIN = 1, STATS_SHOW_MAX = 60;
 constexpr uint8_t STATS_GOAL_DEFAULT = 6, STATS_STEP_DEFAULT = 4;
+constexpr uint8_t GOAL_PCT_MIN = 1, GOAL_PCT_MAX = 100;
+constexpr uint8_t GOAL_PCT_DEFAULT = 50, RANDOM_MIN_PCT_DEFAULT = 20;
 
 Config defaults();
 
@@ -75,15 +80,17 @@ Config defaults();
 // autoZeroDelay 1..60 (sonst 5). autoResetRange <= 100. displayRotation 0/2
 // (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0..2 (sonst Game).
 // statsAfterS 1..255 (sonst 20), statsGoalS/statsStepS 1..60 (sonst 6/3).
+// goalPct 1..100 (sonst 50), randomMinPct auf [1, goalPct] geklemmt.
 // Strings werden terminiert; leere oder nicht druckbare SSID → Default-SSID,
 // leeres Passwort → "admin" (kurze alte Passwoerter bleiben erhalten).
 // Liefert true, wenn etwas korrigiert wurde.
 bool sanitize(Config &c);
 
 // Web-Eingabe: strikte Pruefung der zusammengefuehrten Config, gleiche
-// Bereiche wie sanitize, aber Ablehnen statt Klemmen. Ausnahme: randomMin wird
-// geklemmt (das UI zeigt den wirksamen Wert). Zusatz: autoZeroThreshold <=
-// tolerance, goal >= tolerance + 1, SSID 1..32 Bytes ohne Steuerzeichen.
+// Bereiche wie sanitize, aber Ablehnen statt Klemmen. Ausnahme: randomMin und
+// randomMinPct werden geklemmt (das UI zeigt den wirksamen Wert). Zusatz:
+// autoZeroThreshold <= tolerance, goal >= tolerance + 1, SSID 1..32 Bytes ohne
+// Steuerzeichen.
 struct Error {
   const char *field;   // nullptr = ok, sonst Feldname wie in der Web-API
   const char *message; // deutsch, fuer die Anzeige im Web
@@ -110,8 +117,8 @@ enum Change : uint32_t {
   CH_SSID = 1u << 0,
   CH_PASSWORD = 1u << 1,
   CH_SCALE = 1u << 2,  // scaleFactor
-  CH_GOAL = 1u << 3,   // goal
-  CH_RANDOM = 1u << 4, // randomModeEnabled, randomMin
+  CH_GOAL = 1u << 3,   // goal, goalPercent, goalPct
+  CH_RANDOM = 1u << 4, // randomModeEnabled, randomMin, randomMinPct
   CH_ROTATION = 1u << 5,
   CH_MODE = 1u << 6,
   CH_TIMEOUTS = 1u << 7, // wifiTimeout, sleepTimeout
@@ -135,5 +142,12 @@ bool decodeLegacy(const uint8_t *blob, size_t len, Config &out);
 // Zufallsziel aus einer Zufallszahl r: ganze Gramm in
 // [ceil(max(randomMin, tolerance + 1)) .. floor(goal)]; leerer Bereich → goal.
 float rollGoal(const Config &c, uint32_t r);
+
+// Prozent-Ziel nur im Game-Modus (Duell und Standard: Gramm).
+inline bool percentGoal(const Config &c) {
+  return c.goalPercent && c.scaleMode == ScaleMode::Game;
+}
+// Zufallsziel im Prozent-Modus: ganze Prozent in [randomMinPct .. goalPct].
+uint8_t rollGoalPct(const Config &c, uint32_t r);
 
 } // namespace cfg

@@ -18,9 +18,10 @@
 
 namespace ui {
 
-constexpr uint32_t READY_PROMPT_MS = 400; // "Bereit?" vor dem Trinkspruch
-constexpr uint32_t RESULT_ALT_MS = 3000;  // Ergebnis-Wechsel (Wert/Zeit)
-constexpr uint32_t ANIM_MS = 300;         // Ladeanimation
+constexpr uint32_t READY_PROMPT_MS = 400;  // "Bereit?" vor dem Trinkspruch
+constexpr uint32_t GLASS_PROMPT_MS = 1500; // Prozent: Glas + "Bereit?"
+constexpr uint32_t RESULT_ALT_MS = 3000;   // Ergebnis-Wechsel (Wert/Zeit)
+constexpr uint32_t ANIM_MS = 300;          // Ladeanimation
 constexpr uint32_t TOAST_MS = 1500;
 constexpr int MODE_DOTS = 3; // Game, Duell, Standard
 constexpr int BAR_W = 128;   // Haltebalken ueber CANCEL_MS
@@ -118,7 +119,8 @@ private:
   uint32_t toastUntil_ = 0;
   bool toastOn_ = false;
   uint8_t toastDots_ = 0;
-  // Ergebnis-Wechsel: 0 Wert, 1 Zeit, 2 Erfolg (falls vorhanden)
+  // Ergebnis-Wechsel: 0 Wert, 1 Zeit, 2 Erfolg (falls vorhanden); Prozent:
+  // 0 Prozent, 1 Ziel, 2 Gramm/Zeit, 3 Erfolg
   uint8_t alt_ = 0;
   uint32_t altSince_ = 0;
   uint32_t lastSig_ = 0xFFFFFFFFu;
@@ -127,6 +129,9 @@ private:
   // stiller Wechsel auf Solo → Toast "Solo!"
   bool seqInit_ = false;
   uint32_t lastSoloSeq_ = 0;
+  // leeres Glas erkannt → Toast mit dem Namen
+  bool glassSeqInit_ = false;
+  uint32_t lastGlassSeq_ = 0;
   // Info-Rotation: Beginn des Ruhezustands ohne Glas
   bool rotOn_ = false;
   uint32_t rotSince_ = 0, rotScreenSince_ = 0;

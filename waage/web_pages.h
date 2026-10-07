@@ -47,6 +47,7 @@ i,.hint{font-style:normal;font-weight:400;font-size:.8rem;line-height:1.35;color
 .ein{display:flex;border:1.5px solid var(--linie);border-radius:8px;background:var(--feld);overflow:hidden}
 .ein input{flex:1;min-width:0;width:100%;border:0;background:none;color:var(--malz);font:400 1rem var(--sans);padding:8px 10px;font-variant-numeric:tabular-nums;outline:0}
 .r .ein input{text-align:right;padding-right:6px}
+.ein select{flex:1;min-width:0;width:100%;border:0;background:none;color:var(--malz);font:400 1rem var(--sans);padding:8px 10px;outline:0}
 .ein span{display:grid;place-items:center;padding:0 10px 0 2px;color:var(--malz2);font-weight:400;font-size:.9rem}
 .ein:focus-within{border-color:var(--bern);box-shadow:0 0 0 3px var(--fokus)}
 .bad{border-color:var(--rot)!important}.fe{grid-column:1/-1;color:var(--rot);font-weight:400;font-size:.82rem}
@@ -139,25 +140,31 @@ static const char INDEX_HTML[] PROGMEM = WP_HEAD
 <form id="cf" class="karte stack" novalidate><h2>Spiel einstellen</h2>
 <div class="stack" style="gap:6px"><div class="seg" id="seg" role="radiogroup" aria-label="Modus"><label><input type="radio" name="scaleMode" value="Game"><span>Trinkspiel</span></label><label><input type="radio" name="scaleMode" value="Duel"><span>Duell</span></label><label><input type="radio" name="scaleMode" value="Standard"><span>Waage</span></label></div>
 <span class="sperre" id="bz" hidden>Spiel läuft. Erst die Taste an der Waage drücken, dann wechseln.</span></div>
-<label class="r"><span>Zielgewicht<i>Wie viel soll getrunken werden?</i></span><span class="ein"><input type="number" step="0.1" name="goal"><span>g</span></span></label>
-<label class="sw"><span>Zufälliges Ziel<i>Jede Runde ein neues Ziel zwischen Minimum und Zielgewicht</i></span><input type="checkbox" name="randomModeEnabled"></label>
-<div class="gruppe"><label class="r"><span>Minimum</span><span class="ein"><input type="number" step="0.1" name="randomMin"><span>g</span></span></label></div>
+<label class="sw"><span>Ziel in Prozent<i>Anteil vom Glasinhalt, das Glas wird erkannt (nur im Trinkspiel, Duell bleibt in Gramm)</i></span><input type="checkbox" name="goalPercent" id="gp"></label>
+<label class="r" id="zg"><span>Zielgewicht<i>Wie viel soll getrunken werden?</i></span><span class="ein"><input type="number" step="0.1" name="goal"><span>g</span></span></label>
+<label class="r" id="zp" hidden><span>Ziel<i>Wie viel vom Inhalt soll getrunken werden? (1–100)</i></span><span class="ein"><input type="number" min="1" max="100" name="goalPct"><span>%</span></span></label>
+<label class="sw"><span>Zufälliges Ziel<i>Jede Runde ein neues Ziel zwischen Minimum und Ziel</i></span><input type="checkbox" name="randomModeEnabled"></label>
+<div class="gruppe"><label class="r" id="rg"><span>Minimum</span><span class="ein"><input type="number" step="0.1" name="randomMin"><span>g</span></span></label>
+<label class="r" id="rp" hidden><span>Minimum</span><span class="ein"><input type="number" min="1" max="100" name="randomMinPct"><span>%</span></span></label></div>
 <div class="r"><span>Display</span><div class="seg" role="radiogroup" aria-label="Display-Rotation"><label><input type="radio" name="displayRotation" value="0"><span>Normal</span></label><label><input type="radio" name="displayRotation" value="2"><span>180°</span></label></div></div>
 <label class="sw"><span>Statistik im Ruhezustand<i>Ohne Glas wechselt das Display zwischen Statistik und Ziel (Zeiten im Admin-Bereich)</i></span><input type="checkbox" name="statsRotation"></label>
 <button class="kn">Speichern</button><p class="msg" id="msg" aria-live="polite"></p></form>
+<section class="karte stack"><h2>Glas</h2><p id="gn">--</p>
+<label class="f">Glas festlegen<span class="ein"><select id="gs"><option value="0">Automatisch erkennen</option></select></span><i>Ein festgelegtes Glas gilt bis zum Neustart der Waage (Deep-Sleep zählt nicht). Bearbeiten im Admin-Bereich.</i></label>
+<p class="msg" id="gm" aria-live="polite"></p><div class="tab"><table id="gt"></table></div></section>
 <section class="karte"><div class="skopf"><h2>Strichliste</h2><b id="sn">--</b></div><div id="sx"></div></section>
 <p class="fuss"><a class="leise" href="/admin">Admin-Bereich</a></p></main>
 <script>)html" WP_JS R"html(
 const F=$('cf'),M=$('msg'),S=F.elements.scaleMode,R=[...F.querySelectorAll('[name=scaleMode]')],SG=$('seg'),DK=$('dk');
 let SD,rd0=null,ph0;
 const sg=v=>(v>0?'+':'')+de(v,2);
-function hero(d){const z=de(d.goal,1),ph=d.phase;let L=d.random?'Zufallsziel':'Ziel',G=z,U='g',T='',e=0;
+function hero(d){const pc=d.goalPercent,z=de(d.goal,pc?0:1),ph=d.phase;let L=d.random?'Zufallsziel':'Ziel',G=z,U=pc?'%':'g',T='',e=0;
 if(ph=='SensorError'){L='Sensorfehler';G='--';U='';T='Wägezelle antwortet nicht'}
 else if(ph=='Calibration'){L='Kalibrierung';G=de(d.weight,2);T='Läuft im Admin-Bereich'}
 else if(d.mode=='Standard'){L='Waage';G=de(d.weight,2)}
 else if(ph=='Result'){const x=SD&&(rd0==null||SD.rounds>rd0)&&SD.recent&&SD.recent[0];L='Ergebnis';
-if(x){G=sg(x.dev);T='daneben in '+de(x.time,2)+' s bei '+de(x.goal,1)+' g Ziel'+(x.duel&&x.rank?' · '+x.rank+'. Platz':'');e=1}else T='Wird ausgewertet…'}
-else T={Idle:'Glas auf die Waage stellen',Taring:'Tara…',Ready:'Glas steht. Anheben und trinken!',Drinking:'Trinken…'}[ph]||'';
+if(x){G=sg(x.dev);U='g';T='daneben in '+de(x.time,2)+' s bei '+de(x.goal,2)+' g Ziel'+(x.pct?' ('+x.pct+' %)':'')+(x.duel&&x.rank?' · '+x.rank+'. Platz':'');e=1}else T='Wird ausgewertet…'}
+else T={Idle:pc?'Glas auf die Waage stellen, es wird erkannt':'Glas auf die Waage stellen',Taring:'Tara…',Ready:(pc&&d.glass?d.glass+'. ':'Glas steht. ')+'Anheben und trinken!',Drinking:'Trinken…'}[ph]||'';
 $('hl').textContent=L;$('hl').className='lab'+(ph=='SensorError'?' rot':'');const g=$('hg');g.textContent=G;if(U)el('small',g,U);
 $('hs').textContent=T;$('in').className='in'+(e?' erg':'')}
 let LS;
@@ -169,12 +176,25 @@ const A=$('ca');A.hidden=!b;if(b){A.textContent='Akku ';el('b',A,de(b.percent,0)
 $('fw').hidden=!d.fw;$('fw').textContent=d.fw||'';
 R.forEach(i=>i.disabled=!!d.busy);SG.classList.toggle('zu',!!d.busy);$('bz').hidden=!d.busy;
 if(d.mode&&F.o&&F.o.scaleMode!=d.mode&&S.value==F.o.scaleMode){S.value=d.mode;F.o.scaleMode=d.mode}},1000);
-async function load(){const r=await api('/api/config');if(r.s==200){if(!F.o)say(M,'');fill(F,r.j)}
+async function load(){const r=await api('/api/config');if(r.s==200){if(!F.o)say(M,'');fill(F,r.j);unit()}
 else{say(M,'Einstellungen nicht geladen');setTimeout(load,3000)}}
 F.onsubmit=async e=>{e.preventDefault();clr(F);if(!F.o)return say(M,'Einstellungen nicht geladen');if(!chk(F))return say(M,'');
 const B=F.querySelector('button');B.disabled=true;say(M,'Speichere…','inf');
 const r=await api('/api/config',diff(F));B.disabled=false;
-if(res(F,M,r)){fill(F,r.j.config||{});say(M,r.j.applied=='next'?'Gespeichert. Gilt ab der nächsten Runde':'Gespeichert','ok');P()}};
+if(res(F,M,r)){fill(F,r.j.config||{});unit();say(M,r.j.applied=='next'?'Gespeichert. Gilt ab der nächsten Runde':'Gespeichert','ok');P()}};
+const GP=$('gp');
+function unit(){const p=GP.checked;$('zg').hidden=$('rg').hidden=p;$('zp').hidden=$('rp').hidden=!p}
+GP.onchange=unit;
+const GS=$('gs'),GM=$('gm'),SRC={auto:'erkannt',same:'wie zuletzt',empty:'leer erkannt',manual:'festgelegt'};
+let gsel=null;
+const GL=every(async()=>{const r=await api('/api/glasses'),d=r.j;if(r.s!=200)return;
+const c=d.current,N=$('gn');N.textContent='';if(c){el('b',N,c.name);N.append(' · '+(SRC[c.source]||c.source))}else N.append(d.weight>5?'Glas nicht erkannt':'Kein Glas auf der Waage');
+const k=(d.glasses||[]).map(g=>g.id+':'+g.name).join('|');if(k!==gsel){gsel=k;GS.length=1;for(const g of d.glasses||[]){const o=el('option',GS,g.name);o.value=g.id}}
+if(document.activeElement!==GS)GS.value=String(d.manual||0);
+const T=$('gt');T.textContent='';for(const g of d.glasses||[]){const R=el('tr',T);if(c&&c.id==g.id)R.className='me';el('td',R,g.name);el('td',R,de(g.empty,1)+' g leer');
+const w=d.weight!=null&&d.weight>5?d.weight-g.empty:null;el('td',R,w==null?'':w<-5?'zu leicht':'wäre '+de(Math.max(w,0),0)+' g drin')}},2000);
+GS.onchange=async()=>{say(GM,'Speichere…','inf');const r=await api('/api/glasses/select',new URLSearchParams({id:GS.value}));
+if(r.s==200){say(GM,GS.value=='0'?'Glas wird automatisch erkannt':'Glas festgelegt','ok');GL()}else say(GM,r.j.error)};
 function tally(X,n){const T=el('div',X,null,'striche'),max=8;T.setAttribute('aria-hidden','true');
 for(let b=0;b<Math.min(Math.ceil(n/5),max);b++){const k=Math.min(5,n-b*5),d=el('span',T,null,'bund'+(k==5?' voll':''));for(let i=0;i<Math.min(k,4);i++)el('i',d)}
 if(n>max*5)el('span',T,'und '+(n-max*5)+' weitere','mehr')}
@@ -185,14 +205,14 @@ tally(X,d.rounds);const W=el('div',X,null,'wert');
 [[d.perfect,'Perfekt'],[d.notBad,'Not Bad'],[d.ok,'Ganz ok']].forEach(([v,t])=>{const c=el('div',W);el('b',c,v);el('span',c,t)});
 const b=d.best,f=d.fastest,L=el('dl',X);L.id='sb';
 const row=(t,v,x)=>{el('dt',L,t);const e=el('dd',L);if(v)el('b',e,v);e.append(x)};
-row('Bester Treffer',b&&de(b.dev,2)+' g',b?' daneben · Ziel '+de(b.goal,1)+' g in '+de(b.time,2)+' s':'noch keiner');
+row('Bester Treffer',b&&de(b.dev,2)+' g',b?' daneben · Ziel '+(b.pct?b.pct+' %'+(b.glass?' '+b.glass:''):de(b.goal,1)+' g')+' in '+de(b.time,2)+' s':'noch keiner');
 row('Schnellste Zeit',f&&de(f.time,2)+' s',f?' · Ziel '+de(f.goal,1)+' g, '+de(Math.abs(f.dev),2)+' g daneben':'noch keine (max. 10 % daneben)');
 if(d.duels)row('Duelle',d.wins+(d.wins==1?' Sieg':' Siege'),' aus '+d.duels);
 const rs=d.recent||[];if(!rs.length)return;el('h3',X,'Letzte Runden seit dem Einschalten','zw');
 const T=el('table',el('div',X,null,'tab'));rs.forEach((e,i)=>{const R=el('tr',T);el('td',R,'#'+(d.rounds-i));el('td',R,e.duel?(e.rank?e.rank+'. Platz':'Duell'):'Solo');
-el('td',R,sg(e.dev)+' g',e.dev>0?'plus':e.dev<0?'minus':'');el('td',R,'Ziel '+de(e.goal,1)+' g');el('td',R,de(e.time,2)+' s')})},5000);
-document.addEventListener('visibilitychange',()=>{if(live()){P();ST()}});
-load();P();ST();
+el('td',R,sg(e.dev)+' g',e.dev>0?'plus':e.dev<0?'minus':'');el('td',R,e.pct?'Ziel '+e.pct+' %':'Ziel '+de(e.goal,1)+' g');el('td',R,de(e.time,2)+' s')})},5000);
+document.addEventListener('visibilitychange',()=>{if(live()){P();ST();GL()}});
+load();P();ST();GL();
 </script></body></html>)html";
 
 static const char LOGIN_HTML[] PROGMEM = WP_HEAD
@@ -235,6 +255,8 @@ progress{width:100%;height:10px;accent-color:var(--hopfen)}
 input[type=file]{font:400 .9rem var(--sans);color:var(--malz);max-width:100%}
 input[type=file]::file-selector-button{font:inherit;margin-right:10px;padding:7px 12px;border-radius:8px;border:1.5px solid var(--hopfen);background:none;color:var(--hopfen);cursor:pointer}
 #du p{font-size:.9rem}
+#gt td{white-space:normal;vertical-align:middle}#gt td:first-child{color:var(--malz);font-family:var(--sans);font-weight:600}#gt i{display:block}
+#gt td+td{text-align:right}.akts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 </style></head><body><main class="page">
 <header class="leiste"><span class="marke">100-Waage</span><h1 class="wo">Admin</h1></header>
 <details class="karte" open><summary>Einstellungen</summary>
@@ -269,6 +291,18 @@ input[type=file]::file-selector-button{font:inherit;margin-right:10px;padding:7p
 <form id="cw" class="stack" novalidate hidden><label class="r"><span>Bekanntes Gewicht<i>Auflegen, Wert eingeben, dann messen</i></span><span class="ein"><input type="number" step="0.1" name="weight"><span>g</span></span></label>
 <div class="roh"><span>Rohwert-Änderung</span><b id="cd">--</b></div><button class="kn">Messen</button></form>
 <button class="kn" id="c0">Kalibrierung starten</button><button class="kn weg" id="cx" hidden>Abbrechen</button><button class="kn" id="ck" hidden>OK</button></div></details>
+<details class="karte" id="gk"><summary>Gläser <b id="gc"></b></summary><div class="body stack">
+<p class="hint">Standardgläser kommen mit der Firmware. Änderungen bleiben bei Updates erhalten. Neue Gläser: leer auflegen, „Aktuelles Gewicht“, Name und Füllmenge eintragen.</p>
+<div class="tab"><table id="gt"></table></div>
+<form id="gf" class="stack" novalidate><h3 class="zw" id="gh">Neues Glas</h3><input type="hidden" name="id" value="0">
+<label class="f">Name<i>Bis 12 Zeichen, so steht er auf dem Display</i><span class="ein"><input name="name" maxlength="24" autocomplete="off"></span></label>
+<label class="r"><span>Füllmenge<i>Nennfüllung, z. B. 300 für 0,3 l</i></span><span class="ein"><input type="number" step="0.1" name="nominal"><span>g</span></span></label>
+<label class="r"><span>Leergewicht<i>Live auf der Waage: <b id="gw">--</b></i></span><span class="ein"><input type="number" step="0.1" name="empty"><span>g</span></span></label>
+<button type="button" class="kn rand" id="gu">Aktuelles Gewicht übernehmen</button>
+<div class="reihe"><button class="kn">Speichern</button><button type="button" class="kn rand" id="gx">Neu</button></div></form>
+<p class="msg" id="gm" aria-live="polite"></p>
+<div id="gd" hidden><h3 class="zw">Gelöschte Standardgläser</h3><div class="tab"><table id="gdt"></table></div></div>
+<div class="reihe"><a class="kn rand" href="/api/admin/glasses/export" download="glasses_default.h">Als Firmware-Liste exportieren</a><button type="button" class="kn weg" id="ga">Alles auf Standard</button></div></div></details>
 <details class="karte"><summary>Statistik</summary><div class="body stack">
 <p class="hint">Setzt alle Zähler und Bestwerte zurück.</p><p class="hint" id="sh" hidden>Die Waage wurde neu kalibriert: alte Werte sind mit dem neuen Faktor nicht mehr vergleichbar.</p>
 <button class="kn weg" id="sr">Statistik zurücksetzen</button><p class="msg" id="sm" aria-live="polite"></p></div></details>
@@ -344,6 +378,21 @@ if(x.status==401)return location.href='/login';
 if(x.status==200){FP.value=100;say(FM,'Update erfolgreich. Waage startet neu…','ok');wait()}else fail(j.error||'Fehler ('+x.status+')')};
 x.onerror=()=>fail('Verbindung unterbrochen');
 x.open('POST','/api/admin/update');x.setRequestHeader('X-Update-Size',f.size);x.send(d)};
+const GF=$('gf'),GM=$('gm'),OR={default:'Standard',modified:'geändert',custom:'eigenes'};let gw=null;
+function gedit(g){clr(GF);fill(GF,g?{id:g.id,name:g.name,nominal:g.nominal,empty:g.empty}:{id:0,name:'',nominal:'',empty:''});$('gh').textContent=g?g.name+' bearbeiten':'Neues Glas';if(g)GF.elements.name.focus()}
+function kn(p,t,c,f){const b=el('button',p,t,'kn '+c);b.type='button';b.style.padding='6px 10px';b.style.fontSize='.85rem';b.onclick=f;return b}
+async function gpost(u,o,t){const r=await post(u,o);if(r.s==200){say(GM,t,'ok');gshow(r.j)}else say(GM,r.j.error);return r}
+function gshow(d){gw=d.weight;$('gw').textContent=d.weight==null?'--':de(d.weight,1)+' g';const gs=d.glasses||[],T=$('gt');T.textContent='';$('gc').textContent=gs.length+(gs.length==1?' Glas':' Gläser');
+for(const g of gs){const R=el('tr',T),N=el('td',R,g.name);el('i',N,de(g.empty,1)+' g leer · '+de(g.nominal,0)+' g Inhalt · '+(OR[g.origin]||''));const A=el('div',el('td',R),null,'akts');
+kn(A,'Bearbeiten','rand',()=>gedit(g));if(g.origin=='modified')kn(A,'Standard','rand',()=>gpost('/api/admin/glasses/restore',{id:g.id},'Auf Standard zurückgesetzt'));
+kn(A,'Löschen','weg',()=>{if(confirm(g.name+' löschen?'))gpost('/api/admin/glasses/delete',{id:g.id},'Gelöscht')})}
+const dl=d.deleted||[],D=$('gdt');$('gd').hidden=!dl.length;D.textContent='';for(const g of dl){const R=el('tr',D);el('td',R,g.name);kn(el('td',R),'Wiederherstellen','rand',()=>gpost('/api/admin/glasses/restore',{id:g.id},'Wiederhergestellt'))}}
+const GL=every(async()=>{const r=await api('/api/glasses');if(r.s==200){if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#gt'))return;gshow(r.j)}},3000);
+$('gu').onclick=()=>{if(gw==null)return say(GM,'Kein Gewicht (Waage leer genullt?)');GF.elements.empty.value=de(gw,1).replace(',','.')};
+$('gx').onclick=()=>{gedit(null);say(GM,'')};
+$('ga').onclick=()=>{if(confirm('Alle Änderungen an der Gläserliste verwerfen? Eigene Gläser werden gelöscht.'))gpost('/api/admin/glasses/restore',{all:1},'Standardliste wiederhergestellt')};
+GF.onsubmit=async e=>{e.preventDefault();clr(GF);if(!chk(GF))return say(GM,'');const o={};for(const x of GF.elements)if(x.name)o[x.name]=x.value;
+say(GM,'Speichere…','inf');const r=await post('/api/admin/glasses',o);if(res(GF,GM,r)){say(GM,'Gespeichert','ok');gshow(r.j);gedit(null)}};
 const PS={Pending:'offen',Forfeit:'aufgegeben'};
 function rt(X,r,t,last){if(!r)return;
 el('h3',X,t+' #'+r.id+' · Ziel '+de(r.target,1)+' g · '+(r.final?'final':last?'nicht final':'läuft ('+de(r.elapsed,1)+' s)'),'zw');
@@ -355,7 +404,7 @@ const L=el('dl',X),row=(a,b)=>{el('dt',L,a);el('dd',L,b)};
 if(d.radio)row('Diese Waage',m5(d.mac)+' ('+d.phase+')');row('Protokoll',hx(d.proto));row('Firmware',d.fw||'--');if(!d.radio)return;
 row('Peers',ps.length?ps.map(p=>m5(p.mac)+' '+p.phase+' ('+de(p.ago,1)+' s)').join(', '):'keine');
 rt(X,d.round,'Runde',0);rt(X,d.last,'Letzte Runde',1)},2000);
-function go(){if(live()){P();D();C()}}
+function go(){if(live()){P();D();C();GL()}}
 document.addEventListener('visibilitychange',go);
 lc();go();
 </script></body></html>)html";
