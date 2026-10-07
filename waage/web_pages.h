@@ -24,7 +24,7 @@ button,.btn{display:block;width:100%;padding:12px;color:#fff;border:0;border-rad
 <h2>⚖️ 100-Waage</h2>
 <div class="st" id="st"><span>Gewicht: <b id="w">--</b> g</span><span>Modus: <b id="m">--</b></span><span>Phase: <b id="p">--</b></span><span>Ziel: <b id="z">--</b></span><span>Akku: <b id="a">--</b> <span class="bd" id="al" hidden>schwach</span></span><span>Funk/AP: <b id="f">--</b></span><small id="fw"></small></div>
 <form id="cf" class="sec" novalidate><h3>Einstellungen</h3>
-<label>Modus<select name="scaleMode"><option value="Game">Game (Trinkspiel)</option><option value="Standard">Standard (Waage)</option></select><i class="w" id="bz" hidden>Spiel läuft – erst Taste drücken</i></label>
+<label>Modus<select name="scaleMode"><option value="Game">Game (Trinkspiel)</option><option value="Duel">Duell (gegen andere Waagen)</option><option value="Standard">Standard (Waage)</option></select><i class="w" id="bz" hidden>Spiel läuft – erst Taste drücken</i></label>
 <label>Zielgewicht [g]<i>Wie viel soll getrunken werden?</i><input type="number" step="0.1" name="goal"></label>
 <label class="cb"><input type="checkbox" name="randomModeEnabled">Zufälliges Zielgewicht</label>
 <label>Zufall-Minimum [g]<i>Maximum ist das Zielgewicht</i><input type="number" step="0.1" name="randomMin"></label>
@@ -53,7 +53,7 @@ function res(f,m,r){if(r.s>=200&&r.s<300)return 1;say(m,r.s==400&&r.j.field&&fer
 const F=$('cf'),M=$('msg'),S=F.elements.scaleMode,
 PH={Idle:'Bereit für Glas',Taring:'Tara…',Ready:'Glas steht',Drinking:'Trinken…',Result:'Ergebnis',Calibration:'Kalibrierung',SensorError:'Sensorfehler'};
 const P=every(async()=>{const r=await api('/api/status'),d=r.j,b=d.battery;$('st').classList.toggle('off',r.s!=200);if(r.s!=200)return;
-$('w').textContent=de(d.weight,2);$('m').textContent=d.mode||'--';$('p').textContent=PH[d.phase]||d.phase||'--';
+$('w').textContent=de(d.weight,2);$('m').textContent=d.mode=='Duel'?'Duell':d.mode||'--';$('p').textContent=PH[d.phase]||d.phase||'--';
 $('z').textContent=de(d.goal,1)+' g'+(d.random?' (Zufall)':'');
 $('a').textContent=b?de(b.percent,0)+' % ('+de(b.voltage,2)+' V)':'kein Akku';$('al').hidden=!(b&&b.low);
 $('f').textContent=(d.radio?'an':'aus')+' / '+(d.ap?'an':'aus');$('fw').textContent=d.fw||'';
@@ -64,7 +64,7 @@ else{say(M,'Einstellungen nicht geladen');setTimeout(load,3000)}}
 F.onsubmit=async e=>{e.preventDefault();clr(F);if(!F.o)return say(M,'Einstellungen nicht geladen');if(!chk(F))return say(M,'');
 const B=F.querySelector('button');B.disabled=true;say(M,'Speichere…','inf');
 const r=await api('/api/config',diff(F));B.disabled=false;
-if(res(F,M,r)){fill(F,r.j.config||{});say(M,r.j.applied=='next'?'Gespeichert – gilt ab der nächsten Runde':'Gespeichert – gilt sofort','ok');P()}};
+if(res(F,M,r)){fill(F,r.j.config||{});say(M,r.j.applied=='next'?'Gespeichert – gilt ab der nächsten Runde':'Gespeichert','ok');P()}};
 document.addEventListener('visibilitychange',()=>{if(live())P()});
 load();P();
 </script></body></html>)html";
@@ -161,7 +161,7 @@ if(n&&n.length<4)return ferr(A,'newPassword','Mindestens 4 Zeichen');
 if(n!=$('pw2').value)return ferr(A,'newPassword','Passwörter stimmen nicht überein');
 B.disabled=true;say(AM,'Speichere…','inf');const r=await aapi('/api/admin/config',diff(A)),j=r.j;B.disabled=false;
 if(!res(A,AM,r))return;
-let t='Gespeichert – ohne Neustart übernommen';
+let t='Gespeichert';
 if(j.apRestart)t+='. WLAN wird neu gestartet: bitte mit '+j.apName+' neu verbinden';
 if(j.relogin){t+='. Bitte neu einloggen…';up=1;setTimeout(()=>location.href='/login',2000)}
 say(AM,t,'ok');A.elements.newPassword.value=$('pw2').value='';

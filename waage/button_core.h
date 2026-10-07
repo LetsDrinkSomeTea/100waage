@@ -12,15 +12,15 @@ constexpr uint32_t DEBOUNCE_MS = 30;
 constexpr uint32_t MIN_PRESS_MS = 50; // kuerzere Druecke loesen nichts aus
 constexpr uint32_t OVERLAY_MS =
     300;                            // ab hier zeigt das Display den Haltebalken
-constexpr uint32_t MODE_MS = 3000;  // Moduswechsel
-constexpr uint32_t RADIO_MS = 5000; // Funk/AP
-constexpr uint32_t CANCEL_MS = 8000; // Abbruch, nichts tun
+constexpr uint32_t MODE_MS = 1000;  // Moduswechsel
+constexpr uint32_t RADIO_MS = 3000; // AP an/aus
+constexpr uint32_t CANCEL_MS = 5000; // Abbruch, nichts tun
 
 enum class Zone : uint8_t {
   None,  // nicht gedrueckt
   Short, // < MODE_MS: Reset + Tara
-  Mode,  // MODE_MS..RADIO_MS: Game/Standard wechseln
-  Radio, // RADIO_MS..CANCEL_MS: Funk/AP schalten
+  Mode,  // MODE_MS..RADIO_MS: naechster Modus (Game → Duell → Standard)
+  Radio, // RADIO_MS..CANCEL_MS: AP an/aus
   Cancel
 }; // >= CANCEL_MS: nichts
 

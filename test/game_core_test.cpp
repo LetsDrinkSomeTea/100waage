@@ -516,6 +516,20 @@ static void testNoDuelWithoutRadio() {
   CHECK(d.port.setReadyCalls == 0);
 }
 
+// Duell-Modus spielt wie Game (Zielanzeige, Bereit, Duell bei Funk)
+static void testDuelModePlays() {
+  Driver d;
+  d.c.scaleMode = cfg::ScaleMode::Duel;
+  d.press();
+  d.run(100, 0.0f);
+  CHECK(d.g.view().screen == Screen::IdleGame);
+  d.radio = true;
+  d.port.isActive = true;
+  place(d, 300.0f);
+  CHECK(d.g.duel() == Duel::WaitReady);
+  CHECK(d.port.setReadyCalls == 1);
+}
+
 static void testResetLeaves() {
   Driver d;
   duelReady(d);
@@ -555,6 +569,7 @@ int main() {
   testWaitReadyPeersGone();
   testWaitStartRoundGone();
   testNoDuelWithoutRadio();
+  testDuelModePlays();
   testResetLeaves();
   return finish("game_core_test");
 }

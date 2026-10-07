@@ -69,15 +69,15 @@ void Game::reset(const cfg::Config &c, uint32_t now, ScaleReq tare) {
   view_.isFinal = view_.forfeit = false;
   view_.drankCg = 0;
   view_.durationMs = 0;
-  view_.screen = c.scaleMode == cfg::ScaleMode::Game ? Screen::IdleGame
-                                                     : Screen::IdleStandard;
+  view_.screen =
+      cfg::playsGame(c.scaleMode) ? Screen::IdleGame : Screen::IdleStandard;
   view_.screenSince = now;
   req_ = tare;
 }
 
 void Game::applyGoalSettings(const cfg::Config &c, uint32_t now) {
   (void)now;
-  if (c.scaleMode != cfg::ScaleMode::Game || phase_ != Phase::Idle)
+  if (!cfg::playsGame(c.scaleMode) || phase_ != Phase::Idle)
     return;
   localGoal_ = c.randomModeEnabled ? cfg::rollGoal(c, nextRandom()) : c.goal;
   place_.stop();

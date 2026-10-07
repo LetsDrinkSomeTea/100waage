@@ -76,7 +76,7 @@ Queue legt.
 | `wifiTimeout`       | 10 min             | 0–255, 0 = nie                                           | Admin               |
 | `sleepTimeout`      | 5 min              | 0–255, 0 = nie                                           | Admin               |
 | `battDividerRatio`  | 2,0                | 1–6                                                      | Akku-Abgleich       |
-| `scaleMode`         | Game               | Game / Standard                                          | Start               |
+| `scaleMode`         | Game               | Game / Duel / Standard (gespeichert 0 / 2 / 1)           | Start               |
 | `autoResetRange`    | 10 %               | 0–100                                                    | Admin               |
 | `autoZeroEnabled`   | an                 |                                                          | Admin               |
 | `autoZeroThreshold` | 2 g                | 0,1–20 g, ≤ `tolerance`                                  | Admin               |
@@ -200,7 +200,7 @@ nicht wach bleibt, wenn niemand quittiert. Jeder Reset (Kurzdruck, Moduswechsel,
 Sensor zurück) bricht eine laufende Kalibrierung ab und tariert (liegt das
 Gewicht noch, einfach erneut tarieren).
 
-## Spielablauf (Game-Modus)
+## Spielablauf (Game- und Duell-Modus)
 
 ### Zustände
 
@@ -252,9 +252,9 @@ Bei jedem Reset wird neu gewürfelt: ganze Gramm in
 ## Duell (Protokoll v3)
 
 Mehrere Waagen spielen per **ESP-NOW-Broadcast** auf Kanal 1 (kein Pairing).
-Voraussetzung: Funk an, Game-Modus. Jede Waage kennt die komplette
-Rundentabelle und berechnet das Ranking selbst; es gibt keinen Master. Die
-Logik liegt in `duell_core` und wird auf dem PC mit mehreren simulierten Waagen
+Voraussetzung: Duell-Modus (Funk läuft dort immer). Jede Waage kennt die
+komplette Rundentabelle und berechnet das Ranking selbst; es gibt keinen
+Master. Die Logik liegt in `duell_core` und wird auf dem PC mit mehreren simulierten Waagen
 und 30 % Paketverlust getestet.
 
 > Bei Protokolländerungen wird `duell::MAGIC` (aktuell `0xD3`) erhöht. Alte und
@@ -302,38 +302,39 @@ Little Endian, Kopf 15 Byte, Eintrag 13 Byte, max. 11 Teilnehmer → 158 Byte.
 | aufgegeben                            | „Zu spät!“                                                |
 | stiller Wechsel auf Solo              | Hinweis „Solo!“                                           |
 
-Wird der Funk nach dem Final ausgeschaltet, bleibt der letzte finale Rang stehen.
+Wird der Funk nach dem Final ausgeschaltet (Moduswechsel), bleibt der letzte
+finale Rang stehen.
 
 ### Ausstieg
 
-Kurzdruck, Moduswechsel, Funk aus und Deep-Sleep verlassen eine Runde. Vor dem
+Kurzdruck, Moduswechsel und Deep-Sleep verlassen eine Runde. Vor dem
 Ausschalten wird die Abmeldung dreimal im Abstand von 25 ms gesendet
 (`duell_flush_burst`), damit die anderen Waagen sofort Bescheid wissen statt
 erst nach 30 s.
 
 ### Robustheit
 
-| Mechanismus                                                             | Wert                                                  |
-| ----------------------------------------------------------------------- | ----------------------------------------------------- |
-| Peer gilt als aktiv                                                     | letzte Nachricht < 5 s                                |
-| Peer wird vergessen                                                     | keine Nachricht > 10 s                                |
-| Forfeit: Teilnehmer verlässt die Runde (Taster, Funk aus, Moduswechsel) | sofort                                                |
-| Forfeit: Teilnehmer nachweislich in keiner/anderer Runde                | sofort                                                |
-| Forfeit: Beitritt verpasst (weiter `Ready`)                             | nach 15 s                                             |
-| Forfeit: Teilnehmer nicht mehr gehört                                   | 30 s                                                  |
-| Harter Rundentimeout (alle `Pending` → Forfeit)                         | 180 s                                                 |
-| Nachlauf: verlassene Runde wird weiter gesendet                         | 20 s                                                  |
-| WaitReady: Gegner weg oder 60 s ohne Start                              | Solo                                                  |
-| WaitReady: Glas 300 ms abgehoben                                        | Solo, direkt Trinken (kürzeres Anheben ändert nichts) |
-| Runde vor dem Final verloren (Funk aus)                                 | Solo gegen das Duell-Ziel                             |
+| Mechanismus                                                          | Wert                                                  |
+| -------------------------------------------------------------------- | ----------------------------------------------------- |
+| Peer gilt als aktiv                                                  | letzte Nachricht < 5 s                                |
+| Peer wird vergessen                                                  | keine Nachricht > 10 s                                |
+| Forfeit: Teilnehmer verlässt die Runde (Taster, Moduswechsel, Sleep) | sofort                                                |
+| Forfeit: Teilnehmer nachweislich in keiner/anderer Runde             | sofort                                                |
+| Forfeit: Beitritt verpasst (weiter `Ready`)                          | nach 15 s                                             |
+| Forfeit: Teilnehmer nicht mehr gehört                                | 30 s                                                  |
+| Harter Rundentimeout (alle `Pending` → Forfeit)                      | 180 s                                                 |
+| Nachlauf: verlassene Runde wird weiter gesendet                      | 20 s                                                  |
+| WaitReady: Gegner weg oder 60 s ohne Start                           | Solo                                                  |
+| WaitReady: Glas 300 ms abgehoben                                     | Solo, direkt Trinken (kürzeres Anheben ändert nichts) |
+| Runde vor dem Final verloren                                         | Solo gegen das Duell-Ziel                             |
 
 Eine Waage, die nicht bereit ist (z. B. weil sie noch ein gutes Ergebnis zeigt),
 hält den Start auf, bis jemand drückt oder die 60 s ablaufen. Das ist gewollt.
 
 Der Empfang legt Pakete nur in eine Queue (32 Pakete); verarbeitet wird
-ausschließlich im Loop. Im Standard-Modus wird die Queue jede Loop geleert, damit
-nach dem Wechsel zurück in den Game-Modus keine alten Pakete Geister-Gegner
-erzeugen.
+ausschließlich im Loop. Läuft der Funk außerhalb des Duell-Modus (nur für den
+AP), wird die Queue jede Loop geleert und die Waage sendet nichts; so erzeugen
+nach dem Wechsel in den Duell-Modus keine alten Pakete Geister-Gegner.
 
 ## Taster
 
@@ -341,15 +342,32 @@ Polling im Loop, kein Interrupt. Entprellung 30 ms, Drücke unter 50 ms zählen
 nicht. Jede Flanke zählt als Aktivität für den Deep-Sleep. Der Druck, der die
 Waage aufweckt, löst nichts aus.
 
-| Haltezeit beim Loslassen | Aktion                                          | Text im Balken                         |
-| ------------------------ | ----------------------------------------------- | -------------------------------------- |
-| < 3 s                    | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                 |
-| 3–5 s                    | Modus wechseln                                  | „Standard-Modus“ / „Game-Modus“        |
-| 5–8 s                    | AP an → alles aus; sonst Funk + AP an           | „Alles aus“ / „AP an“ / „Funk + AP an“ |
-| ≥ 8 s                    | nichts                                          | „Abbrechen“                            |
+| Haltezeit beim Loslassen | Aktion                                          | Text im Balken                              |
+| ------------------------ | ----------------------------------------------- | ------------------------------------------- |
+| < 1 s                    | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                      |
+| 1–3 s                    | nächster Modus: Game → Duell → Standard → Game  | Zielmodus, z. B. „Duell-Modus“, mit Punkten |
+| 3–5 s                    | AP an/aus                                       | „AP an“ / „AP aus“                          |
+| ≥ 5 s                    | nichts                                          | „Abbrechen“                                 |
 
-Ab 300 ms zeigt das Display einen Balken über 8 s mit Marken bei 3 s und 5 s
-(Pixel 48 und 80); der Text zeigt die Wirkung beim Loslassen.
+Ab 300 ms zeigt das Display einen Balken über 5 s mit Marken bei 1 s und 3 s
+(Pixel 25 und 76); der Text zeigt die Wirkung beim Loslassen. In der
+Modus-Zone steht der Zielmodus in kleiner Schrift, darunter drei Punkte
+(Game, Duell, Standard) mit dem Zielmodus gefüllt. Der Hinweis nach dem
+Wechsel zeigt Name und Punkte noch einmal. So wird die Reihenfolge sichtbar,
+ohne sie erklären zu müssen.
+
+### Modi und Funk
+
+| Modus    | Spiel | Funk (ESP-NOW)      | Statusleiste |
+| -------- | ----- | ------------------- | ------------ |
+| Game     | solo  | aus (an nur mit AP) | Akku         |
+| Duell    | Duell | immer an            | `Vs n`, Akku |
+| Standard | Waage | aus (an nur mit AP) | Akku         |
+
+Der Funk läuft genau dann, wenn der Duell-Modus aktiv ist oder der AP läuft
+(`syncRadio` in `app.cpp`). AP aus schaltet im Duell-Modus nur den AP ab.
+Außerhalb des Duell-Modus nimmt die Waage auch bei laufendem Funk nicht am
+Duell teil und ist für andere unsichtbar.
 
 ## Anzeige
 
@@ -364,14 +382,15 @@ Ab 300 ms zeigt das Display einen Balken über 8 s mit Marken bei 3 s und 5 s
   Ergebnisse wechseln alle 3 s zwischen Wert und Zeit. Ladeanimation mit 300 ms
   pro Schritt.
 
-| Symbol                  | Bedingung                                  |
-| ----------------------- | ------------------------------------------ |
-| Zufall (oben links)     | Zufallsziel aktiv                          |
-| WLAN-Bogen              | Funk an                                    |
-| `Vs n`                  | Funk an, Game-Modus, n > 0 Gegner sichtbar |
-| `AP`                    | Config-AP läuft                            |
-| Akku mit Prozent        | Funk aus                                   |
-| blinkender Akku mit `!` | Akku-Warnung (1 Hz)                        |
+| Symbol                  | Bedingung                                      |
+| ----------------------- | ---------------------------------------------- |
+| Zufall (oben links)     | Zufallsziel aktiv                              |
+| WLAN-Bogen              | Config-AP läuft                                |
+| `Vs n`                  | Duell-Modus, n andere Waagen sichtbar (auch 0) |
+| Akku mit Prozent        | Akku angeschlossen (ganz rechts)               |
+| blinkender Akku mit `!` | Akku-Warnung (1 Hz)                            |
+
+Rechts oben von rechts nach links: Akku, `Vs n`, WLAN-Bogen.
 
 ## Energie
 
@@ -388,17 +407,18 @@ zurücksetzen (die Weboberfläche läuft nur mit AP und hält die Waage damit wa
 - Kalibrierung läuft,
 - AP-Neustart, Reboot oder OTA stehen an.
 
-Reihenfolge beim Einschlafen: Funkzustand im RTC-Speicher merken → Funk aus
-(Runde verlassen, Abmeldung senden) → Display aus → HX711 aus + CLK-Hold →
-GPIO-Wake-up auf den Taster → `esp_deep_sleep_start()`.
+Reihenfolge beim Einschlafen: Funk aus (Runde verlassen, Abmeldung senden) →
+Display aus → HX711 aus + CLK-Hold → GPIO-Wake-up auf den Taster →
+`esp_deep_sleep_start()`.
 
-Nach dem Aufwachen bleibt der Funk aus. War er vorher an, erscheint „Funk aus“.
+Nach dem Aufwachen folgt der Funk dem Modus: im Duell-Modus sofort wieder an,
+sonst aus. Der AP bleibt aus.
 
 ### Config-AP
 
-Geht nach `wifiTimeout` Minuten ohne Web-Anfrage aus (Hinweis „AP aus“), der
-Duell-Funk läuft weiter. Ein Zeitstempel, der nach dem Loop-Zeitpunkt liegt,
-gilt als frische Aktivität.
+Geht nach `wifiTimeout` Minuten ohne Web-Anfrage aus (Hinweis „AP aus“). Im
+Duell-Modus läuft der Funk weiter, sonst geht er mit aus. Ein Zeitstempel,
+der nach dem Loop-Zeitpunkt liegt, gilt als frische Aktivität.
 
 ## Akku
 
@@ -418,12 +438,12 @@ gilt als frische Aktivität.
 
 ## Funk und AP
 
-| Aktion           | Ablauf                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------ |
-| Funk an          | STA-Modus ohne Verbindung, Modem-Sleep aus, 8,5 dBm, Kanal 1, ESP-NOW                                  |
-| Funk + AP an     | zusätzlich Soft-AP (offen, Kanal 1, max. 4 Clients), DNS-Captive-Portal, mDNS `waage.local`, Webserver |
-| AP aus (Timeout) | Webserver und AP aus, ESP-NOW bleibt                                                                   |
-| alles aus        | Runde verlassen und Abmeldung senden, dann WiFi aus                                                    |
+| Aktion   | Ablauf                                                                                                |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| Funk an  | STA-Modus ohne Verbindung, Modem-Sleep aus, 8,5 dBm, Kanal 1, ESP-NOW                                 |
+| AP an    | Funk an + Soft-AP (offen, Kanal 1, max. 4 Clients), DNS-Captive-Portal, mDNS `waage.local`, Webserver |
+| AP aus   | Webserver und AP aus; Funk bleibt nur im Duell-Modus                                                  |
+| Funk aus | Runde verlassen und Abmeldung senden, dann WiFi aus                                                   |
 
 AP-Neustart (SSID geändert) und Reboot (nach OTA) werden nur vorgemerkt und im
 Loop nach der HTTP-Antwort ausgeführt. Nach einem OTA-Reboot startet der AP
@@ -512,10 +532,11 @@ Vor dem Merge mit mindestens zwei Waagen:
       (bekanntes Gewicht vorher und nachher wiegen).
 - [ ] Kurzdruck mit Glas tariert; Glas weg → nach 1 s Nullung (NegZero).
 - [ ] Solo: gutes Ergebnis bleibt beim Abheben, schlechtes verschwindet.
-- [ ] Haltebalken: Texte bei 0,3 / 3 / 5 / 8 s, Loslassen in jeder Zone.
+- [ ] Haltebalken: Texte bei 0,3 / 1 / 3 / 5 s, Loslassen in jeder Zone;
+      Modus-Punkte im Balken und im Hinweis, Zyklus Game → Duell → Standard.
 - [ ] Umlaute auf dem Display („Schüchtern“, Trinksprüche).
-- [ ] Deep-Sleep aus stehendem Ergebnis; Schlafstrom (HX711 aus); Aufwachen mit
-      „Funk aus“, wenn der Funk an war.
+- [ ] Deep-Sleep aus stehendem Ergebnis; Schlafstrom (HX711 aus); Aufwachen im
+      Duell-Modus mit Funk an, im Game-Modus ohne.
 - [ ] HX711 abgezogen → „Sensorfehler“, wieder angesteckt → Waage läuft.
 - [ ] Akku: Multimeter gegen `/api/status` vor und nach dem Abgleich; Warnsymbol
       bei < 10 %.
@@ -523,5 +544,7 @@ Vor dem Merge mit mindestens zwei Waagen:
 - [ ] SSID im Admin ändern → AP startet neu, Seite unter neuem Namen erreichbar.
 - [ ] Duell mit 2–3 Waagen: Start, vorläufiger und finaler Rang auf allen gleich;
       gut bleibt / schlecht geht nach Final + 3 s.
-- [ ] Duell: Funk aus mitten in der Runde → andere Waage sieht sofort „aufgegeben“;
-      Wechsel auf Standard-Modus ebenso.
+- [ ] Duell: Moduswechsel mitten in der Runde → andere Waage sieht sofort
+      „aufgegeben“.
+- [ ] Game-Modus mit AP an: Waage taucht bei anderen nicht als Gegner auf.
+- [ ] Duell-Modus: AP aus → `Vs n` bleibt, Duell läuft weiter.

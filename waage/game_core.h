@@ -95,7 +95,7 @@ struct Input {
   bool weightValid; // Waage ok, keine Tara, nicht in Kalibrierung
   float weight;     // [g], adaptiv geglaettet
   bool stable;
-  bool radioOn;
+  bool radioOn; // Duell moeglich: Duell-Modus und Funk an
 };
 
 enum class Screen : uint8_t {

@@ -5,7 +5,8 @@
 // ── Funk und Config-AP ────────────────────────────────────────────────────────
 // Funk = WLAN im STA-Modus fuer ESP-NOW (Duell) auf DUELL_CHANNEL.
 // AP = zusaetzlich der Config-Access-Point mit Webserver (WIFI_AP_STA).
-// Der AP-Timeout schaltet nur den AP ab, das Duell laeuft weiter.
+// Der AP-Timeout schaltet nur den AP ab; ob der Funk danach weiterlaeuft,
+// entscheidet app.cpp (an genau im Duell-Modus oder solange der AP laeuft).
 // AP-Neustart und Reboot werden nie im Web-Handler ausgefuehrt, sondern
 // angefordert und danach im Loop erledigt.
 

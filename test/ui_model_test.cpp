@@ -32,20 +32,17 @@ static bool textIs(const Frame &f, const char *a, const char *b = nullptr,
 
 static void testLabels() {
   using button::Zone;
-  CHECK(!strcmp(holdLabel(Zone::Short, cfg::ScaleMode::Game, false, false),
-                "Tara"));
-  CHECK(!strcmp(holdLabel(Zone::Mode, cfg::ScaleMode::Game, false, false),
-                "Standard-Modus"));
-  CHECK(!strcmp(holdLabel(Zone::Mode, cfg::ScaleMode::Standard, false, false),
-                "Game-Modus"));
-  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, false, false),
-                "Funk + AP an"));
-  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, true, false),
-                "AP an"));
-  CHECK(!strcmp(holdLabel(Zone::Radio, cfg::ScaleMode::Game, true, true),
-                "Alles aus"));
-  CHECK(!strcmp(holdLabel(Zone::Cancel, cfg::ScaleMode::Game, true, true),
-                "Abbrechen"));
+  using cfg::ScaleMode;
+  CHECK(!strcmp(holdLabel(Zone::Short, ScaleMode::Game, false), "Tara"));
+  // Zielmodus: Game → Duell → Standard → Game
+  CHECK(!strcmp(holdLabel(Zone::Mode, ScaleMode::Game, false), "Duell-Modus"));
+  CHECK(
+      !strcmp(holdLabel(Zone::Mode, ScaleMode::Duel, false), "Standard-Modus"));
+  CHECK(
+      !strcmp(holdLabel(Zone::Mode, ScaleMode::Standard, false), "Game-Modus"));
+  CHECK(!strcmp(holdLabel(Zone::Radio, ScaleMode::Game, false), "AP an"));
+  CHECK(!strcmp(holdLabel(Zone::Radio, ScaleMode::Duel, true), "AP aus"));
+  CHECK(!strcmp(holdLabel(Zone::Cancel, ScaleMode::Game, true), "Abbrechen"));
   CHECK(!strcmp(ratingText(game::Rating::Shy), "Schüchtern"));
   CHECK(!strcmp(ratingText(game::Rating::Perfect), "Perfekt!"));
 }
@@ -68,10 +65,10 @@ static void testLayers() {
   f = m.build(v, s, NO_HOLD, sys, now + 200); // System vor Toast
   CHECK(textIs(f, "Kalibrierung", "Waage leeren"));
 
-  Hold h = {true, button::Zone::Mode, 3200};
+  Hold h = {true, button::Zone::Mode, button::MODE_MS + 200};
   f = m.build(v, s, h, sys, now + 300); // Haltebalken vor allem
   CHECK(f.kind == Kind::Hold);
-  CHECK(textIs(f, "Standard-Modus"));
+  CHECK(!strcmp(f.text.line[0], "Duell-Modus"));
 
   f = m.build(v, s, NO_HOLD, nullptr, now + TOAST_MS - 1);
   CHECK(textIs(f, "Hallo"));
@@ -103,17 +100,19 @@ static void testHoldBar() {
   struct {
     uint32_t ms;
     int px;
-  } cases[] = {{300, 4},
-               {3000, TICK_MODE_PX},
-               {5000, TICK_RADIO_PX},
-               {8000, BAR_W},
-               {20000, BAR_W}};
+  } cases[] = {{0, 0},
+               {button::MODE_MS, TICK_MODE_PX},
+               {button::RADIO_MS, TICK_RADIO_PX},
+               {button::CANCEL_MS, BAR_W},
+               {button::CANCEL_MS * 4, BAR_W}};
   for (auto &c : cases) {
     Hold h = {true, button::Zone::Short, c.ms};
     Frame f = m.build(v, status(), h, nullptr, 1000);
     CHECK(f.barPx == c.px);
+    CHECK(f.modeDots == 0);
   }
-  CHECK(TICK_MODE_PX == 48 && TICK_RADIO_PX == 80);
+  CHECK(0 < TICK_MODE_PX && TICK_MODE_PX < TICK_RADIO_PX &&
+        TICK_RADIO_PX < BAR_W);
 }
 
 static void testIcons() {
@@ -121,38 +120,92 @@ static void testIcons() {
   game::View v = idleView();
   Status s = status();
   Frame f = m.build(v, s, NO_HOLD, nullptr, 1000);
-  CHECK(f.icons && f.right == RightIcon::Battery && f.battPercent == 80);
-  CHECK(!f.border && !f.shuffle && !f.apBadge);
+  CHECK(f.icons && f.battIcon && f.battPercent == 80);
+  CHECK(!f.border && !f.shuffle && !f.apIcon && !f.duelIcon);
 
   v.glassOn = true;
   v.randomMode = true;
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
   CHECK(f.border && f.shuffle);
 
-  s.radioOn = true; // Funk an: kein Akku
-  f = m.build(v, s, NO_HOLD, nullptr, 1000);
-  CHECK(f.right == RightIcon::Wifi);
+  // Game-Modus: Gegner werden nie angezeigt
   s.peers = 2;
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
-  CHECK(f.right == RightIcon::Duel && f.peers == 2);
+  CHECK(!f.duelIcon && f.peers == 0);
+
+  // Duell-Modus: "Vs n" auch ohne Gegner, Akku bleibt sichtbar
+  s.mode = cfg::ScaleMode::Duel;
+  s.peers = 0;
+  f = m.build(v, s, NO_HOLD, nullptr, 1000);
+  CHECK(f.duelIcon && f.peers == 0 && f.battIcon);
+  s.peers = 2;
+  f = m.build(v, s, NO_HOLD, nullptr, 1000);
+  CHECK(f.duelIcon && f.peers == 2 && f.battIcon && !f.apIcon);
+  s.peers = 150;
+  f = m.build(v, s, NO_HOLD, nullptr, 1000);
+  CHECK(f.peers == 99);
+
+  // AP: WLAN-Bogen, unabhaengig vom Modus
   s.apOn = true;
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
-  CHECK(f.apBadge);
-  s.mode = cfg::ScaleMode::Standard; // kein Duell im Standard-Modus
+  CHECK(f.apIcon && f.duelIcon && f.battIcon);
+  s.mode = cfg::ScaleMode::Standard;
   v.screen = game::Screen::IdleStandard;
   v.weight = 12.34f;
   f = m.build(v, s, NO_HOLD, nullptr, 1000);
-  CHECK(f.right == RightIcon::Wifi);
+  CHECK(f.apIcon && !f.duelIcon && f.battIcon);
   CHECK(textIs(f, "12.3g"));
 
   s = status();
   s.battShown = false;
   f = m.build(idleView(), s, NO_HOLD, nullptr, 1000);
-  CHECK(f.right == RightIcon::None);
+  CHECK(!f.battIcon && !f.duelIcon && !f.apIcon);
   s = status();
   s.battPercent = 150;
   f = m.build(idleView(), s, NO_HOLD, nullptr, 1000);
   CHECK(f.battPercent == 100);
+}
+
+// Moduswechsel: Haltebalken und Toast zeigen Name + Punkte (Zielmodus gefuellt)
+static void testModeDots() {
+  using cfg::ScaleMode;
+  game::View v = idleView();
+  const struct {
+    ScaleMode from;
+    const char *label;
+    uint8_t dots;
+  } cases[] = {{ScaleMode::Game, "Duell-Modus", 2},
+               {ScaleMode::Duel, "Standard-Modus", 3},
+               {ScaleMode::Standard, "Game-Modus", 1}};
+  for (auto &c : cases) {
+    Model m;
+    Status s = status();
+    s.mode = c.from;
+    Hold h = {true, button::Zone::Mode, button::MODE_MS};
+    Frame f = m.build(v, s, h, nullptr, 1000);
+    CHECK(f.kind == Kind::Hold && f.modeDots == c.dots);
+    CHECK(f.text.size == 1 && f.text.lines == 1);
+    CHECK(!strcmp(f.text.line[0], c.label));
+
+    // Toast nach dem Wechsel: gleicher Name, gleiche Punkte
+    s.mode = cfg::nextMode(c.from);
+    m.modeToast(s.mode, 2000);
+    f = m.build(v, s, NO_HOLD, nullptr, 2001);
+    CHECK(f.kind == Kind::Text && f.modeDots == c.dots);
+    CHECK(f.text.size == 1 && !strcmp(f.text.line[0], c.label));
+    CHECK(!f.icons);
+    // normaler Toast danach ohne Punkte
+    m.toast("Tara", 2100);
+    f = m.build(v, s, NO_HOLD, nullptr, 2101);
+    CHECK(f.modeDots == 0 && textIs(f, "Tara"));
+    f = m.build(v, s, NO_HOLD, nullptr, 2100 + TOAST_MS);
+    CHECK(f.modeDots == 0);
+  }
+  // Andere Zonen ohne Punkte
+  Model m;
+  Hold h = {true, button::Zone::Radio, button::RADIO_MS};
+  Frame f = m.build(v, status(), h, nullptr, 1000);
+  CHECK(f.modeDots == 0 && textIs(f, "AP an"));
 }
 
 static void testLowBattBlink() {
@@ -299,6 +352,7 @@ int main() {
   testToastWrap();
   testHoldBar();
   testIcons();
+  testModeDots();
   testLowBattBlink();
   testReadyAndDrinking();
   testResultSoloAlternates();

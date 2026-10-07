@@ -1,8 +1,8 @@
 # 100-Waage
 
 Trinkspiel-Waage auf Basis eines ESP32-C3: Ziel ist, möglichst genau eine
-vorgegebene Menge aus dem Glas zu trinken. Mehrere Waagen können per Funk
-gegeneinander antreten (Duell). Technische Details stehen in [Specs.md](Specs.md).
+vorgegebene Menge aus dem Glas zu trinken. Mehrere Waagen können im
+Duell-Modus per Funk gegeneinander antreten. Technische Details stehen in [Specs.md](Specs.md).
 
 ## Hardware
 
@@ -28,12 +28,27 @@ gegeneinander antreten (Duell). Technische Details stehen in [Specs.md](Specs.md
 | Aktion       | Wirkung                                                                                               |
 | ------------ | ----------------------------------------------------------------------------------------------------- |
 | Kurz drücken | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                    |
-| Halten       | Ab 0,3 s erscheint ein Balken mit Marken bei 3 s und 5 s; der Text zeigt, was beim Loslassen passiert |
-| Halten 3–5 s | Modus wechseln (Game ↔ Standard)                                                                      |
-| Halten 5–8 s | Funk: läuft der Config-AP → alles aus, sonst Funk + AP an                                             |
-| Halten ≥ 8 s | Abbrechen, nichts passiert                                                                            |
+| Halten       | Ab 0,3 s erscheint ein Balken mit Marken bei 1 s und 3 s; der Text zeigt, was beim Loslassen passiert |
+| Halten 1–3 s | Nächster Modus: Game → Duell → Standard → Game                                                        |
+| Halten 3–5 s | Config-AP an/aus                                                                                      |
+| Halten ≥ 5 s | Abbrechen, nichts passiert                                                                            |
 
-### Spiel (Game-Modus)
+Beim Moduswechsel zeigt der Balken den Zielmodus mit drei Punkten darunter
+(Game, Duell, Standard, der Zielmodus ist gefüllt). Nach dem Loslassen
+erscheinen Name und Punkte noch einmal kurz.
+
+### Modi
+
+| Modus    | Wofür                          | Funk     |
+| -------- | ------------------------------ | -------- |
+| Game     | Trinkspiel allein              | aus      |
+| Duell    | Trinkspiel gegen andere Waagen | immer an |
+| Standard | einfache Waage mit 0,1 g       | aus      |
+
+Der Config-AP lässt sich in jedem Modus zuschalten (dafür läuft dann der Funk).
+AP aus schaltet im Duell-Modus nur den AP ab, das Duell läuft weiter.
+
+### Spiel (Game- und Duell-Modus)
 
 1. Das Display zeigt das Ziel, z. B. `100.0g?` (🔀 = Zufallsziel).
 2. Volles Glas aufstellen. Sobald es mindestens das Ziel wiegt und ruhig steht
@@ -60,8 +75,9 @@ Waage nach 1 s selbst.
 
 ### Duell
 
-Voraussetzung: Funk an (5 s halten) und Game-Modus. Das Symbol `Vs n` zeigt,
-wie viele andere Waagen sichtbar sind.
+Voraussetzung: Duell-Modus (1 s halten, bis „Duell-Modus“ erscheint). Das
+Symbol `Vs n` zeigt, wie viele andere Waagen im Duell-Modus sichtbar sind. Ist
+keine da, spielt man ganz normal solo.
 
 - Glas aufstellen → `Warte... 2/3 bereit`. Die Runde startet, sobald **alle**
   sichtbaren Waagen bereit sind. Das Ziel wird aus den Zielen der Teilnehmer
@@ -70,6 +86,8 @@ wie viele andere Waagen sichtbar sind.
   im Wechsel mit `2/3 fertig`), final dann `2. Platz!`.
 - Es gelten dieselben Regeln wie solo: gutes Ergebnis bleibt bis zum Taster,
   schlechtes verschwindet beim Abheben (frühestens 3 s nach dem Endergebnis).
+- **Nicht warten wollen:** Glas während `Warte...` einfach abheben und
+  trinken. Die Waage spielt dann solo, die anderen warten nicht mehr auf sie.
 - Eine Waage, die nicht bereit ist (z. B. noch ihr Ergebnis zeigt), hält den Start
   auf; nach 60 s Warten spielt man solo. Ein Wechsel auf Solo wird mit `Solo!`
   angezeigt.
@@ -77,36 +95,38 @@ wie viele andere Waagen sichtbar sind.
 
 ### Standard-Modus
 
-Einfache Waage mit 0,1 g Anzeige. Nimmt nicht an Duellen teil.
+Einfache Waage mit 0,1 g Anzeige.
 
 ### Symbole
 
-| Symbol                  | Bedeutung                              |
-| ----------------------- | -------------------------------------- |
-| 🔀 oben links           | Zufallsziel aktiv                      |
-| WLAN-Bogen              | Funk an                                |
-| `AP`                    | Config-Access-Point läuft              |
-| `Vs n`                  | n andere Duell-Waagen sichtbar         |
-| Akku                    | Ladezustand (bei ausgeschaltetem Funk) |
-| blinkender Akku mit `!` | Akku unter 10 %                        |
+| Symbol                  | Bedeutung                                   |
+| ----------------------- | ------------------------------------------- |
+| 🔀 oben links           | Zufallsziel aktiv                           |
+| WLAN-Bogen              | Config-Access-Point läuft                   |
+| `Vs n`                  | Duell-Modus, n andere Duell-Waagen sichtbar |
+| Akku                    | Ladezustand                                 |
+| blinkender Akku mit `!` | Akku unter 10 %                             |
 
 ### Energie
 
 - Nach `Deep-Sleep`-Minuten ohne Gewichtsänderung oder Tastendruck schläft die
   Waage, in jedem Zustand. Ausnahmen: der Config-AP läuft oder die eigene
   Duell-Runde ist noch nicht entschieden.
-- Aufwecken mit dem Taster. War der Funk an, erscheint kurz `Funk aus`.
-- Der Config-AP geht nach `AP-Auto-Aus` Minuten ohne Web-Zugriff aus, der
-  Duell-Funk läuft weiter.
+- Aufwecken mit dem Taster. Im Duell-Modus ist der Funk danach sofort wieder
+  an, der Config-AP bleibt aus.
+- Der Config-AP geht nach `AP-Auto-Aus` Minuten ohne Web-Zugriff aus. Im
+  Duell-Modus läuft der Funk weiter.
+- Der Duell-Modus braucht durch den Funk deutlich mehr Strom. Wer allein spielt,
+  nimmt besser den Game-Modus.
 
 ## Weboberfläche
 
-1. 5 s halten, das Display zeigt den WLAN-Namen (`100-Waage-XXXX`, eindeutig pro Waage).
+1. 3 s halten, das Display zeigt den WLAN-Namen (`100-Waage-XXXX`, eindeutig pro Waage).
 2. Mit dem Handy verbinden (offenes WLAN), die Seite öffnet sich als Captive
    Portal, sonst `http://192.168.4.1` bzw. `http://waage.local` aufrufen.
 
 **Startseite:** Live-Status (Gewicht, Modus, Ziel, Akku), Einstellungen für
-Modus, Zielgewicht, Zufallsziel und Display-Rotation. Änderungen gelten sofort
+Modus (Game, Duell, Standard), Zielgewicht, Zufallsziel und Display-Rotation. Änderungen gelten sofort
 (Ziel und Zufall während einer laufenden Runde ab der nächsten).
 
 **Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich,

@@ -28,7 +28,6 @@ constexpr int PIN_BTN = 5;
 constexpr uint32_t SENSOR_GRACE_MS =
     2000; // so lange nach dem Start keine Fehlermeldung
 constexpr uint32_t AP_NAME_TOAST_MS = 3000;
-constexpr uint32_t WAKE_TOAST_MS = 2000;
 constexpr uint32_t CAL_ERROR_SHOW_MS =
     10000; // Kalibrierfehler so lange zeigen, dann weiter spielen
 
@@ -43,9 +42,6 @@ static int otaPercent = 0;
 static bool calWasActive = false;
 static uint32_t calErrorSince = 0;
 static bool otaDone = false; // Update erfolgreich, Neustart steht an
-
-// Ueberlebt den Deep-Sleep: Hinweis "Funk aus" nach dem Aufwachen
-static RTC_DATA_ATTR bool radioWasOnBeforeSleep = false;
 
 static uint32_t randomWord(void *) { return esp_random(); }
 
@@ -85,6 +81,16 @@ static void resetGame(uint32_t now) {
   const cfg::Config &c = config_get();
   theGame.reset(c, now, game::ScaleReq::Tare);
   applyScaleReq(theGame.takeScaleReq(), c, now);
+}
+
+// Funk laeuft genau dann, wenn der Duell-Modus aktiv ist oder der AP laeuft.
+// Ausschalten verlaesst eine laufende Runde (radio_stop).
+static void syncRadio(const cfg::Config &c) {
+  bool want = c.scaleMode == cfg::ScaleMode::Duel || radio_apOn();
+  if (want && !radio_isOn())
+    radio_start();
+  else if (!want && radio_isOn())
+    radio_stop();
 }
 
 bool app_isBusy() {
@@ -137,11 +143,12 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
     resetGame(now); // verlaesst eine Duell-Runde (leave)
     if (radio_isOn())
       duell_flush_burst();
+    syncRadio(c);
     r.appliedNow = true;
   } else if (ch & (cfg::CH_GOAL | cfg::CH_RANDOM)) {
     theGame.applyGoalSettings(c, now);
-    r.appliedNow = c.scaleMode == cfg::ScaleMode::Game &&
-                   theGame.phase() == game::Phase::Idle;
+    r.appliedNow =
+        cfg::playsGame(c.scaleMode) && theGame.phase() == game::Phase::Idle;
   }
   return r;
 }
@@ -155,18 +162,16 @@ static void handleButton(button::Zone z, uint32_t now) {
     break;
   case button::Zone::Mode: {
     cfg::Config n = config_get();
-    n.scaleMode = n.scaleMode == cfg::ScaleMode::Game ? cfg::ScaleMode::Standard
-                                                      : cfg::ScaleMode::Game;
+    n.scaleMode = cfg::nextMode(n.scaleMode);
     app_applyConfig(n, false);
-    uiModel.toast(n.scaleMode == cfg::ScaleMode::Game ? "Game-Modus"
-                                                      : "Standard-Modus",
-                  now);
+    uiModel.modeToast(n.scaleMode, millis());
     break;
   }
   case button::Zone::Radio:
     if (radio_apOn()) {
-      radio_stop();
-      uiModel.toast("Alles aus", now);
+      radio_stopAP();
+      syncRadio(config_get()); // Funk bleibt nur im Duell-Modus an
+      uiModel.toast("AP aus", now);
     } else {
       radio_startAP(config_get());
       uiModel.toast(radio_apName(), millis(), AP_NAME_TOAST_MS);
@@ -367,7 +372,7 @@ void app_writeStatus(web::JsonWriter &j) {
     j.num(r.grams, 2);
   else
     j.null();
-  j.key("mode").str(c.scaleMode == cfg::ScaleMode::Game ? "Game" : "Standard");
+  j.key("mode").str(cfg::modeKey(c.scaleMode));
   j.key("phase").str(phaseName());
   j.key("busy").flag(app_isBusy());
   j.key("goal").num(theGame.localGoal(), 1);
@@ -444,9 +449,8 @@ static bool systemScreen(uint32_t now, const char *sys[3]) {
 static void render(const cfg::Config &c, uint32_t now) {
   const batt::Gauge &g = battery_gauge();
   ui::Status st = {};
-  st.radioOn = radio_isOn();
   st.apOn = radio_apOn();
-  st.peers = (radio_isOn() && c.scaleMode == cfg::ScaleMode::Game)
+  st.peers = (radio_isOn() && c.scaleMode == cfg::ScaleMode::Duel)
                  ? duell_get_peers_count()
                  : 0;
   st.battShown = BATTERY_CONNECTED && g.valid();
@@ -468,7 +472,6 @@ static void render(const cfg::Config &c, uint32_t now) {
 // ── Deep-Sleep ────────────────────────────────────────────────────────────────
 
 static void enterDeepSleep() {
-  radioWasOnBeforeSleep = radio_isOn();
   radio_stop(); // verlaesst eine finale Runde und sendet das vorher
   ui_off();
   scale_powerDown();
@@ -528,18 +531,13 @@ void app_setup() {
   theGame.begin(&duell_port(), randomWord, nullptr);
   resetGame(now);
   sleepPolicy.reset(now);
-
-  bool woke = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_GPIO;
-  if (woke && radioWasOnBeforeSleep)
-    uiModel.toast("Funk aus", now, WAKE_TOAST_MS);
-  else
-    uiModel.toast(FW_VERSION, now);
-  radioWasOnBeforeSleep = false;
+  uiModel.toast(FW_VERSION, now);
 
   if (radio_takeApAfterBoot()) {
     radio_startAP(c);
     uiModel.toast(radio_apName(), millis(), AP_NAME_TOAST_MS);
   }
+  syncRadio(c); // Duell-Modus: Funk direkt an, auch nach dem Aufwachen
 }
 
 void app_loop() {
@@ -557,6 +555,7 @@ void app_loop() {
 
   switch (radio_loop(c, now)) {
   case RadioEvent::ApTimedOut:
+    syncRadio(c);
     uiModel.toast("AP aus", now);
     break;
   case RadioEvent::ApRestarted:
@@ -567,9 +566,10 @@ void app_loop() {
   }
   now = millis(); // Webserver kann gedauert haben
 
-  // Duell nur im Game-Modus (Standard-Modus: Ausstieg wurde beim Wechsel
-  // gesendet)
-  if (radio_isOn() && c.scaleMode == cfg::ScaleMode::Game)
+  // Duell nur im Duell-Modus. Sonst laeuft der Funk nur fuer den AP; die Waage
+  // sendet nichts (Ausstieg wurde beim Wechsel gesendet).
+  const bool duelOn = radio_isOn() && c.scaleMode == cfg::ScaleMode::Duel;
+  if (duelOn)
     duell_update(theGame.localGoal());
   else if (radio_isOn())
     duell_discard_rx(); // keine alten Pakete fuer spaeter aufheben
@@ -582,7 +582,7 @@ void app_loop() {
   in.weightValid = r.valid && scale_ok() && !cal.active() && !otaActive;
   in.weight = r.grams;
   in.stable = r.stable;
-  in.radioOn = radio_isOn();
+  in.radioOn = duelOn;
   theGame.update(c, in);
   applyScaleReq(theGame.takeScaleReq(), c, now);
 

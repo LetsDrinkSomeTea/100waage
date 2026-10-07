@@ -14,7 +14,18 @@ constexpr size_t PASSWORD_MIN = 4;  // nur fuer neu gesetzte Passwoerter
 constexpr char DEFAULT_AP_SSID[] = "100-Waage-Config";
 constexpr char DEFAULT_PASSWORD[] = "admin";
 
-enum class ScaleMode : uint8_t { Game = 0, Standard = 1 };
+// Gespeicherte Werte bleiben stabil (NVS): Duel kam als 2 dazu.
+enum class ScaleMode : uint8_t { Game = 0, Standard = 1, Duel = 2 };
+constexpr uint8_t MODE_COUNT = 3;
+
+// Game und Duel spielen, Standard ist eine einfache Waage.
+inline bool playsGame(ScaleMode m) { return m != ScaleMode::Standard; }
+// Reihenfolge am Taster: Game → Duel → Standard → Game.
+ScaleMode nextMode(ScaleMode m);
+uint8_t modePosition(ScaleMode m); // 0..2 in dieser Reihenfolge
+// Name in der Web-API ("Game", "Duel", "Standard") und zurueck.
+const char *modeKey(ScaleMode m);
+bool parseMode(const char *key, ScaleMode *out);
 
 struct Config {
   char apSSID[SSID_MAX + 1];
@@ -54,7 +65,7 @@ Config defaults();
 // gerundet, mindestens tolerance + 1. randomMin auf [min(tolerance + 1, goal),
 // goal] geklemmt, 0,1 g Raster. autoZeroThreshold 0,1..20 und <= tolerance.
 // autoZeroDelay 1..60 (sonst 5). autoResetRange <= 100. displayRotation 0/2
-// (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0/1 (sonst Game).
+// (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0..2 (sonst Game).
 // Strings werden terminiert; leere oder nicht druckbare SSID → Default-SSID,
 // leeres Passwort → "admin" (kurze alte Passwoerter bleiben erhalten).
 // Liefert true, wenn etwas korrigiert wurde.

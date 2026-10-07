@@ -359,7 +359,9 @@ static void testSanitizeSmallFields() {
   Config c = defaults();
   c.scaleMode = ScaleMode::Standard;
   CHECK(!sanitize(c) && c.scaleMode == ScaleMode::Standard);
-  c.scaleMode = (ScaleMode)2;
+  c.scaleMode = ScaleMode::Duel;
+  CHECK(!sanitize(c) && c.scaleMode == ScaleMode::Duel);
+  c.scaleMode = (ScaleMode)3;
   CHECK(sanitize(c) && c.scaleMode == ScaleMode::Game);
   c.scaleMode = (ScaleMode)255;
   CHECK(sanitize(c) && c.scaleMode == ScaleMode::Game);
@@ -488,7 +490,7 @@ static bool inRanges(const Config &c) {
          c.autoResetRange <= 100 &&
          (c.displayRotation == 0 || c.displayRotation == 2) &&
          c.battDividerRatio >= 1.0f && c.battDividerRatio <= 6.0f &&
-         (c.scaleMode == ScaleMode::Game || c.scaleMode == ScaleMode::Standard);
+         (uint8_t)c.scaleMode < MODE_COUNT;
 }
 
 static float specialFloat() {
@@ -782,7 +784,9 @@ static void testValidateFields() {
   c = base;
   c.scaleMode = ScaleMode::Standard;
   CHECK(accepts(c));
-  c.scaleMode = (ScaleMode)2;
+  c.scaleMode = ScaleMode::Duel;
+  CHECK(accepts(c));
+  c.scaleMode = (ScaleMode)3;
   CHECK(rejects(c, "scaleMode"));
 
   // scaleFactor (Kalibrierung)
@@ -832,7 +836,7 @@ static void testValidateMatchesSanitize() {
     c.autoResetRange = (uint8_t)(rnd() % 120);
     c.displayRotation = (uint8_t)(rnd() % 4);
     c.battDividerRatio = (float)(rnd() % 800) / 100.0f;
-    c.scaleMode = (ScaleMode)(rnd() % 3);
+    c.scaleMode = (ScaleMode)(rnd() % 4);
     c.wifiTimeout = (uint8_t)rnd();
     c.sleepTimeout = (uint8_t)rnd();
     if (rnd() % 10 == 0)
@@ -2161,7 +2165,36 @@ static void testReviewApName() {
   CHECK(apName(c, mac) == "100-Waage-Config ");
 }
 
+// Modus-Reihenfolge am Taster und Namen in der Web-API
+static void testModes() {
+  CHECK(nextMode(ScaleMode::Game) == ScaleMode::Duel);
+  CHECK(nextMode(ScaleMode::Duel) == ScaleMode::Standard);
+  CHECK(nextMode(ScaleMode::Standard) == ScaleMode::Game);
+  // Zyklus besucht jeden Modus genau einmal, Positionen 0..2
+  ScaleMode m = ScaleMode::Game;
+  unsigned seen = 0;
+  for (uint8_t i = 0; i < MODE_COUNT; i++) {
+    CHECK(modePosition(m) == i);
+    seen |= 1u << (uint8_t)m;
+    m = nextMode(m);
+  }
+  CHECK(m == ScaleMode::Game && seen == 0x7);
+
+  CHECK(playsGame(ScaleMode::Game) && playsGame(ScaleMode::Duel));
+  CHECK(!playsGame(ScaleMode::Standard));
+
+  for (uint8_t i = 0; i < MODE_COUNT; i++) {
+    ScaleMode out = ScaleMode::Standard;
+    CHECK(parseMode(modeKey((ScaleMode)i), &out) && out == (ScaleMode)i);
+  }
+  CHECK(!strcmp(modeKey(ScaleMode::Duel), "Duel"));
+  ScaleMode out = ScaleMode::Duel;
+  CHECK(!parseMode("Duell", &out) && out == ScaleMode::Duel);
+  CHECK(!parseMode("", &out) && !parseMode("game", &out));
+}
+
 int main() {
+  testModes();
   testDefaults();
   testSanitizeScaleFactor();
   testSanitizeTolerance();

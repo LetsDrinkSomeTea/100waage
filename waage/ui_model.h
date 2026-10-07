@@ -17,11 +17,12 @@ constexpr uint32_t RESULT_ALT_MS = 3000;  // Ergebnis-Wechsel (Wert/Zeit)
 constexpr uint32_t ANIM_MS = 300;         // Ladeanimation
 constexpr uint32_t TOAST_MS = 1500;
 constexpr uint32_t BLINK_MS = 500; // Akku-Warnung blinkt im 1-Hz-Takt
+constexpr int MODE_DOTS = 3;       // Game, Duell, Standard
 constexpr int BAR_W = 128;         // Haltebalken ueber CANCEL_MS
 constexpr int TICK_MODE_PX =
-    (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS); // 48
+    (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS);
 constexpr int TICK_RADIO_PX =
-    (int)((uint64_t)button::RADIO_MS * BAR_W / button::CANCEL_MS); // 80
+    (int)((uint64_t)button::RADIO_MS * BAR_W / button::CANCEL_MS);
 
 enum class Kind : uint8_t {
   Text, // Textzeilen (+ ggf. Symbole)
@@ -29,20 +30,23 @@ enum class Kind : uint8_t {
   Anim
 }; // Ladeanimation (Trinken)
 
-enum class RightIcon : uint8_t { None, Battery, Wifi, Duel }; // "Vs n"
-
 struct Frame {
   Kind kind;
   text::Layout text; // CP437, fertig umbrochen
   bool icons;        // Statussymbole zeichnen (Idle-Bildschirme)
   bool border;       // Rahmen (Glas steht, Game-Idle)
   bool shuffle;      // Zufallsmodus-Symbol oben links
-  RightIcon right;
+  // Oben rechts, von rechts nach links: Akku, "Vs n", WLAN-Bogen (AP)
+  bool battIcon;
   uint8_t battPercent;
+  bool duelIcon; // Duell-Modus, auch mit 0 Gegnern
   uint8_t peers;
-  bool apBadge;      // "AP" neben dem Funksymbol
-  bool lowBatt;      // Akku-Warnsymbol in dieser Blinkphase sichtbar (alle
-                     // Bildschirme)
+  bool apIcon;
+  bool lowBatt; // Akku-Warnsymbol in dieser Blinkphase sichtbar (alle
+                // Bildschirme)
+  // Modus-Punkte (Game, Duell, Standard) unter einer Zeile in Groesse 1:
+  // 0 = keine, sonst 1 + Position des gefuellten Punkts
+  uint8_t modeDots;
   uint8_t barPx;     // Hold: gefuellte Breite 0..BAR_W
   uint8_t animFrame; // Anim: 0..4
 };
@@ -51,9 +55,8 @@ struct Frame {
 bool sameFrame(const Frame &a, const Frame &b);
 
 struct Status {
-  bool radioOn;
   bool apOn;
-  int peers;      // sichtbare Duell-Waagen
+  int peers;      // sichtbare Duell-Waagen (nur im Duell-Modus relevant)
   bool battShown; // Akku angeschlossen
   int battPercent;
   bool battLow;
@@ -66,12 +69,13 @@ struct Hold {
   uint32_t heldMs;
 };
 
+// Anzeigename eines Modus (UTF-8), z. B. "Duell-Modus".
+const char *modeName(cfg::ScaleMode m);
+
 // Aktionstext beim Loslassen in der jeweiligen Zone (UTF-8):
-// Short "Tara", Mode "Standard-Modus"/"Game-Modus" (Zielmodus),
-// Radio "Alles aus" (AP an) / "AP an" (nur Funk an) / "Funk + AP an",
-// Cancel "Abbrechen".
-const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool radioOn,
-                      bool apOn);
+// Short "Tara", Mode Name des naechsten Modus (Game → Duell → Standard),
+// Radio "AP aus" / "AP an", Cancel "Abbrechen".
+const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn);
 
 // Texte der Bewertung (UTF-8), z. B. "Schüchtern".
 const char *ratingText(game::Rating r);
@@ -80,6 +84,8 @@ class Model {
 public:
   // Kurzmeldung ueber dem Spielbildschirm (UTF-8, wird kopiert, max. 63 Bytes).
   void toast(const char *utf8, uint32_t now, uint32_t ms = TOAST_MS);
+  // Kurzmeldung nach einem Moduswechsel: Name + Modus-Punkte.
+  void modeToast(cfg::ScaleMode m, uint32_t now);
 
   // system: nullptr oder bis zu 3 UTF-8-Zeilen (nullptr-Eintraege = leer),
   // z. B. Kalibrierschritte, "Sensorfehler", OTA-Fortschritt.
@@ -90,6 +96,7 @@ private:
   char toast_[64] = {};
   uint32_t toastUntil_ = 0;
   bool toastOn_ = false;
+  uint8_t toastDots_ = 0;
   // Ergebnis-Wechsel
   bool altTime_ = false;
   uint32_t altSince_ = 0;

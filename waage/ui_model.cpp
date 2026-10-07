@@ -8,15 +8,26 @@ bool sameFrame(const Frame &a, const Frame &b) {
   return memcmp(&a, &b, sizeof(Frame)) == 0;
 }
 
-const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool radioOn,
-                      bool apOn) {
+const char *modeName(cfg::ScaleMode m) {
+  switch (m) {
+  case cfg::ScaleMode::Game:
+    return "Game-Modus";
+  case cfg::ScaleMode::Duel:
+    return "Duell-Modus";
+  case cfg::ScaleMode::Standard:
+    return "Standard-Modus";
+  }
+  return "";
+}
+
+const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn) {
   switch (z) {
   case button::Zone::Short:
     return "Tara";
   case button::Zone::Mode:
-    return mode == cfg::ScaleMode::Game ? "Standard-Modus" : "Game-Modus";
+    return modeName(cfg::nextMode(mode));
   case button::Zone::Radio:
-    return apOn ? "Alles aus" : (radioOn ? "AP an" : "Funk + AP an");
+    return apOn ? "AP aus" : "AP an";
   case button::Zone::Cancel:
     return "Abbrechen";
   case button::Zone::None:
@@ -57,6 +68,12 @@ void Model::toast(const char *utf8, uint32_t now, uint32_t ms) {
   copyText(toast_, utf8 ? utf8 : "", sizeof(toast_));
   toastUntil_ = now + ms;
   toastOn_ = true;
+  toastDots_ = 0;
+}
+
+void Model::modeToast(cfg::ScaleMode m, uint32_t now) {
+  toast(modeName(m), now);
+  toastDots_ = (uint8_t)(1 + cfg::modePosition(m));
 }
 
 static void setText(Frame &f, const char *a, const char *b = nullptr,
@@ -64,18 +81,22 @@ static void setText(Frame &f, const char *a, const char *b = nullptr,
   text::layout(a, b, c, f.text);
 }
 
+// Eine Zeile in Groesse 1 mit Modus-Punkten darunter (Platz fuer die Punkte)
+static void setModeText(Frame &f, const char *utf8, uint8_t dots) {
+  setText(f, utf8);
+  f.text.size = 1;
+  f.modeDots = dots;
+}
+
 static void setIcons(Frame &f, const Status &s) {
   f.icons = true;
-  f.apBadge = s.apOn;
-  if (s.radioOn) {
-    if (s.mode == cfg::ScaleMode::Game && s.peers > 0) {
-      f.right = RightIcon::Duel;
-      f.peers = (uint8_t)(s.peers > 99 ? 99 : s.peers);
-    } else {
-      f.right = RightIcon::Wifi;
-    }
-  } else if (s.battShown) {
-    f.right = RightIcon::Battery;
+  f.apIcon = s.apOn;
+  if (s.mode == cfg::ScaleMode::Duel) {
+    f.duelIcon = true;
+    f.peers = (uint8_t)(s.peers < 0 ? 0 : (s.peers > 99 ? 99 : s.peers));
+  }
+  if (s.battShown) {
+    f.battIcon = true;
     f.battPercent =
         (uint8_t)(s.battPercent < 0
                       ? 0
@@ -205,7 +226,11 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
 
   if (h.active) {
     f.kind = Kind::Hold;
-    setText(f, holdLabel(h.zone, s.mode, s.radioOn, s.apOn));
+    if (h.zone == button::Zone::Mode)
+      setModeText(f, holdLabel(h.zone, s.mode, s.apOn),
+                  (uint8_t)(1 + cfg::modePosition(cfg::nextMode(s.mode))));
+    else
+      setText(f, holdLabel(h.zone, s.mode, s.apOn));
     uint32_t held = h.heldMs > button::CANCEL_MS ? button::CANCEL_MS : h.heldMs;
     f.barPx = (uint8_t)((uint64_t)held * BAR_W / button::CANCEL_MS);
     return f;
@@ -216,7 +241,10 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
   }
   if (toastOn_) {
     if ((int32_t)(now - toastUntil_) < 0) {
-      setText(f, toast_);
+      if (toastDots_)
+        setModeText(f, toast_, toastDots_);
+      else
+        setText(f, toast_);
       return f;
     }
     toastOn_ = false;
