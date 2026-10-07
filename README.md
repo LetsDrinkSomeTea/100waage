@@ -25,13 +25,13 @@ Duell-Modus per Funk gegeneinander antreten. Technische Details stehen in [Specs
 
 ### Taster
 
-| Aktion       | Wirkung                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------- |
-| Kurz drücken | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                    |
-| Halten       | Ab 0,3 s erscheint ein Balken mit Marken bei 1 s und 3 s; der Text zeigt, was beim Loslassen passiert |
-| Halten 1–3 s | Nächster Modus: Game → Duell → Standard → Game                                                        |
-| Halten 3–5 s | Config-AP an/aus                                                                                      |
-| Halten ≥ 5 s | Abbrechen, nichts passiert                                                                            |
+| Aktion           | Wirkung                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| Drücken < 0,75 s | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                       |
+| Halten           | Ab 0,3 s erscheint ein Balken mit Marken bei 0,75 s und 2 s; der Text zeigt, was beim Loslassen passiert |
+| Halten 0,75–2 s  | Nächster Modus: Game → Duell → Standard → Game                                                           |
+| Halten 2–3,25 s  | Config-AP an/aus                                                                                         |
+| Halten ≥ 3,25 s  | Abbrechen, nichts passiert                                                                               |
 
 Beim Moduswechsel zeigt der Balken den Zielmodus mit drei Punkten darunter
 (Game, Duell, Standard, der Zielmodus ist gefüllt). Nach dem Loslassen
@@ -75,7 +75,7 @@ Waage nach 1 s selbst.
 
 ### Duell
 
-Voraussetzung: Duell-Modus (1 s halten, bis „Duell-Modus“ erscheint). Das
+Voraussetzung: Duell-Modus (0,75 s halten, bis „Duell-Modus“ erscheint). Das
 Symbol `Vs n` zeigt, wie viele andere Waagen im Duell-Modus sichtbar sind. Ist
 keine da, spielt man ganz normal solo.
 
@@ -121,7 +121,7 @@ Einfache Waage mit 0,1 g Anzeige.
 
 ## Weboberfläche
 
-1. 3 s halten, das Display zeigt den WLAN-Namen (`100-Waage-XXXX`, eindeutig pro Waage).
+1. 2 s halten, das Display zeigt den WLAN-Namen (`100-Waage-XXXX`, eindeutig pro Waage).
 2. Mit dem Handy verbinden (offenes WLAN), die Seite öffnet sich als Captive
    Portal, sonst `http://192.168.4.1` bzw. `http://waage.local` aufrufen.
 

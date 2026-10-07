@@ -132,7 +132,17 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
     break;
 
   case game::Screen::Taring:
-    setText(f, "Tara...");
+    // Kein eigener Hinweis: wie Idle, nur ohne veraltetes Gewicht/Glas
+    if (cfg::playsGame(s.mode)) {
+      text::fmtGrams1(v.goal, a, sizeof(a));
+      strncat(a, "g?", sizeof(a) - strlen(a) - 1);
+      f.shuffle = v.randomMode;
+    } else {
+      text::fmtGrams1(0.0f, a, sizeof(a));
+      strncat(a, "g", sizeof(a) - strlen(a) - 1);
+    }
+    setText(f, a);
+    setIcons(f, s);
     break;
 
   case game::Screen::WaitDuel:

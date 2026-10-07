@@ -12,9 +12,9 @@ constexpr uint32_t DEBOUNCE_MS = 30;
 constexpr uint32_t MIN_PRESS_MS = 50; // kuerzere Druecke loesen nichts aus
 constexpr uint32_t OVERLAY_MS =
     300;                            // ab hier zeigt das Display den Haltebalken
-constexpr uint32_t MODE_MS = 1000;  // Moduswechsel
-constexpr uint32_t RADIO_MS = 3000; // AP an/aus
-constexpr uint32_t CANCEL_MS = 5000; // Abbruch, nichts tun
+constexpr uint32_t MODE_MS = 750;   // Moduswechsel
+constexpr uint32_t RADIO_MS = 2000; // AP an/aus
+constexpr uint32_t CANCEL_MS = 3250; // Abbruch, nichts tun
 
 enum class Zone : uint8_t {
   None,  // nicht gedrueckt

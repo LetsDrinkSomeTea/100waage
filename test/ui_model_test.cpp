@@ -260,8 +260,15 @@ static void testReadyAndDrinking() {
   v.screen = game::Screen::DuelStart;
   v.goal = 73.0f;
   CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 6000), "Ziel", "73.0g"));
+  // Tara: kein eigener Hinweis, sondern Idle ohne veraltetes Gewicht
   v.screen = game::Screen::Taring;
-  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 6000), "Tara..."));
+  v.weight = 250.0f;
+  CHECK(textIs(m.build(v, status(), NO_HOLD, nullptr, 6000), "73.0g?"));
+  Status st = status();
+  st.mode = cfg::ScaleMode::Duel;
+  CHECK(textIs(m.build(v, st, NO_HOLD, nullptr, 6000), "73.0g?"));
+  st.mode = cfg::ScaleMode::Standard;
+  CHECK(textIs(m.build(v, st, NO_HOLD, nullptr, 6000), "0.0g"));
 }
 
 static void testResultSoloAlternates() {

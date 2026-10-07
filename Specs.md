@@ -161,8 +161,8 @@ wie in der HX711-Bibliothek.
 Jede Tara ist nicht blockierend: `TARE_DISCARD_MS` = 100 ms verwerfen, dann
 Offset = Mittel aus `TARE_MIN_SAMPLES` = 5 stabilen Samples (ca. 0,6 s bei
 10 SPS), spätestens nach `TARE_MAX_MS` = 2000 ms mit dem Mittel aller
-gesammelten Samples. Währenddessen zeigt das Display „Tara...“ und das Spiel
-pausiert.
+gesammelten Samples. Währenddessen pausiert das Spiel; das Display zeigt ohne
+eigenen Hinweis den Idle-Bildschirm (Game/Duell: Ziel, Standard: 0.0g).
 
 `game_core` fordert die Waage über `ScaleReq` an:
 
@@ -344,13 +344,13 @@ Waage aufweckt, löst nichts aus.
 
 | Haltezeit beim Loslassen | Aktion                                          | Text im Balken                              |
 | ------------------------ | ----------------------------------------------- | ------------------------------------------- |
-| < 1 s                    | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                      |
-| 1–3 s                    | nächster Modus: Game → Duell → Standard → Game  | Zielmodus, z. B. „Duell-Modus“, mit Punkten |
-| 3–5 s                    | AP an/aus                                       | „AP an“ / „AP aus“                          |
-| ≥ 5 s                    | nichts                                          | „Abbrechen“                                 |
+| < 0,75 s                 | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                      |
+| 0,75–2 s                 | nächster Modus: Game → Duell → Standard → Game  | Zielmodus, z. B. „Duell-Modus“, mit Punkten |
+| 2–3,25 s                 | AP an/aus                                       | „AP an“ / „AP aus“                          |
+| ≥ 3,25 s                 | nichts                                          | „Abbrechen“                                 |
 
-Ab 300 ms zeigt das Display einen Balken über 5 s mit Marken bei 1 s und 3 s
-(Pixel 25 und 76); der Text zeigt die Wirkung beim Loslassen. In der
+Ab 300 ms zeigt das Display einen Balken über 3,25 s mit Marken bei 0,75 s und
+2 s (Pixel 29 und 78); der Text zeigt die Wirkung beim Loslassen. In der
 Modus-Zone steht der Zielmodus in kleiner Schrift, darunter drei Punkte
 (Game, Duell, Standard) mit dem Zielmodus gefüllt. Der Hinweis nach dem
 Wechsel zeigt Name und Punkte noch einmal. So wird die Reihenfolge sichtbar,
@@ -532,7 +532,7 @@ Vor dem Merge mit mindestens zwei Waagen:
       (bekanntes Gewicht vorher und nachher wiegen).
 - [ ] Kurzdruck mit Glas tariert; Glas weg → nach 1 s Nullung (NegZero).
 - [ ] Solo: gutes Ergebnis bleibt beim Abheben, schlechtes verschwindet.
-- [ ] Haltebalken: Texte bei 0,3 / 1 / 3 / 5 s, Loslassen in jeder Zone;
+- [ ] Haltebalken: Texte bei 0,3 / 0,75 / 2 / 3,25 s, Loslassen in jeder Zone;
       Modus-Punkte im Balken und im Hinweis, Zyklus Game → Duell → Standard.
 - [ ] Umlaute auf dem Display („Schüchtern“, Trinksprüche).
 - [ ] Deep-Sleep aus stehendem Ergebnis; Schlafstrom (HX711 aus); Aufwachen im

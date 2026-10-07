@@ -331,10 +331,10 @@ void testBounceBursts() {
     w.add(true, 2).add(false, 1).add(true, 3).add(false, 5).add(true, 1).add(
         false, 2); // 14 ms
     const uint32_t rise = base + 100 + 14;
-    w.add(true, 800);
+    w.add(true, 400);
     w.add(false, 1).add(true, 4).add(false, 2).add(true, 1).add(false, 3).add(
         true, 6); // 17 ms
-    const uint32_t fall = rise + 800 + 17;
+    const uint32_t fall = rise + 400 + 17;
     w.add(false, 500);
 
     Button b;
