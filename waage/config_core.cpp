@@ -290,6 +290,7 @@ Config defaults() {
   c.wifiTimeout = 10;
   c.sleepTimeout = 5;
   c.battDividerRatio = BATT_RATIO_DEFAULT;
+  c.batteryPresent = true;
   c.scaleMode = ScaleMode::Game;
   c.autoResetRange = 10;
   c.autoZeroEnabled = true;
@@ -325,6 +326,7 @@ bool sanitize(Config &c) {
   fixBool(c.autoZeroEnabled, ch);
   fixBool(c.randomModeEnabled, ch);
   fixBool(c.statsRotation, ch);
+  fixBool(c.batteryPresent, ch);
 
   if (!scaleFactorOk(c.scaleFactor))
     setF(c.scaleFactor, SCALE_FACTOR_DEFAULT, ch);
@@ -595,7 +597,8 @@ uint32_t diff(const Config &a, const Config &b) {
       !sameBits(a.autoZeroThreshold, b.autoZeroThreshold) ||
       a.autoZeroDelay != b.autoZeroDelay)
     m |= CH_AUTOZERO;
-  if (!sameBits(a.battDividerRatio, b.battDividerRatio))
+  if (!sameBits(a.battDividerRatio, b.battDividerRatio) ||
+      a.batteryPresent != b.batteryPresent)
     m |= CH_BATT;
   if (a.statsRotation != b.statsRotation || a.statsAfterS != b.statsAfterS ||
       a.statsGoalS != b.statsGoalS || a.statsStepS != b.statsStepS)

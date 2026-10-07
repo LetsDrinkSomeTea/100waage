@@ -23,10 +23,9 @@ benannte Konstanten in ms; die Namen stehen in Klammern.
 
 ### Compile-Schalter
 
-| Schalter               | Datei       | Wert    | Wirkung                                        |
-| ---------------------- | ----------- | ------- | ---------------------------------------------- |
-| `BATTERY_CONNECTED`    | `battery.h` | `true`  | Akku messen und anzeigen                       |
-| `RESET_CONFIG_ENABLED` | `app.cpp`   | `false` | Werksreset: Taster beim Einschalten 3 s halten |
+| Schalter               | Datei     | Wert    | Wirkung                                        |
+| ---------------------- | --------- | ------- | ---------------------------------------------- |
+| `RESET_CONFIG_ENABLED` | `app.cpp` | `false` | Werksreset: Taster beim Einschalten 3 s halten |
 
 ## Modulstruktur
 
@@ -78,6 +77,7 @@ Queue legt.
 | `wifiTimeout`       | 10 min             | 0–255, 0 = nie                                           | Admin               |
 | `sleepTimeout`      | 5 min              | 0–255, 0 = nie                                           | Admin               |
 | `battDividerRatio`  | 2,0                | 1–6                                                      | Akku-Abgleich       |
+| `batteryPresent`    | an                 | aus = Netzbetrieb (keine Messung, kein Symbol)           | Admin               |
 | `scaleMode`         | Game               | Game / Duel / Standard (gespeichert 0 / 2 / 1)           | Start               |
 | `autoResetRange`    | 10 %               | 0–100                                                    | Admin               |
 | `autoZeroEnabled`   | an                 |                                                          | Admin               |
@@ -481,6 +481,10 @@ der nach dem Loop-Zeitpunkt liegt, gilt als frische Aktivität.
 - **Abgleich** im Admin-Bereich: Spannung mit dem Multimeter an den Akkupolen
   messen und eintragen; der Teiler wird daraus berechnet (Bereich 1–6) und
   gespeichert. „Zurücksetzen“ stellt 2,0 wieder her.
+- **Ohne Akku** (`batteryPresent` aus, Admin „Akku vorhanden“): kein ADC-Zugriff,
+  kein Akkusymbol und keine Warnung, `battery` im Status ist `null`, Abgleich
+  liefert 503. Wirkt sofort ohne Neustart. Deep-Sleep bleibt davon unberührt
+  (für Netzbetrieb ggf. „Deep-Sleep 0 = nie“ setzen).
 
 ## Funk und AP
 

@@ -37,6 +37,7 @@ struct Config {
   uint8_t wifiTimeout;     // AP-Auto-Aus [min], 0 = nie
   uint8_t sleepTimeout;    // Deep-Sleep nach Inaktivitaet [min], 0 = nie
   float battDividerRatio;  // Spannungsteiler am Akku-Pin
+  bool batteryPresent;     // Akku messen und anzeigen (aus: Netzbetrieb)
   ScaleMode scaleMode;
   uint8_t autoResetRange; // [%] Ergebnis gilt als gut innerhalb dieses Bereichs
   bool autoZeroEnabled;
@@ -116,7 +117,7 @@ enum Change : uint32_t {
   CH_TIMEOUTS = 1u << 7, // wifiTimeout, sleepTimeout
   CH_GAME = 1u << 8,     // tolerance, autoResetRange
   CH_AUTOZERO = 1u << 9, // autoZero*
-  CH_BATT = 1u << 10,    // battDividerRatio
+  CH_BATT = 1u << 10,    // battDividerRatio, batteryPresent
   CH_STATS = 1u << 11,   // statsRotation, statsAfterS/GoalS/StepS
 };
 uint32_t diff(const Config &a, const Config &b);

@@ -132,7 +132,7 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
   if (ch & cfg::CH_GAME)
     scale_core().setStableSpread(stableSpreadFor(c));
   if (ch & cfg::CH_BATT)
-    battery_setRatio(c.battDividerRatio);
+    battery_configure(c.batteryPresent, c.battDividerRatio);
   if (ch & cfg::CH_SCALE)
     scale_core().setFactor(c.scaleFactor);
   if ((ch & cfg::CH_SSID) && radio_apOn()) {
@@ -298,8 +298,8 @@ static void updateCalibration(const cfg::Config &c, uint32_t now) {
 
 int app_battCal(float measuredV, bool resetDefault, const char **err) {
   *err = nullptr;
-  if (!BATTERY_CONNECTED) {
-    *err = "Kein Akku angeschlossen";
+  if (!battery_present()) {
+    *err = "Akku ist in den Einstellungen deaktiviert";
     return 503;
   }
   cfg::Config n = config_get();
@@ -386,7 +386,7 @@ void app_writeStatus(web::JsonWriter &j) {
   j.key("scaleOk").flag(scale_ok());
   j.key("battery");
   const batt::Gauge &g = battery_gauge();
-  if (BATTERY_CONNECTED && g.valid()) {
+  if (battery_present() && g.valid()) {
     j.beginObject();
     j.key("percent").integer(g.percent());
     j.key("voltage").num(g.voltage(), 2);
@@ -457,9 +457,9 @@ static void render(const cfg::Config &c, uint32_t now) {
   st.peers = (radio_isOn() && c.scaleMode == cfg::ScaleMode::Duel)
                  ? duell_get_peers_count()
                  : 0;
-  st.battShown = BATTERY_CONNECTED && g.valid();
+  st.battShown = battery_present() && g.valid();
   st.battPercent = g.percent();
-  st.battLow = BATTERY_CONNECTED && g.valid() && g.low();
+  st.battLow = battery_present() && g.valid() && g.low();
   st.mode = c.scaleMode;
   st.stats = &stats_tracker();
   st.statsRotation = c.statsRotation;
@@ -538,7 +538,7 @@ void app_setup() {
   btn.begin(digitalRead(PIN_BTN) == HIGH, now); // Weck-Druck ignorieren
   scale_begin(c.scaleFactor);
   scale_core().setStableSpread(stableSpreadFor(c));
-  battery_begin(c.battDividerRatio);
+  battery_begin(c.batteryPresent, c.battDividerRatio);
   stats_begin();
   theGame.begin(&duell_port(), randomWord, nullptr);
   resetGame(now);

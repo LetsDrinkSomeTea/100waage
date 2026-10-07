@@ -12,7 +12,7 @@ Duell-Modus per Funk gegeneinander antreten. Technische Details stehen in [Specs
 | Wägezelle  | HX711-Verstärker (10 Messungen/s, 80/s bei umgelötetem RATE-Pin) |
 | Display    | SSD1306 OLED 128×32, I2C                                         |
 | Taster     | GPIO 5 (HIGH = gedrückt, weckt aus dem Deep-Sleep)               |
-| Akku       | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 0            |
+| Akku       | Li-Ion mit Schutzschaltung, Spannungsteiler an GPIO 0 (optional) |
 
 | Funktion        | GPIO    |
 | --------------- | ------- |
@@ -151,6 +151,9 @@ während einer laufenden Runde ab der nächsten).
 Timeouts, Auto-Zero, Zeiten der Statistik-Anzeige, Passwort; alles ohne
 Neustart. Außerdem:
 
+- **Akku vorhanden:** für Waagen ohne Akku (Netzbetrieb) ausschalten; dann
+  keine Akkumessung und kein Akkusymbol. Bei Netzbetrieb lohnt sich meist
+  „Deep-Sleep 0 = nie“.
 - **Akku-Abgleich:** Akkuspannung mit dem Multimeter an den Akkupolen messen
   (Funk an), eintragen, „Abgleichen“.
 - **Waage kalibrieren:** Waage leeren → Start (tariert) → bekanntes Gewicht

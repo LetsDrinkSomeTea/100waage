@@ -293,6 +293,7 @@ static void writeAdminConfig(web::JsonWriter &j) {
   j.key("statsGoalS").uinteger(c.statsGoalS);
   j.key("statsStepS").uinteger(c.statsStepS);
   j.key("battDividerRatio").num(c.battDividerRatio, 3);
+  j.key("batteryPresent").flag(c.batteryPresent);
   j.key("scaleFactor").num(c.scaleFactor, 4);
   j.key("fw").str(FW_VERSION);
   j.key("proto").uinteger(duell::MAGIC);
@@ -362,6 +363,10 @@ static void handleAdminConfigPost() {
     return;
   if (p)
     n.statsStepS = (uint8_t)u;
+  if (!argBool("batteryPresent", &b, &p))
+    return;
+  if (p)
+    n.batteryPresent = b;
   bool pwChange =
       server->hasArg("newPassword") && server->arg("newPassword").length() > 0;
   if (pwChange) {

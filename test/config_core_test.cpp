@@ -59,7 +59,8 @@ static bool same(const Config &a, const Config &b) {
          a.randomModeEnabled == b.randomModeEnabled &&
          bits(a.randomMin) == bits(b.randomMin) &&
          a.statsRotation == b.statsRotation && a.statsAfterS == b.statsAfterS &&
-         a.statsGoalS == b.statsGoalS && a.statsStepS == b.statsStepS;
+         a.statsGoalS == b.statsGoalS && a.statsStepS == b.statsStepS &&
+         a.batteryPresent == b.batteryPresent;
 }
 
 static bool sanF(float Config::*f, float in, float &out) {
@@ -130,6 +131,7 @@ static void testDefaults() {
   CHECK(c.randomModeEnabled == false);
   CHECK(c.randomMin == 20.0f);
   CHECK(c.statsRotation == true);
+  CHECK(c.batteryPresent == true);
   CHECK(c.statsAfterS == 15 && c.statsGoalS == 6 && c.statsStepS == 4);
   CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT &&
         c.battDividerRatio == BATT_RATIO_DEFAULT);
@@ -397,6 +399,11 @@ static void testSanitizeSmallFields() {
   memcpy(&c.statsRotation, &raw, 1);
   CHECK(sanitize(c));
   memcpy(&raw, &c.statsRotation, 1);
+  CHECK(raw == 1);
+  raw = 0x42;
+  memcpy(&c.batteryPresent, &raw, 1);
+  CHECK(sanitize(c));
+  memcpy(&raw, &c.batteryPresent, 1);
   CHECK(raw == 1);
 }
 
@@ -1215,6 +1222,9 @@ static void testDiff() {
   CHECK(diff(a, b) == CH_AUTOZERO);
   b = a;
   b.battDividerRatio = 3.0f;
+  CHECK(diff(a, b) == CH_BATT);
+  b = a;
+  b.batteryPresent = false;
   CHECK(diff(a, b) == CH_BATT);
   b = a;
   b.statsRotation = false;

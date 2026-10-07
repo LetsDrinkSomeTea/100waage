@@ -36,8 +36,10 @@ static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
     p.putUChar("wifiTo", c.wifiTimeout);
     p.putUChar("sleepTo", c.sleepTimeout);
   }
-  if (mask & cfg::CH_BATT)
+  if (mask & cfg::CH_BATT) {
     p.putFloat("battDiv", c.battDividerRatio);
+    p.putBool("battOn", c.batteryPresent);
+  }
   if (mask & cfg::CH_MODE)
     p.putUChar("mode", (uint8_t)c.scaleMode);
   if (mask & cfg::CH_AUTOZERO) {
@@ -76,6 +78,7 @@ static void readAll(Preferences &p, cfg::Config &c) {
   c.wifiTimeout = p.getUChar("wifiTo", d.wifiTimeout);
   c.sleepTimeout = p.getUChar("sleepTo", d.sleepTimeout);
   c.battDividerRatio = p.getFloat("battDiv", d.battDividerRatio);
+  c.batteryPresent = p.getBool("battOn", d.batteryPresent);
   c.scaleMode = (cfg::ScaleMode)p.getUChar("mode", (uint8_t)d.scaleMode);
   c.autoZeroEnabled = p.getBool("azOn", d.autoZeroEnabled);
   c.autoZeroThreshold = p.getFloat("azThr", d.autoZeroThreshold);

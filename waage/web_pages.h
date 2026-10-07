@@ -126,6 +126,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td{padding:3px 4px;bord
 <label>Auto-Reset-Bereich [%]<i>Ergebnisse außerhalb dieses Bereichs werden automatisch zurückgesetzt (0–100)</i><input type="number" min="0" max="100" name="autoResetRange"></label>
 <label>AP-Auto-Aus [min]<i>0 = nie</i><input type="number" min="0" max="255" name="wifiTimeout"></label>
 <label>Deep-Sleep [min]<i>Nach Inaktivität, 0 = nie</i><input type="number" min="0" max="255" name="sleepTimeout"></label>
+<label class="cb"><input type="checkbox" name="batteryPresent">Akku vorhanden<i>Aus bei Netzbetrieb: keine Akkumessung, kein Akkusymbol</i></label>
 <label class="cb"><input type="checkbox" name="autoZeroEnabled">Auto-Zero (Nullabgleich bei stabil leerer Waage)</label>
 <label>Auto-Zero-Schwelle [g]<i>Maximalgewicht, das als leer gilt</i><input type="number" step="0.1" name="autoZeroThreshold"></label>
 <label>Auto-Zero-Verzögerung [s]<i>So lange muss die Waage stabil leer sein</i><input type="number" min="1" max="60" name="autoZeroDelay"></label>
@@ -187,7 +188,7 @@ say(AM,t,'ok');A.elements.newPassword.value=$('pw2').value='';
 A.o={};for(const x of A.elements)if(x.name)A.o[x.name]=val(x);
 if(j.apName)$('apn').textContent=j.apName;if(!j.apRestart&&!j.relogin)lc()};
 const P=every(async()=>{const r=await api('/api/status'),b=r.j.battery;if(r.s!=200)return;fw0=fw0||r.j.fw;
-$('bv').textContent=b?de(b.percent,0)+' % · '+de(b.voltage,2)+' V · Pin '+de(b.pinMv,0)+' mV · Teiler '+de(b.ratio,3):'kein Akku';
+$('bv').textContent=b?de(b.percent,0)+' % · '+de(b.voltage,2)+' V · Pin '+de(b.pinMv,0)+' mV · Teiler '+de(b.ratio,3):'kein Akku (in den Einstellungen deaktiviert)';
 $('bl').hidden=!(b&&b.low)},3000);
 const BF=$('bf'),BM=$('bm');
 async function bc(o){clr(BF);say(BM,'Gleiche ab…','inf');const r=await post('/api/admin/battcal',o),j=r.j;

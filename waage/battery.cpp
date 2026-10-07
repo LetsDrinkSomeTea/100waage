@@ -9,6 +9,7 @@ constexpr int MAX_SAMPLES = 64;
 
 static batt::Gauge gauge;
 static float ratio = 2.0f;
+static bool present = false, adcReady = false;
 static uint32_t lastRead = 0, lastToggle = 0;
 static bool toggled = false;
 
@@ -27,20 +28,30 @@ static void measure() {
   gauge.update(battery_pinMv(SAMPLES) * ratio / 1000.0f);
 }
 
-void battery_begin(float dividerRatio) {
+void battery_configure(bool isPresent, float dividerRatio) {
   ratio = dividerRatio;
-  if (!BATTERY_CONNECTED)
-    return;
-  analogReadResolution(12);
-  analogSetAttenuation(ADC_11db); // Messbereich bis ca. 2,5 V am Pin
-  pinMode(PIN_BATT, INPUT);
+  present = isPresent;
   gauge.reset();
+  if (!present)
+    return;
+  if (!adcReady) {
+    analogReadResolution(12);
+    analogSetAttenuation(ADC_11db); // Messbereich bis ca. 2,5 V am Pin
+    pinMode(PIN_BATT, INPUT);
+    adcReady = true;
+  }
   measure(); // erster Wert setzt Start- und Anzeigewert
   lastRead = millis();
 }
 
+void battery_begin(bool isPresent, float dividerRatio) {
+  battery_configure(isPresent, dividerRatio);
+}
+
+bool battery_present() { return present; }
+
 void battery_poll(uint32_t now) {
-  if (!BATTERY_CONNECTED)
+  if (!present)
     return;
   if (toggled && (uint32_t)(now - lastToggle) < TOGGLE_SETTLE_MS)
     return;
@@ -48,14 +59,6 @@ void battery_poll(uint32_t now) {
   if ((uint32_t)(now - lastRead) < READ_INTERVAL_MS)
     return;
   lastRead = now;
-  measure();
-}
-
-void battery_setRatio(float dividerRatio) {
-  ratio = dividerRatio;
-  if (!BATTERY_CONNECTED)
-    return;
-  gauge.reset();
   measure();
 }
 
