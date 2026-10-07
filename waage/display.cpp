@@ -100,10 +100,15 @@ void drawDuellIcon(int16_t x, int16_t y, int peers) {
   display.print(peers);
 }
 
-void drawApBadge(int16_t x, int16_t y) {
-  display.setTextSize(1);
-  display.setCursor(x, y);
-  display.print("AP");
+void drawModeDots(int filled, int n) {
+  constexpr int R = 2, GAP = 10, Y = 17;
+  int x = (SCREEN_WIDTH - (n - 1) * GAP) / 2;
+  for (int i = 0; i < n; i++, x += GAP) {
+    if (i == filled)
+      display.fillCircle(x, Y, R, SSD1306_WHITE);
+    else
+      display.drawCircle(x, Y, R, SSD1306_WHITE);
+  }
 }
 
 void drawShuffleIcon(int16_t x, int16_t y) {

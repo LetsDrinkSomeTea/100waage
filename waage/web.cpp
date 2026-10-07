@@ -162,8 +162,7 @@ static void writePublicConfig(web::JsonWriter &j) {
   j.key("randomModeEnabled").flag(c.randomModeEnabled);
   j.key("randomMin").num(c.randomMin, 1);
   j.key("displayRotation").uinteger(c.displayRotation);
-  j.key("scaleMode")
-      .str(c.scaleMode == cfg::ScaleMode::Game ? "Game" : "Standard");
+  j.key("scaleMode").str(cfg::modeKey(c.scaleMode));
   j.key("tolerance").num(c.tolerance, 1);
   j.endObject();
 }
@@ -198,12 +197,7 @@ static void handleConfigPost() {
   if (p)
     n.displayRotation = (uint8_t)u;
   if (server->hasArg("scaleMode") && server->arg("scaleMode").length() > 0) {
-    const String &m = server->arg("scaleMode");
-    if (m == "Game")
-      n.scaleMode = cfg::ScaleMode::Game;
-    else if (m == "Standard")
-      n.scaleMode = cfg::ScaleMode::Standard;
-    else
+    if (!cfg::parseMode(server->arg("scaleMode").c_str(), &n.scaleMode))
       return sendError(400, "Ungültiger Modus", "scaleMode");
   }
 

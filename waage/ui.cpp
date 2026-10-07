@@ -21,39 +21,44 @@ void ui_setRotation(uint8_t rotation) {
 static void drawIcons(const ui::Frame &f) {
   if (f.shuffle)
     drawShuffleIcon(0, 0);
-  int rightX = SCREEN_WIDTH;
-  switch (f.right) {
-  case ui::RightIcon::Battery:
-    rightX = SCREEN_WIDTH - 14;
-    drawBatteryIcon(rightX, 0, f.battPercent);
-    break;
-  case ui::RightIcon::Wifi:
-    rightX = SCREEN_WIDTH - 14;
-    drawWifiIcon(rightX, 0);
-    break;
-  case ui::RightIcon::Duel:
-    rightX = SCREEN_WIDTH - 26;
-    drawDuellIcon(rightX, 0, f.peers);
-    break;
-  case ui::RightIcon::None:
-    break;
+  // von rechts nach links: Akku, "Vs n", WLAN-Bogen (AP)
+  int x = SCREEN_WIDTH;
+  if (f.battIcon) {
+    x -= 14;
+    drawBatteryIcon(x, 0, f.battPercent);
   }
-  if (f.apBadge)
-    drawApBadge(rightX - 14, 0);
+  if (f.duelIcon) {
+    x -= f.peers > 9 ? 28 : 22;
+    drawDuellIcon(x, 0, f.peers);
+  }
+  if (f.apIcon)
+    drawWifiIcon(x - 13, 0);
+}
+
+// Text oben in Groesse 1, Modus-Punkte darunter
+static void drawModeText(const ui::Frame &f) {
+  if (f.text.lines > 0)
+    drawCentered(f.text.line[0], 1, 0, 12);
+  drawModeDots(f.modeDots - 1, ui::MODE_DOTS);
 }
 
 static void draw(const ui::Frame &f) {
   display.clearDisplay();
   switch (f.kind) {
   case ui::Kind::Text:
-    drawLayout(f.text);
+    if (f.modeDots)
+      drawModeText(f);
+    else
+      drawLayout(f.text);
     if (f.border)
       display.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
     if (f.icons)
       drawIcons(f);
     break;
   case ui::Kind::Hold:
-    if (f.text.lines > 0)
+    if (f.modeDots)
+      drawModeText(f);
+    else if (f.text.lines > 0)
       drawCentered(f.text.line[0], f.text.size, 0, 22);
     drawHoldBar(f.barPx, ui::TICK_MODE_PX, ui::TICK_RADIO_PX);
     break;

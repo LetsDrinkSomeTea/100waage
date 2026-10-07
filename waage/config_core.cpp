@@ -227,6 +227,55 @@ constexpr size_t RND_ON = 129, RND_MIN = 132;
 
 } // namespace
 
+// ── Modi ──────────────────────────────────────────────────────────────────────
+
+ScaleMode nextMode(ScaleMode m) {
+  switch (m) {
+  case ScaleMode::Game:
+    return ScaleMode::Duel;
+  case ScaleMode::Duel:
+    return ScaleMode::Standard;
+  case ScaleMode::Standard:
+    break;
+  }
+  return ScaleMode::Game;
+}
+
+uint8_t modePosition(ScaleMode m) {
+  switch (m) {
+  case ScaleMode::Game:
+    return 0;
+  case ScaleMode::Duel:
+    return 1;
+  case ScaleMode::Standard:
+    return 2;
+  }
+  return 0;
+}
+
+const char *modeKey(ScaleMode m) {
+  switch (m) {
+  case ScaleMode::Game:
+    return "Game";
+  case ScaleMode::Duel:
+    return "Duel";
+  case ScaleMode::Standard:
+    return "Standard";
+  }
+  return "Game";
+}
+
+bool parseMode(const char *key, ScaleMode *out) {
+  for (uint8_t i = 0; i < MODE_COUNT; i++) {
+    ScaleMode m = (ScaleMode)i;
+    if (strcmp(key, modeKey(m)) == 0) {
+      *out = m;
+      return true;
+    }
+  }
+  return false;
+}
+
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
 Config defaults() {
@@ -305,7 +354,7 @@ bool sanitize(Config &c) {
         c.battDividerRatio <= BATT_RATIO_MAX))
     setF(c.battDividerRatio, BATT_RATIO_DEFAULT, ch);
 
-  if ((uint8_t)c.scaleMode > (uint8_t)ScaleMode::Standard) {
+  if ((uint8_t)c.scaleMode >= MODE_COUNT) {
     c.scaleMode = ScaleMode::Game;
     ch = true;
   }
@@ -369,7 +418,7 @@ Error validate(Config &c) {
   if (!(c.battDividerRatio >= BATT_RATIO_MIN &&
         c.battDividerRatio <= BATT_RATIO_MAX))
     return {"battDividerRatio", "Spannungsteiler muss zwischen 1 und 6 liegen"};
-  if ((uint8_t)c.scaleMode > (uint8_t)ScaleMode::Standard)
+  if ((uint8_t)c.scaleMode >= MODE_COUNT)
     return {"scaleMode", "Unbekannter Waagen-Modus"};
   if (!scaleFactorOk(c.scaleFactor))
     return {"scaleFactor", "Kalibrierfaktor ist ungültig"};

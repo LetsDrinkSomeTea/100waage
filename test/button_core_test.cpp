@@ -18,11 +18,11 @@ const uint32_t BASES[] = {0u, 123456u, 0xFFFFF000u,
 Zone expectZone(uint32_t heldMs) {
   if (heldMs < MIN_PRESS_MS)
     return Zone::None;
-  if (heldMs < 3000)
+  if (heldMs < MODE_MS)
     return Zone::Short;
-  if (heldMs < 5000)
+  if (heldMs < RADIO_MS)
     return Zone::Mode;
-  if (heldMs < 8000)
+  if (heldMs < CANCEL_MS)
     return Zone::Radio;
   return Zone::Cancel;
 }
@@ -210,8 +210,8 @@ void testDefaultConstructed() {
   CHECK(b.update(true, 10 + DEBOUNCE_MS) == Zone::None);
   CHECK(b.pressed());
   CHECK(b.takeEdge());
-  CHECK(b.update(false, 1010) == Zone::None);
-  CHECK(b.update(false, 1010 + DEBOUNCE_MS) == Zone::Short);
+  CHECK(b.update(false, 510) == Zone::None);
+  CHECK(b.update(false, 510 + DEBOUNCE_MS) == Zone::Short);
 }
 
 // ── Zonen beim Loslassen (Grenzen) ────────────────────────────────────────────
@@ -223,14 +223,10 @@ void testReleaseBoundaries() {
   };
   const Case cases[] = {
       {DEBOUNCE_MS + 1, Zone::None}, // entprellt, aber zu kurz
-      {MIN_PRESS_MS - 1, Zone::None},
-      {MIN_PRESS_MS, Zone::Short},
-      {2999, Zone::Short},
-      {3000, Zone::Mode},
-      {4999, Zone::Mode},
-      {5000, Zone::Radio},
-      {7999, Zone::Radio},
-      {8000, Zone::Cancel},
+      {MIN_PRESS_MS - 1, Zone::None}, {MIN_PRESS_MS, Zone::Short},
+      {MODE_MS - 1, Zone::Short},     {MODE_MS, Zone::Mode},
+      {RADIO_MS - 1, Zone::Mode},     {RADIO_MS, Zone::Radio},
+      {CANCEL_MS - 1, Zone::Radio},   {CANCEL_MS, Zone::Cancel},
       {30000, Zone::Cancel},
   };
   for (uint32_t base : BASES) {
@@ -267,9 +263,9 @@ void testWhileHeld() {
     w.add(false, 100).add(true, hold).add(false, 300);
 
     bool heldOk = true, zoneOk = true, overlayOk = true, pressedOk = true;
-    Zone at2999 = Zone::None, at3000 = Zone::None, at4999 = Zone::None,
-         at5000 = Zone::None, at7999 = Zone::None, at8000 = Zone::None,
-         before = Zone::Cancel;
+    // Zone direkt vor und an jeder Grenze
+    const uint32_t bounds[] = {MODE_MS, RADIO_MS, CANCEL_MS};
+    Zone atBefore[3] = {}, atBound[3] = {}, before = Zone::Cancel;
     bool ov299 = true, ov300 = false;
     Log log;
     run(b, w, base, w.length(), 1, log, [&](uint32_t now) {
@@ -290,7 +286,7 @@ void testWhileHeld() {
           off < hold ? off : hold; // nach dem Loslassen eingefroren
       if (b.heldMs(now) != expHeld)
         heldOk = false;
-      Zone ez = expHeld < 3000 ? Zone::Short : expectZone(expHeld);
+      Zone ez = expHeld < MODE_MS ? Zone::Short : expectZone(expHeld);
       if (b.zone(now) != ez)
         zoneOk = false;
       if (b.overlay(now) != (expHeld >= OVERLAY_MS))
@@ -299,18 +295,12 @@ void testWhileHeld() {
         ov299 = b.overlay(now);
       if (off == OVERLAY_MS)
         ov300 = b.overlay(now);
-      if (off == 2999)
-        at2999 = b.zone(now);
-      if (off == 3000)
-        at3000 = b.zone(now);
-      if (off == 4999)
-        at4999 = b.zone(now);
-      if (off == 5000)
-        at5000 = b.zone(now);
-      if (off == 7999)
-        at7999 = b.zone(now);
-      if (off == 8000)
-        at8000 = b.zone(now);
+      for (int i = 0; i < 3; i++) {
+        if (off == bounds[i] - 1)
+          atBefore[i] = b.zone(now);
+        if (off == bounds[i])
+          atBound[i] = b.zone(now);
+      }
     });
     CHECK(pressedOk);
     CHECK(heldOk);
@@ -319,12 +309,12 @@ void testWhileHeld() {
     CHECK(before == Zone::None); // vor der Entprellung noch keine Zone
     CHECK(!ov299);
     CHECK(ov300);
-    CHECK(at2999 == Zone::Short);
-    CHECK(at3000 == Zone::Mode);
-    CHECK(at4999 == Zone::Mode);
-    CHECK(at5000 == Zone::Radio);
-    CHECK(at7999 == Zone::Radio);
-    CHECK(at8000 == Zone::Cancel);
+    CHECK(atBefore[0] == Zone::Short);
+    CHECK(atBound[0] == Zone::Mode);
+    CHECK(atBefore[1] == Zone::Mode);
+    CHECK(atBound[1] == Zone::Radio);
+    CHECK(atBefore[2] == Zone::Radio);
+    CHECK(atBound[2] == Zone::Cancel);
     CHECK(log.zones.size() == 1 && log.zones[0] == Zone::Cancel);
     CHECK(log.edges == 2);
   }
@@ -361,8 +351,8 @@ void testBounceBursts() {
   }
 }
 
-// Nach 5 s Halten prellt das Loslassen: genau ein Radio, kein zusaetzliches
-// Short.
+// Nach Halten in der Radio-Zone prellt das Loslassen: genau ein Radio, kein
+// zusaetzliches Short.
 void testReleaseBounceAfterRadio() {
   for (uint32_t base : BASES) {
     // a) nur Prellen beim Loslassen, b) plus spaete Spitze < DEBOUNCE_MS,
@@ -370,7 +360,7 @@ void testReleaseBounceAfterRadio() {
     for (int variant = 0; variant < 3; variant++) {
       Wave w;
       w.t0 = base;
-      w.add(false, 100).add(true, 3).add(false, 2).add(true, 5500);
+      w.add(false, 100).add(true, 3).add(false, 2).add(true, RADIO_MS + 500);
       w.add(false, 2).add(true, 1).add(false, 3).add(true, 4).add(false, 1).add(
           true, 2);
       w.add(false, 60);
@@ -395,7 +385,7 @@ void testReleaseBounceAfterRadio() {
     for (uint32_t phase = 0; phase < 60; phase += 7) {
       Wave w;
       w.t0 = base;
-      w.add(false, 100).add(true, 3).add(false, 2).add(true, 5500);
+      w.add(false, 100).add(true, 3).add(false, 2).add(true, RADIO_MS + 500);
       w.add(false, 2).add(true, 1).add(false, 3).add(true, 4).add(false, 1).add(
           true, 2);
       w.add(false, 500);
@@ -412,7 +402,8 @@ void testReleaseBounceAfterRadio() {
 // Zufaellige Prell-Muster in verschiedenen Loop-Takten: immer genau ein
 // Ereignis.
 void testRandomBursts() {
-  const uint32_t holds[] = {500, 4000, 6000, 10000};
+  const uint32_t holds[] = {500, MODE_MS + 500, RADIO_MS + 500,
+                            CANCEL_MS + 2000};
   const uint32_t steps[] = {1, 3, 7, 16, 60};
   Lcg r{12345};
   int bad = 0, trials = 0;
@@ -538,13 +529,14 @@ void testGlitches() {
 // Kurze Luecke verbindet zwei Druecke, lange Luecke trennt sie (Doppeltipp).
 void testGapsAndDoubleTap() {
   for (uint32_t base : BASES) {
-    // Luecke < DEBOUNCE_MS: ein langer Druck (2000 + 20 + 2000 -> Mode)
+    // Luecke < DEBOUNCE_MS: ein langer Druck (je Haelfte Short, zusammen Mode)
+    const uint32_t half = MODE_MS * 7 / 10;
     Wave w;
     w.t0 = base;
     w.add(false, 100)
-        .add(true, 2000)
+        .add(true, half)
         .add(false, DEBOUNCE_MS - 10)
-        .add(true, 2000)
+        .add(true, half)
         .add(false, 300);
     Button b;
     b.begin(false, base);
@@ -575,7 +567,8 @@ void testGapsAndDoubleTap() {
 // Loop schneller als 1 ms: mehrere update() mit demselben Zeitstempel.
 void testVeryFastLoop() {
   for (uint32_t base : BASES) {
-    for (uint32_t hold : {60u, 1000u, 3500u, 6000u, 9000u}) {
+    for (uint32_t hold :
+         {60u, MODE_MS / 2, MODE_MS + 500, RADIO_MS + 500, CANCEL_MS + 1000}) {
       Wave w;
       w.t0 = base;
       w.add(false, 100)
@@ -598,7 +591,9 @@ void testVeryFastLoop() {
 // begrenzt.
 void testSlowLoop() {
   const uint32_t SLOW = 60;
-  const uint32_t holds[] = {2 * SLOW + 10, 300, 1500, 4000, 6500, 9000};
+  const uint32_t holds[] = {2 * SLOW + 10,   300,
+                            MODE_MS + 500,   RADIO_MS + 500,
+                            CANCEL_MS - 500, CANCEL_MS + 1000};
   for (uint32_t base : BASES) {
     for (uint32_t hold : holds) {
       for (uint32_t phase = 0; phase < SLOW; phase += 5) {
@@ -640,7 +635,8 @@ void testSlowLoop() {
 
 void testBootPress() {
   for (uint32_t base : BASES) {
-    // Weck-Druck 6 s gehalten (waere Radio), mit Prellen beim Loslassen
+    // Weck-Druck in der Radio-Zone gehalten, mit Prellen beim Loslassen
+    const uint32_t BOOT_HOLD = RADIO_MS + 1000;
     Button b;
     b.begin(true, base);
     CHECK(b.pressed());
@@ -649,19 +645,19 @@ void testBootPress() {
     CHECK(!b.overlay(base + 1000));
     Wave w;
     w.t0 = base;
-    w.add(true, 6000)
+    w.add(true, BOOT_HOLD)
         .add(false, 2)
         .add(true, 3)
         .add(false, 1)
         .add(true, 2)
         .add(false, 400);
-    const uint32_t fall = base + 6008;
+    const uint32_t fall = base + BOOT_HOLD + 8;
     bool shown = false, notPressed = false;
     Log l;
     run(b, w, base, w.length(), 1, l, [&](uint32_t now) {
       if (b.zone(now) != Zone::None || b.overlay(now) || b.heldMs(now) != 0)
         shown = true;
-      if ((uint32_t)(now - base) < 6008 + DEBOUNCE_MS && !b.pressed())
+      if ((uint32_t)(now - base) < BOOT_HOLD + 8 + DEBOUNCE_MS && !b.pressed())
         notPressed = true;
     });
     CHECK(!shown);
@@ -724,8 +720,8 @@ void testBootPress() {
     CHECK(b5.update(true, base + 10 + DEBOUNCE_MS) == Zone::None);
     CHECK(b5.pressed());
     CHECK(b5.heldMs(base + 10 + DEBOUNCE_MS) == DEBOUNCE_MS);
-    CHECK(b5.update(false, base + 10 + 3000) == Zone::None);
-    CHECK(b5.update(false, base + 10 + 3000 + DEBOUNCE_MS) == Zone::Mode);
+    CHECK(b5.update(false, base + 10 + MODE_MS) == Zone::None);
+    CHECK(b5.update(false, base + 10 + MODE_MS + DEBOUNCE_MS) == Zone::Mode);
   }
 }
 
@@ -799,19 +795,19 @@ void testWrapAround() {
   CHECK(b.update(true, 0xFFFFFFF0u + DEBOUNCE_MS) == Zone::None);
   CHECK(b.pressed());
   CHECK(b.heldMs(0xFFFFFFF0u + DEBOUNCE_MS) == DEBOUNCE_MS);
-  CHECK(b.heldMs(0xFFFFFFF0u + 3000) == 3000);
-  CHECK(b.zone(0xFFFFFFF0u + 2999) == Zone::Short);
-  CHECK(b.zone(0xFFFFFFF0u + 3000) == Zone::Mode);
+  CHECK(b.heldMs(0xFFFFFFF0u + MODE_MS) == MODE_MS);
+  CHECK(b.zone(0xFFFFFFF0u + MODE_MS - 1) == Zone::Short);
+  CHECK(b.zone(0xFFFFFFF0u + MODE_MS) == Zone::Mode);
   CHECK(b.overlay(0xFFFFFFF0u + OVERLAY_MS));
   CHECK(!b.overlay(0xFFFFFFF0u + OVERLAY_MS - 1));
-  CHECK(b.update(false, 0xFFFFFFF0u + 5000) == Zone::None);
-  CHECK(b.update(false, 0xFFFFFFF0u + 5000 + DEBOUNCE_MS) == Zone::Radio);
+  CHECK(b.update(false, 0xFFFFFFF0u + RADIO_MS) == Zone::None);
+  CHECK(b.update(false, 0xFFFFFFF0u + RADIO_MS + DEBOUNCE_MS) == Zone::Radio);
 
   // Druck beginnt kurz vor dem Ueberlauf, Loslassen exakt bei 0
   Button c;
   c.begin(false, 0xFFFFF000u);
-  c.update(true, 0u - 3000u);
-  c.update(true, 0u - 3000u + DEBOUNCE_MS);
+  c.update(true, 0u - MODE_MS);
+  c.update(true, 0u - MODE_MS + DEBOUNCE_MS);
   CHECK(c.pressed());
   CHECK(c.zone(0xFFFFFFFFu) == Zone::Short);
   CHECK(c.zone(0u) == Zone::Mode);
@@ -926,11 +922,12 @@ void testDebounceBoundaryPulse() {
       // LOW-Luecke waehrend des Haltens
       Button c;
       c.begin(false, base);
-      for (uint32_t k = 0; k <= 1000; k++)
+      const uint32_t H = MODE_MS / 2; // bleibt Short
+      for (uint32_t k = 0; k <= H; k++)
         c.update(true, t + k);
       CHECK(c.pressed());
       CHECK(c.takeEdge());
-      const uint32_t g = t + 1001;
+      const uint32_t g = t + H + 1;
       Zone gapEv = Zone::None;
       bool released = false;
       for (uint32_t k = 0; k < n; k++) {
@@ -944,7 +941,7 @@ void testDebounceBoundaryPulse() {
       CHECK(c.takeEdge() == counts);
       // Haltedauer bis zum Beginn der Luecke (ab Beginn des stabilen HIGH)
       if (!counts)
-        CHECK(c.heldMs(g + n - 1) == 1001);
+        CHECK(c.heldMs(g + n - 1) == H + 1);
     }
   }
 }
@@ -989,8 +986,8 @@ void testLongTimes() {
     CHECK(!c.pressed());
     CHECK(c.update(true, t + 1 + DEBOUNCE_MS) == Zone::None);
     CHECK(c.pressed());
-    CHECK(c.update(false, t + 3500) == Zone::None);
-    CHECK(c.update(false, t + 3500 + DEBOUNCE_MS) == Zone::Mode);
+    CHECK(c.update(false, t + MODE_MS + 500) == Zone::None);
+    CHECK(c.update(false, t + MODE_MS + 500 + DEBOUNCE_MS) == Zone::Mode);
   }
 }
 

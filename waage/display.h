@@ -23,5 +23,7 @@ void drawBatteryIcon(int16_t x, int16_t y, int percentage);
 void drawLowBatteryIcon(int16_t x, int16_t y);
 void drawWifiIcon(int16_t x, int16_t y);
 void drawDuellIcon(int16_t x, int16_t y, int peerCount);
-void drawApBadge(int16_t x, int16_t y);
+// n Punkte mittig um y = 17 (zwischen Text und Haltebalken), Punkt filled
+// gefuellt.
+void drawModeDots(int filled, int n);
 void drawShuffleIcon(int16_t x, int16_t y);
