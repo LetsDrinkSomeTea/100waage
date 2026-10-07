@@ -298,6 +298,9 @@ Config defaults() {
   c.randomModeEnabled = false;
   c.randomMin = RANDOM_MIN_DEFAULT;
   c.statsRotation = true;
+  c.statsAfterS = STATS_AFTER_DEFAULT;
+  c.statsGoalS = STATS_GOAL_DEFAULT;
+  c.statsStepS = STATS_STEP_DEFAULT;
   return c;
 }
 
@@ -349,6 +352,12 @@ bool sanitize(Config &c) {
     setU8(c.autoZeroDelay, AZ_DELAY_DEFAULT, ch);
   if (c.autoResetRange > AUTO_RESET_MAX)
     setU8(c.autoResetRange, AUTO_RESET_MAX, ch);
+  if (c.statsAfterS < STATS_AFTER_MIN)
+    setU8(c.statsAfterS, STATS_AFTER_DEFAULT, ch);
+  if (c.statsGoalS < STATS_SHOW_MIN || c.statsGoalS > STATS_SHOW_MAX)
+    setU8(c.statsGoalS, STATS_GOAL_DEFAULT, ch);
+  if (c.statsStepS < STATS_SHOW_MIN || c.statsStepS > STATS_SHOW_MAX)
+    setU8(c.statsStepS, STATS_STEP_DEFAULT, ch);
   if (c.displayRotation != 0 && c.displayRotation != 2)
     setU8(c.displayRotation, 0, ch);
 
@@ -414,6 +423,12 @@ Error validate(Config &c) {
   if (c.autoZeroDelay < AZ_DELAY_MIN || c.autoZeroDelay > AZ_DELAY_MAX)
     return {"autoZeroDelay",
             "Auto-Zero-Verzögerung muss zwischen 1 und 60 s liegen"};
+  if (c.statsAfterS < STATS_AFTER_MIN)
+    return {"statsAfterS", "Wartezeit muss zwischen 1 und 255 s liegen"};
+  if (c.statsGoalS < STATS_SHOW_MIN || c.statsGoalS > STATS_SHOW_MAX)
+    return {"statsGoalS", "Anzeigedauer muss zwischen 1 und 60 s liegen"};
+  if (c.statsStepS < STATS_SHOW_MIN || c.statsStepS > STATS_SHOW_MAX)
+    return {"statsStepS", "Anzeigedauer muss zwischen 1 und 60 s liegen"};
 
   if (c.displayRotation != 0 && c.displayRotation != 2)
     return {"displayRotation", "Display-Rotation muss 0° oder 180° sein"};
@@ -582,7 +597,8 @@ uint32_t diff(const Config &a, const Config &b) {
     m |= CH_AUTOZERO;
   if (!sameBits(a.battDividerRatio, b.battDividerRatio))
     m |= CH_BATT;
-  if (a.statsRotation != b.statsRotation)
+  if (a.statsRotation != b.statsRotation || a.statsAfterS != b.statsAfterS ||
+      a.statsGoalS != b.statsGoalS || a.statsStepS != b.statsStepS)
     m |= CH_STATS;
   return m;
 }

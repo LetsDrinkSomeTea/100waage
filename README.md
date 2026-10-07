@@ -100,16 +100,17 @@ Einfache Waage mit 0,1 g Anzeige.
 ### Statistik
 
 Die Waage zählt Runden, Perfekt / Not Bad / Ganz ok, den besten Treffer (kleinste
-Abweichung), die schnellste Zeit (nur bis 1 g daneben) sowie Duelle und Siege.
+Abweichung), die schnellste Zeit (nur bis 10 % daneben) sowie Duelle und Siege.
 Die Werte bleiben über Deep-Sleep und Updates erhalten.
 
 - **Im Ergebnis:** Bei einem neuen besten Treffer oder einer neuen schnellsten
   Zeit wechselt das Ergebnis zusätzlich zu `Neuer Rekord!` bzw.
   `Schnellste Zeit!`.
-- **Im Ruhezustand:** Steht 15 s kein Glas auf der Waage, wechselt das Display
-  alle 3 s zwischen Ziel, bestem Treffer, schnellster Zeit, Runden, Stufen und
-  den letzten Runden. Glas aufstellen oder Taster drücken bringt sofort das
-  Ziel zurück. Abschaltbar auf der Startseite im Web.
+- **Im Ruhezustand:** Steht 20 s kein Glas auf der Waage, zeigt das Display je
+  3 s besten Treffer, schnellste Zeit, Runden, Stufen und die letzten Runden,
+  danach 6 s das Ziel, dann wieder von vorn. Glas aufstellen oder Taster
+  drücken bringt sofort das Ziel zurück. Abschaltbar auf der Startseite, die
+  Zeiten sind im Admin-Bereich einstellbar.
 - **Im Web:** Startseite mit allen Werten und den letzten 10 Runden seit dem
   Einschalten; zurücksetzen im Admin-Bereich.
 
@@ -147,7 +148,8 @@ Info-Rotation, dazu die Statistik. Änderungen gelten sofort (Ziel und Zufall
 während einer laufenden Runde ab der nächsten).
 
 **Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich,
-Timeouts, Auto-Zero, Passwort; alles ohne Neustart. Außerdem:
+Timeouts, Auto-Zero, Zeiten der Statistik-Anzeige, Passwort; alles ohne
+Neustart. Außerdem:
 
 - **Akku-Abgleich:** Akkuspannung mit dem Multimeter an den Akkupolen messen
   (Funk an), eintragen, „Abgleichen“.

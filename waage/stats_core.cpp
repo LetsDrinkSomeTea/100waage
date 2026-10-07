@@ -29,7 +29,9 @@ Achievement Tracker::record(const Round &r) {
     t_.bestMs = r.durationMs;
     a = Achievement::Record;
   }
-  if (ad <= OK_CG && (!t_.hasFastest || r.durationMs < t_.fastestMs)) {
+  const bool fastOk =
+      r.goalCg > 0 && (int64_t)ad * 100 <= (int64_t)FAST_PCT * r.goalCg;
+  if (fastOk && (!t_.hasFastest || r.durationMs < t_.fastestMs)) {
     t_.hasFastest = true;
     t_.fastestMs = r.durationMs;
     t_.fastestGoalCg = r.goalCg;

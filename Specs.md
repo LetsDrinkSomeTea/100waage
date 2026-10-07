@@ -86,6 +86,9 @@ Queue legt.
 | `randomModeEnabled` | aus                |                                                          | Start               |
 | `randomMin`         | 20 g               | wird auf [min(`tolerance` + 1, `goal`), `goal`] geklemmt | Start               |
 | `statsRotation`     | an                 |                                                          | Start               |
+| `statsAfterS`       | 20 s               | 1–255                                                    | Admin               |
+| `statsStepS`        | 3 s                | 1–60                                                     | Admin               |
+| `statsGoalS`        | 6 s                | 1–60                                                     | Admin               |
 
 Beim **Laden** klemmt `sanitize` jeden Wert in seinen Bereich und scheitert nie
 (ein gültiger `scaleFactor` bleibt bit-genau). Aus dem **Web** prüft `validate`
@@ -406,7 +409,7 @@ begonnen), der Verlauf der letzten 10 Runden nur im RAM.
 | Runde           | jedes fertige Ergebnis (solo oder Duell); abgebrochene Runden zählen nicht  |
 | Stufen          | getrennt: \|d\| = 0 Perfekt, ≤ 0,10 g Not Bad, ≤ 1,00 g Ganz ok             |
 | Bester Treffer  | kleinste \|d\| über alle Ziele, mit Ziel und Zeit (nur strikt besser zählt) |
-| Schnellste Zeit | nur Runden mit \|d\| ≤ 1,00 g (nur strikt schneller zählt)                  |
+| Schnellste Zeit | nur Runden mit \|d\| ≤ 10 % des Ziels (nur strikt schneller zählt)          |
 | Duell           | finaler Stand mit ≥ 2 Teilnehmern; Sieg = Rang 1 ohne Aufgabe               |
 
 d = getrunken − Ziel (im Duell gegen das Duell-Ziel).
@@ -418,20 +421,21 @@ einer pro Runde, Rekord zuerst. Läuft als dritter Zustand im 3-s-Wechsel mit
 Aufgabe). Auch die erste Runde ist ein Rekord.
 
 **Info-Rotation** (`statsRotation`, Standard an): Im Game-Idle (Game- und
-Duell-Modus) ohne Glas wechselt die Anzeige nach 15 s (`STATS_AFTER_MS`) alle
-3 s (`STATS_STEP_MS`) durch diese Bildschirme, auch vor der ersten Runde:
+Duell-Modus) ohne Glas zeigt die Anzeige nach `statsAfterS` (20 s) die
+Statistik-Bildschirme je `statsStepS` (3 s), danach das Ziel für `statsGoalS`
+(6 s), dann wieder von vorn, auch vor der ersten Runde:
 
 | Bildschirm     | Inhalt                                                      |
 | -------------- | ----------------------------------------------------------- |
-| Ziel           | wie immer, mit Statusleiste                                 |
 | Bester Treffer | „0.03g daneben“, „Ziel 100.0g, 4.21s“ (sonst „noch keiner“) |
 | Schnellste     | „3.87s“, „1.00g daneben“ (sonst „noch keine“)               |
 | Runden         | „42 Runden“, ggf. „5 Siege, 12 Duelle“                      |
 | Stufen         | „Perfekt 3“, „Not Bad 7“, „Ganz ok 15“                      |
 | Letzte Runden  | bis zu 4 Abweichungen, neueste zuerst (nur mit Verlauf)     |
+| Ziel           | wie immer, mit Statusleiste                                 |
 
 Die Statistik-Bildschirme zeigen keine Statusleiste. Glas, Taster, Tara oder
-Reset bringen sofort das Ziel zurück, die 15 s beginnen neu. Den Deep-Sleep
+Reset bringen sofort das Ziel zurück, die Wartezeit beginnt neu. Den Deep-Sleep
 hält die Rotation nicht auf.
 
 ## Energie
@@ -593,6 +597,7 @@ Vor dem Merge mit mindestens zwei Waagen:
       „aufgegeben“.
 - [ ] Game-Modus mit AP an: Waage taucht bei anderen nicht als Gegner auf.
 - [ ] Duell-Modus: AP aus → `Vs n` bleibt, Duell läuft weiter.
-- [ ] Statistik: „Neuer Rekord!“ im Ergebnis-Wechsel; nach 15 s ohne Glas
-      Rotation im 3-s-Takt, Glas/Taster bringt sofort das Ziel; Werte nach
+- [ ] Statistik: „Neuer Rekord!“ im Ergebnis-Wechsel; nach 20 s ohne Glas
+      Statistik je 3 s, Ziel 6 s, Zeiten im Admin änderbar; Glas/Taster
+      bringt sofort das Ziel; Werte nach
       Deep-Sleep noch da, Verlauf leer; Zurücksetzen im Admin.

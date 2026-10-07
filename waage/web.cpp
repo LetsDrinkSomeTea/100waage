@@ -289,6 +289,9 @@ static void writeAdminConfig(web::JsonWriter &j) {
   j.key("autoZeroEnabled").flag(c.autoZeroEnabled);
   j.key("autoZeroThreshold").num(c.autoZeroThreshold, 1);
   j.key("autoZeroDelay").uinteger(c.autoZeroDelay);
+  j.key("statsAfterS").uinteger(c.statsAfterS);
+  j.key("statsGoalS").uinteger(c.statsGoalS);
+  j.key("statsStepS").uinteger(c.statsStepS);
   j.key("battDividerRatio").num(c.battDividerRatio, 3);
   j.key("scaleFactor").num(c.scaleFactor, 4);
   j.key("fw").str(FW_VERSION);
@@ -347,6 +350,18 @@ static void handleAdminConfigPost() {
     return;
   if (p)
     n.autoZeroDelay = (uint8_t)u;
+  if (!argUint("statsAfterS", 255, &u, &p))
+    return;
+  if (p)
+    n.statsAfterS = (uint8_t)u;
+  if (!argUint("statsGoalS", 255, &u, &p))
+    return;
+  if (p)
+    n.statsGoalS = (uint8_t)u;
+  if (!argUint("statsStepS", 255, &u, &p))
+    return;
+  if (p)
+    n.statsStepS = (uint8_t)u;
   bool pwChange =
       server->hasArg("newPassword") && server->arg("newPassword").length() > 0;
   if (pwChange) {

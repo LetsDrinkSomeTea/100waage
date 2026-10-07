@@ -463,6 +463,9 @@ static void render(const cfg::Config &c, uint32_t now) {
   st.mode = c.scaleMode;
   st.stats = &stats_tracker();
   st.statsRotation = c.statsRotation;
+  st.statsAfterMs = c.statsAfterS * 1000u;
+  st.statsGoalMs = c.statsGoalS * 1000u;
+  st.statsStepMs = c.statsStepS * 1000u;
   st.ach = lastAch;
   st.achSeq = lastAchSeq;
 

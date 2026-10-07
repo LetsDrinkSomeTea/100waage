@@ -10,7 +10,8 @@
 //    Ziel in Centigramm.
 //  - Stufen getrennt: |d| = 0 Perfekt, <= 10 Not Bad, <= 100 Ganz ok.
 //  - Bestwert: kleinstes |d| ueber alle Ziele (strikt kleiner ersetzt).
-//  - Schnellste Zeit: nur Runden mit |d| <= 100 (strikt schneller ersetzt).
+//  - Schnellste Zeit: nur Runden mit |d| <= FAST_PCT % des Ziels (strikt
+//    schneller ersetzt).
 //  - Erfolg einer Runde: Rekord vor schnellster Zeit, hoechstens einer.
 //  - Duell: final mit mindestens 2 Teilnehmern zaehlt als Duell, Rang 1 ohne
 //    Aufgabe als Sieg.
@@ -19,7 +20,8 @@ namespace stats {
 
 constexpr int RECENT = 10; // Verlauf im RAM
 constexpr int32_t NOT_BAD_CG = 10;
-constexpr int32_t OK_CG = 100; // "gutes Ergebnis" fuer die schnellste Zeit
+constexpr int32_t OK_CG = 100;
+constexpr int32_t FAST_PCT = 10; // max. Abweichung fuer die schnellste Zeit
 
 struct Totals {
   uint32_t rounds;

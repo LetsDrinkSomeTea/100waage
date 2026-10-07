@@ -316,8 +316,9 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
   }
 }
 
-// Info-Rotation: nach STATS_AFTER_MS ohne Glas im STATS_STEP_MS-Takt durch Ziel
-// und Statistik. Neustart bei Tara/Reset (neuer Bildschirm), Glas oder Taster.
+// Info-Rotation: nach statsAfterMs ohne Glas die Statistik-Bildschirme (je
+// statsStepMs), dann das Ziel (statsGoalMs), dann von vorn. Neustart bei
+// Tara/Reset (neuer Bildschirm), Glas oder Taster.
 StatsScreen Model::statsScreen(const game::View &v, const Status &s, bool hold,
                                uint32_t now) {
   const bool idle = s.statsRotation && s.stats &&
@@ -332,13 +333,15 @@ StatsScreen Model::statsScreen(const game::View &v, const Status &s, bool hold,
     rotScreenSince_ = v.screenSince;
   }
   const uint32_t idleMs = now - rotSince_;
-  if (idleMs < STATS_AFTER_MS)
+  if (idleMs < s.statsAfterMs || s.statsStepMs == 0)
     return StatsScreen::None;
-  StatsScreen list[] = {StatsScreen::None,    StatsScreen::Best,
-                        StatsScreen::Fastest, StatsScreen::Rounds,
-                        StatsScreen::Levels,  StatsScreen::Recent};
-  const uint32_t n = s.stats->recentCount() > 0 ? 6 : 5;
-  return list[((idleMs - STATS_AFTER_MS) / STATS_STEP_MS) % n];
+  static const StatsScreen list[] = {StatsScreen::Best, StatsScreen::Fastest,
+                                     StatsScreen::Rounds, StatsScreen::Levels,
+                                     StatsScreen::Recent};
+  const uint32_t n = s.stats->recentCount() > 0 ? 5 : 4;
+  const uint32_t statsMs = n * s.statsStepMs;
+  const uint32_t pos = (idleMs - s.statsAfterMs) % (statsMs + s.statsGoalMs);
+  return pos < statsMs ? list[pos / s.statsStepMs] : StatsScreen::None;
 }
 
 Frame Model::build(const game::View &v, const Status &s, const Hold &h,

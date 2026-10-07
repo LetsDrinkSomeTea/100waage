@@ -58,7 +58,8 @@ static bool same(const Config &a, const Config &b) {
          a.autoZeroDelay == b.autoZeroDelay &&
          a.randomModeEnabled == b.randomModeEnabled &&
          bits(a.randomMin) == bits(b.randomMin) &&
-         a.statsRotation == b.statsRotation;
+         a.statsRotation == b.statsRotation && a.statsAfterS == b.statsAfterS &&
+         a.statsGoalS == b.statsGoalS && a.statsStepS == b.statsStepS;
 }
 
 static bool sanF(float Config::*f, float in, float &out) {
@@ -129,6 +130,7 @@ static void testDefaults() {
   CHECK(c.randomModeEnabled == false);
   CHECK(c.randomMin == 20.0f);
   CHECK(c.statsRotation == true);
+  CHECK(c.statsAfterS == 20 && c.statsGoalS == 6 && c.statsStepS == 3);
   CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT &&
         c.battDividerRatio == BATT_RATIO_DEFAULT);
 
@@ -327,6 +329,15 @@ static void testSanitizeAutoZero() {
   CHECK(sanU8(&Config::autoZeroDelay, 0, u) && u == 5);
   CHECK(sanU8(&Config::autoZeroDelay, 61, u) && u == 5);
   CHECK(sanU8(&Config::autoZeroDelay, 255, u) && u == 5);
+  CHECK(!sanU8(&Config::statsAfterS, 1, u) && u == 1);
+  CHECK(!sanU8(&Config::statsAfterS, 255, u) && u == 255);
+  CHECK(sanU8(&Config::statsAfterS, 0, u) && u == 20);
+  CHECK(!sanU8(&Config::statsGoalS, 60, u) && u == 60);
+  CHECK(sanU8(&Config::statsGoalS, 0, u) && u == 6);
+  CHECK(sanU8(&Config::statsGoalS, 61, u) && u == 6);
+  CHECK(!sanU8(&Config::statsStepS, 1, u) && u == 1);
+  CHECK(sanU8(&Config::statsStepS, 0, u) && u == 3);
+  CHECK(sanU8(&Config::statsStepS, 61, u) && u == 3);
 }
 
 static void testSanitizeSmallFields() {
@@ -494,7 +505,8 @@ static bool inRanges(const Config &c) {
          onGrid(c.randomMin) && c.autoZeroThreshold >= 0.1f &&
          c.autoZeroThreshold <= 20.0f && c.autoZeroThreshold <= c.tolerance &&
          c.autoZeroDelay >= 1 && c.autoZeroDelay <= 60 &&
-         c.autoResetRange <= 100 &&
+         c.autoResetRange <= 100 && c.statsAfterS >= 1 && c.statsGoalS >= 1 &&
+         c.statsGoalS <= 60 && c.statsStepS >= 1 && c.statsStepS <= 60 &&
          (c.displayRotation == 0 || c.displayRotation == 2) &&
          c.battDividerRatio >= 1.0f && c.battDividerRatio <= 6.0f &&
          (uint8_t)c.scaleMode < MODE_COUNT;
@@ -765,6 +777,25 @@ static void testValidateFields() {
   c.autoZeroDelay = 61;
   CHECK(rejects(c, "autoZeroDelay"));
 
+  // Info-Rotation
+  c = base;
+  c.statsAfterS = 1;
+  c.statsGoalS = 60;
+  c.statsStepS = 1;
+  CHECK(accepts(c));
+  c.statsAfterS = 0;
+  CHECK(rejects(c, "statsAfterS"));
+  c = base;
+  c.statsGoalS = 0;
+  CHECK(rejects(c, "statsGoalS"));
+  c.statsGoalS = 61;
+  CHECK(rejects(c, "statsGoalS"));
+  c = base;
+  c.statsStepS = 0;
+  CHECK(rejects(c, "statsStepS"));
+  c.statsStepS = 61;
+  CHECK(rejects(c, "statsStepS"));
+
   // displayRotation
   c = base;
   c.displayRotation = 2;
@@ -840,6 +871,9 @@ static void testValidateMatchesSanitize() {
     c.randomMin = (float)(rnd() % 600000) / 100.0f - 100.0f;
     c.autoZeroThreshold = (float)(rnd() % 2500) / 100.0f; // 0..25
     c.autoZeroDelay = (uint8_t)(rnd() % 70);
+    c.statsAfterS = (uint8_t)rnd();
+    c.statsGoalS = (uint8_t)(rnd() % 70);
+    c.statsStepS = (uint8_t)(rnd() % 70);
     c.autoResetRange = (uint8_t)(rnd() % 120);
     c.displayRotation = (uint8_t)(rnd() % 4);
     c.battDividerRatio = (float)(rnd() % 800) / 100.0f;
@@ -1184,6 +1218,15 @@ static void testDiff() {
   CHECK(diff(a, b) == CH_BATT);
   b = a;
   b.statsRotation = false;
+  CHECK(diff(a, b) == CH_STATS);
+  b = a;
+  b.statsAfterS = 30;
+  CHECK(diff(a, b) == CH_STATS);
+  b = a;
+  b.statsGoalS = 5;
+  CHECK(diff(a, b) == CH_STATS);
+  b = a;
+  b.statsStepS = 4;
   CHECK(diff(a, b) == CH_STATS);
 
   // Kombination und Symmetrie

@@ -30,7 +30,7 @@ p{font-size:14px;margin:6px 0}table{width:100%;border-collapse:collapse;font-siz
 <label class="cb"><input type="checkbox" name="randomModeEnabled">Zufälliges Zielgewicht</label>
 <label>Zufall-Minimum [g]<i>Maximum ist das Zielgewicht</i><input type="number" step="0.1" name="randomMin"></label>
 <label>Display-Rotation<select name="displayRotation"><option value="0">Normal (0°)</option><option value="2">Gedreht (180°)</option></select></label>
-<label class="cb"><input type="checkbox" name="statsRotation">Statistik im Ruhezustand zeigen<i>Nach 15 s ohne Glas wechselt das Display alle 3 s zwischen Ziel und Statistik</i></label>
+<label class="cb"><input type="checkbox" name="statsRotation">Statistik im Ruhezustand zeigen<i>Steht kein Glas auf der Waage, wechselt das Display zwischen Statistik und Ziel (Zeiten im Admin-Bereich)</i></label>
 <button class="g">💾 Speichern</button><p class="msg" id="msg" aria-live="polite"></p></form>
 <div class="sec"><h3>📊 Statistik</h3><div id="sx">--</div></div>
 <a href="/admin" class="btn o">🔒 Admin-Einstellungen</a>
@@ -74,7 +74,7 @@ const ST=every(async()=>{const r=await api('/api/stats'),d=r.j,X=$('sx');if(r.s!
 el('p',X,d.rounds+(d.rounds==1?' Runde':' Runden')+' · Perfekt '+d.perfect+' · Not Bad '+d.notBad+' · Ganz ok '+d.ok);
 const b=d.best,f=d.fastest;
 el('p',X,'Bester Treffer: '+(b?de(b.dev,2)+' g daneben (Ziel '+de(b.goal,1)+' g, '+de(b.time,2)+' s)':'noch keiner'));
-el('p',X,'Schnellste Zeit: '+(f?de(f.time,2)+' s (Ziel '+de(f.goal,1)+' g, '+de(Math.abs(f.dev),2)+' g daneben)':'noch keine (max. 1 g daneben)'));
+el('p',X,'Schnellste Zeit: '+(f?de(f.time,2)+' s (Ziel '+de(f.goal,1)+' g, '+de(Math.abs(f.dev),2)+' g daneben)':'noch keine (max. 10 % daneben)'));
 if(d.duels)el('p',X,'Duelle: '+d.wins+(d.wins==1?' Sieg':' Siege')+' aus '+d.duels);
 const rs=d.recent||[];if(!rs.length)return;el('p',X,'Letzte Runden (seit dem Einschalten):');
 const T=el('table',X);rs.forEach((e,i)=>{const R=el('tr',T);el('td',R,'#'+(d.rounds-i));el('td',R,e.duel?(e.rank?e.rank+'. Platz':'Duell'):'Solo');
@@ -129,6 +129,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}td{padding:3px 4px;bord
 <label class="cb"><input type="checkbox" name="autoZeroEnabled">Auto-Zero (Nullabgleich bei stabil leerer Waage)</label>
 <label>Auto-Zero-Schwelle [g]<i>Maximalgewicht, das als leer gilt</i><input type="number" step="0.1" name="autoZeroThreshold"></label>
 <label>Auto-Zero-Verzögerung [s]<i>So lange muss die Waage stabil leer sein</i><input type="number" min="1" max="60" name="autoZeroDelay"></label>
+<label>Statistik ab [s]<i>So lange ohne Glas, bis die Statistik im Wechsel mit dem Ziel erscheint (1–255)</i><input type="number" min="1" max="255" name="statsAfterS"></label>
+<label>Statistik-Anzeige [s]<i>Dauer je Statistik-Bildschirm (1–60)</i><input type="number" min="1" max="60" name="statsStepS"></label>
+<label>Ziel-Anzeige [s]<i>Dauer des Ziels zwischen zwei Statistik-Durchläufen (1–60)</i><input type="number" min="1" max="60" name="statsGoalS"></label>
 <label>Neues Passwort<i>Leer lassen = unverändert (mind. 4 Zeichen)</i><input type="password" name="newPassword" maxlength="31" autocomplete="new-password"><input type="password" id="pw2" maxlength="31" placeholder="Passwort wiederholen" aria-label="Passwort wiederholen" autocomplete="new-password"></label>
 <button class="o">💾 Speichern</button><p class="msg" id="am" aria-live="polite"></p></form>
 <div class="sec adm"><h3>🔋 Akku</h3><p>Aktuell: <b id="bv">--</b> <span class="bd" id="bl" hidden>schwach</span></p>

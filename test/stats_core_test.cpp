@@ -42,12 +42,16 @@ static void testFastest() {
   Tracker t;
   t.record(solo(10000, 5000)); // Rekord und schnellste: Rekord gewinnt
   CHECK(t.totals().hasFastest && t.totals().fastestMs == 5000);
-  // schneller, aber > 1 g daneben: zaehlt nicht
-  CHECK(t.record(solo(10101, 1000)) == Achievement::None);
+  // schneller, aber > 10 % daneben: zaehlt nicht
+  CHECK(t.record(solo(11001, 1000)) == Achievement::None);
+  CHECK(t.record(solo(8999, 1000)) == Achievement::None);
   CHECK(t.totals().fastestMs == 5000);
-  // schneller und <= 1 g: schnellste Zeit
-  CHECK(t.record(solo(9900, 4000)) == Achievement::Fastest);
-  CHECK(t.totals().fastestMs == 4000 && t.totals().fastestDevCg == -100);
+  // schneller und genau 10 % daneben: schnellste Zeit
+  CHECK(t.record(solo(9000, 4000)) == Achievement::Fastest);
+  CHECK(t.totals().fastestMs == 4000 && t.totals().fastestDevCg == -1000);
+  // 10 % gilt relativ zum Ziel der Runde
+  CHECK(t.record(solo(5500, 3000, 5000)) == Achievement::Fastest);
+  CHECK(t.record(solo(5501, 2000, 5000)) == Achievement::None);
   // gleich schnell: nichts
   CHECK(t.record(solo(9950, 4000)) == Achievement::None);
 

@@ -43,8 +43,11 @@ struct Config {
   float autoZeroThreshold; // [g]
   uint8_t autoZeroDelay;   // [s]
   bool randomModeEnabled;
-  float randomMin;    // [g] Untergrenze des Zufallsziels
-  bool statsRotation; // Statistik im Ruhezustand im Wechsel mit dem Ziel
+  float randomMin;     // [g] Untergrenze des Zufallsziels
+  bool statsRotation;  // Statistik im Ruhezustand im Wechsel mit dem Ziel
+  uint8_t statsAfterS; // [s] ohne Glas bis zur ersten Statistik
+  uint8_t statsGoalS;  // [s] Anzeigedauer des Ziels in der Rotation
+  uint8_t statsStepS;  // [s] Anzeigedauer je Statistik-Bildschirm
 };
 
 // Bereiche (gelten fuer sanitize und validate)
@@ -57,6 +60,9 @@ constexpr uint8_t AZ_DELAY_MIN = 1, AZ_DELAY_MAX = 60;
 constexpr uint8_t AUTO_RESET_MAX = 100;
 constexpr float BATT_RATIO_MIN = 1.0f, BATT_RATIO_MAX = 6.0f,
                 BATT_RATIO_DEFAULT = 2.0f;
+constexpr uint8_t STATS_AFTER_MIN = 1, STATS_AFTER_DEFAULT = 20;
+constexpr uint8_t STATS_SHOW_MIN = 1, STATS_SHOW_MAX = 60;
+constexpr uint8_t STATS_GOAL_DEFAULT = 6, STATS_STEP_DEFAULT = 3;
 
 Config defaults();
 
@@ -67,6 +73,7 @@ Config defaults();
 // goal] geklemmt, 0,1 g Raster. autoZeroThreshold 0,1..20 und <= tolerance.
 // autoZeroDelay 1..60 (sonst 5). autoResetRange <= 100. displayRotation 0/2
 // (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0..2 (sonst Game).
+// statsAfterS 1..255 (sonst 20), statsGoalS/statsStepS 1..60 (sonst 6/3).
 // Strings werden terminiert; leere oder nicht druckbare SSID → Default-SSID,
 // leeres Passwort → "admin" (kurze alte Passwoerter bleiben erhalten).
 // Liefert true, wenn etwas korrigiert wurde.
@@ -110,7 +117,7 @@ enum Change : uint32_t {
   CH_GAME = 1u << 8,     // tolerance, autoResetRange
   CH_AUTOZERO = 1u << 9, // autoZero*
   CH_BATT = 1u << 10,    // battDividerRatio
-  CH_STATS = 1u << 11,   // statsRotation
+  CH_STATS = 1u << 11,   // statsRotation, statsAfterS/GoalS/StepS
 };
 uint32_t diff(const Config &a, const Config &b);
 

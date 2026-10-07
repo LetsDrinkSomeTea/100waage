@@ -432,27 +432,37 @@ static void testStatsRotation() {
   Status s = status();
   s.stats = &t;
   s.statsRotation = true;
-  const uint32_t T0 = 1000, A = STATS_AFTER_MS, S = STATS_STEP_MS;
+  s.statsAfterMs = 20000;
+  s.statsGoalMs = 6000;
+  s.statsStepMs = 3000;
+  const uint32_t T0 = 1000, A = 20000, S = 3000, G = 6000;
 
   Frame f = m.build(v, s, NO_HOLD, nullptr, T0);
   CHECK(textIs(f, "100.0g?") && f.icons);
   f = m.build(v, s, NO_HOLD, nullptr, T0 + A - 1);
   CHECK(textIs(f, "100.0g?"));
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A); // erster Schritt: Ziel
-  CHECK(textIs(f, "100.0g?") && f.icons);
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + S);
+  // nach der Wartezeit direkt die Statistik
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A);
   CHECK(textIs(f, "Bester Treffer", "0.03g daneben", "Ziel 100.0g, 4.21s"));
   CHECK(!f.icons); // ohne Statusleiste
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 2 * S);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + S);
   CHECK(textIs(f, "Schnellste Zeit", "3.87s", "1.00g daneben"));
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 3 * S);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 2 * S);
   CHECK(textIs(f, "3 Runden", "1 Sieg, 1 Duell"));
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 4 * S);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 3 * S);
   CHECK(textIs(f, "Perfekt 0", "Not Bad 1", "Ganz ok 1"));
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 5 * S);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 4 * S);
   CHECK(textIs(f, "Letzte Runden", "+20.00g  -1.00g", "+0.03g"));
-  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 6 * S); // wieder Ziel
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 5 * S - 1);
+  CHECK(textIs(f, "Letzte Runden", "+20.00g  -1.00g", "+0.03g"));
+  // Ziel fuer statsGoalMs
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 5 * S);
   CHECK(textIs(f, "100.0g?") && f.icons);
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 5 * S + G - 1);
+  CHECK(textIs(f, "100.0g?"));
+  // dann wieder von vorn
+  f = m.build(v, s, NO_HOLD, nullptr, T0 + A + 5 * S + G);
+  CHECK(textIs(f, "Bester Treffer", "0.03g daneben", "Ziel 100.0g, 4.21s"));
 
   // Glas aufgestellt: sofort Ziel, Wartezeit beginnt neu
   m.build(v, s, NO_HOLD, nullptr, T0 + A + S);
@@ -462,13 +472,13 @@ static void testStatsRotation() {
   v.glassOn = false;
   const uint32_t T1 = T0 + A + S + 200; // erstes Bild ohne Glas
   CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1), "100.0g?"));
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + S - 1), "100.0g?"));
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + S), "Bester Treffer",
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A - 1), "100.0g?"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A), "Bester Treffer",
                "0.03g daneben", "Ziel 100.0g, 4.21s"));
 
   // Tara/Reset (neuer Bildschirm-Beginn) startet neu
-  v.screenSince = T1 + A + S + 50;
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + S + 100), "100.0g?"));
+  v.screenSince = T1 + A + 50;
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, T1 + A + 100), "100.0g?"));
 
   // Taster gehalten startet neu
   Model m2;
@@ -477,7 +487,7 @@ static void testStatsRotation() {
   m2.build(v, s, h, nullptr, T0 + A);
   CHECK(textIs(m2.build(v, s, NO_HOLD, nullptr, T0 + A + S), "100.0g?"));
 
-  // aus, ohne Statistik oder in anderen Modi: nie
+  // aus oder ohne Statistik: nie
   Model m3;
   s.statsRotation = false;
   m3.build(v, s, NO_HOLD, nullptr, T0);
@@ -487,24 +497,30 @@ static void testStatsRotation() {
   CHECK(textIs(m3.build(v, s, NO_HOLD, nullptr, T0 + 2 * A + S), "100.0g?"));
 }
 
-static void testStatsEmpty() {
-  stats::Tracker t; // noch keine Runde: rotiert trotzdem
+// Andere Zeiten aus der Config
+static void testStatsRotationTimes() {
+  stats::Tracker t; // ohne Verlauf: 4 Statistik-Bildschirme
   Model m;
   game::View v = idleView();
   Status s = status();
   s.stats = &t;
   s.statsRotation = true;
-  const uint32_t A = STATS_AFTER_MS, S = STATS_STEP_MS;
+  s.statsAfterMs = 5000;
+  s.statsGoalMs = 1000;
+  s.statsStepMs = 2000;
   m.build(v, s, NO_HOLD, nullptr, 0);
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + S), "Bester Treffer",
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 4999), "100.0g?"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 5000), "Bester Treffer",
                "noch keiner"));
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 2 * S), "Schnellste Zeit",
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 7000), "Schnellste Zeit",
                "noch keine"));
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 3 * S), "0 Runden"));
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 4 * S), "Perfekt 0",
-               "Not Bad 0", "Ganz ok 0"));
-  // ohne Verlauf kein "Letzte Runden"
-  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, A + 5 * S), "100.0g?"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 9000), "0 Runden"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 11000), "Perfekt 0", "Not Bad 0",
+               "Ganz ok 0"));
+  // ohne Verlauf kein "Letzte Runden": direkt das Ziel
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 13000), "100.0g?"));
+  CHECK(textIs(m.build(v, s, NO_HOLD, nullptr, 14000), "Bester Treffer",
+               "noch keiner"));
 }
 
 int main() {
@@ -522,6 +538,6 @@ int main() {
   testSameFrame();
   testAchievementInResult();
   testStatsRotation();
-  testStatsEmpty();
+  testStatsRotationTimes();
   return finish("ui_model_test");
 }

@@ -12,9 +12,9 @@
 // zuerst: Haltebalken > Systembildschirm > Toast > Spiel.
 //
 // Statistik: Ein Erfolg der Runde (Rekord, schnellste Zeit) laeuft als dritter
-// Zustand im Ergebnis-Wechsel mit. Im Game-Idle ohne Glas wechselt die Anzeige
-// nach STATS_AFTER_MS alle STATS_STEP_MS zwischen Ziel und Statistik-
-// Bildschirmen (ohne Statusleiste).
+// Zustand im Ergebnis-Wechsel mit. Im Game-Idle ohne Glas zeigt die Anzeige
+// nach statsAfterMs die Statistik-Bildschirme (je statsStepMs, ohne
+// Statusleiste), dann das Ziel fuer statsGoalMs, dann wieder von vorn.
 
 namespace ui {
 
@@ -22,11 +22,8 @@ constexpr uint32_t READY_PROMPT_MS = 400; // "Bereit?" vor dem Trinkspruch
 constexpr uint32_t RESULT_ALT_MS = 3000;  // Ergebnis-Wechsel (Wert/Zeit)
 constexpr uint32_t ANIM_MS = 300;         // Ladeanimation
 constexpr uint32_t TOAST_MS = 1500;
-constexpr uint32_t STATS_AFTER_MS =
-    15000;                               // so lange ohne Glas bis zur Rotation
-constexpr uint32_t STATS_STEP_MS = 3000; // Takt der Rotation
-constexpr int MODE_DOTS = 3;             // Game, Duell, Standard
-constexpr int BAR_W = 128;               // Haltebalken ueber CANCEL_MS
+constexpr int MODE_DOTS = 3; // Game, Duell, Standard
+constexpr int BAR_W = 128;   // Haltebalken ueber CANCEL_MS
 constexpr int TICK_MODE_PX =
     (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS);
 constexpr int TICK_RADIO_PX =
@@ -70,6 +67,9 @@ struct Status {
   cfg::ScaleMode mode;
   const stats::Tracker *stats; // nullptr = keine Statistik
   bool statsRotation;          // Info-Rotation im Ruhezustand
+  uint32_t statsAfterMs;       // ohne Glas bis zur ersten Statistik
+  uint32_t statsGoalMs;        // Ziel in der Rotation
+  uint32_t statsStepMs;        // je Statistik-Bildschirm
   stats::Achievement ach;      // Erfolg der Runde achSeq (View::roundSeq)
   uint32_t achSeq;
 };
