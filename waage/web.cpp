@@ -387,6 +387,7 @@ static void writeAdminConfig(web::JsonWriter &j) {
   j.key("apName").str(name);
   j.key("tolerance").num(c.tolerance, 1);
   j.key("autoResetRange").uinteger(c.autoResetRange);
+  j.key("glassSwapMin").uinteger(c.glassSwapMin);
   j.key("wifiTimeout").uinteger(c.wifiTimeout);
   j.key("sleepTimeout").uinteger(c.sleepTimeout);
   j.key("autoZeroEnabled").flag(c.autoZeroEnabled);
@@ -434,6 +435,10 @@ static void handleAdminConfigPost() {
     return;
   if (p)
     n.autoResetRange = (uint8_t)u;
+  if (!argUint("glassSwapMin", 255, &u, &p))
+    return;
+  if (p)
+    n.glassSwapMin = (uint8_t)u;
   if (!argUint("wifiTimeout", 255, &u, &p))
     return;
   if (p)

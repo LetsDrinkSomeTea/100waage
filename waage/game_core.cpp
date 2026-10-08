@@ -272,7 +272,8 @@ void Game::updateGlass(const cfg::Config &c, const Input &in) {
   glassActive_ = true;
   glassAtAbs_ = in.absWeight;
   if (list_ && in.absValid)
-    detection_ = det_.place(*list_, in.absWeight, c.tolerance);
+    detection_ = det_.place(*list_, in.absWeight, c.tolerance, in.now,
+                            (uint32_t)c.glassSwapMin * 60000u);
   else
     detection_ = {0, glass::Source::None, 0.0f};
   const glass::Glass *g = list_ ? list_->find(detection_.id) : nullptr;
@@ -380,7 +381,7 @@ void Game::finishDrinking(const Input &in) {
   view_.isFinal = view_.forfeit = false;
   view_.roundSeq++;
   if (roundGlass_ && in.absValid)
-    det_.settle(in.absWeight); // Referenz = Endgewicht
+    det_.settle(in.absWeight, in.now); // Referenz = Endgewicht
   view_.pct = pct_;
   view_.goalCg = toCg(refGoal());
   view_.drankPctD = 0;

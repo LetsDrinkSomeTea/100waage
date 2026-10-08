@@ -240,7 +240,7 @@ static void testRuleZeroManual() {
   Detection r = d.place(l, 870.0f, TOL); // eigentlich volle Euro 0,5
   CHECK(r.id == 1 && r.source == Source::Manual);
   CHECK(r.contentG == 600.0f);
-  CHECK(d.memory().lastId == 1);
+  CHECK(d.lastId() == 1);
   d.setManual(0);
   r = d.place(l, 870.0f, TOL);
   CHECK(r.id == 1 && r.source == Source::Same); // weiter von dort
@@ -306,7 +306,7 @@ static void testEmptyGlass() {
   Detection r = d.place(l, 268.0f, TOL); // leere Tulpe (Euro 0,33: 260)
   CHECK(r.id == 1 && r.source == Source::Empty);
   CHECK(std::fabs(r.contentG + 2.0f) < 0.001f);
-  CHECK(d.memory().lastId == 1);
+  CHECK(d.lastId() == 1);
   // Leere Euro 0,33
   Detector e;
   CHECK(e.place(l, 259.0f, TOL).id == 4);
@@ -338,12 +338,12 @@ static void testUnknown() {
   Detector d;
   Detection r = d.place(l, 2000.0f, TOL);
   CHECK(r.id == 0 && r.source == Source::None);
-  CHECK(d.memory().lastId == 0);
+  CHECK(d.lastId() == 0);
   // Gedaechtnis bleibt bei unbekannt
   d.place(l, 920.0f, TOL);
   r = d.place(l, 2000.0f, TOL);
   CHECK(r.id == 0);
-  CHECK(d.memory().lastId == 2 && d.memory().refG == 920.0f);
+  CHECK(d.lastId() == 2 && d.lastRefG() == 920.0f);
   // Leere Liste
   List e;
   e.begin(nullptr, 0, 1);
@@ -394,7 +394,7 @@ static void testOnlyPossible() {
   Detector d;
   Detection r = d.place(l, 378.0f, TOL); // 43 %: kein Kandidat
   CHECK(r.id == 1 && r.source == Source::Auto);
-  CHECK(d.memory().lastId == 1);
+  CHECK(d.lastId() == 1);
 
   // Andere Gläser wuerden ueberlaufen (Schnapsglas)
   static const Glass SMALL[] = {{1, "Schnaps", 50.0f, 20.0f},
@@ -414,6 +414,198 @@ static void testOnlyPossible() {
   CHECK(g.place(l, 255.0f, TOL).id == 1); // leer (Regel 2)
 }
 
+// ── Szenarien am Tisch (Tauschzeit, mehrere Glaeser) ──────────────────────────
+
+static const Glass TABLE[] = {
+    {1, "Gläsle", 249.1f, 300.0f},
+    {2, "Krügle", 623.4f, 400.0f},
+    {3, "Euro 0,5", 370.0f, 500.0f},
+    {4, "Euro 0,33", 260.0f, 330.0f},
+};
+constexpr uint32_t SWAP = 5 * 60000u;   // Standard-Tauschzeit
+constexpr uint32_t QUICK = 60000u;      // direkt hintereinander
+constexpr uint32_t PAUSE = 10 * 60000u; // Pause, dazwischen getrunken
+
+struct Table {
+  List l;
+  Detector d;
+  uint32_t now = 1000;
+  uint32_t swap;
+  explicit Table(uint32_t swapMs = SWAP) : swap(swapMs) {
+    l.begin(TABLE, 4, 5);
+  }
+  // Glas aufstellen (nach dt ms), Runde spielen, Endgewicht rest
+  uint16_t put(float w, uint32_t dt = QUICK) {
+    now += dt;
+    return d.place(l, w, TOL, now, swap).id;
+  }
+  void round(float rest) {
+    now += 20000;
+    d.settle(rest, now);
+  }
+};
+
+static void testScenarioAlone() {
+  // Allein mit dem Gläsle, Runde fuer Runde leerer, dann nachgefuellt
+  Table t;
+  CHECK(t.put(549) == 1);
+  t.round(460);
+  CHECK(t.put(460) == 1);
+  t.round(380);
+  CHECK(t.put(380) == 1);
+  t.round(262);
+  CHECK(t.put(262) == 1); // fast leer
+  CHECK(t.put(545) == 1); // nachgefuellt
+  // Allein mit dem Krügle bis fast leer (wiegt dann wie ein volles Gläsle)
+  Table k;
+  CHECK(k.put(1023) == 2);
+  k.round(750);
+  CHECK(k.put(750) == 2);
+  k.round(640);
+  CHECK(k.put(640) == 2);
+  CHECK(k.put(1015) == 2);
+}
+
+static void testScenarioTwoAlternating() {
+  // Zu zweit an einer Waage: A Gläsle, B Krügle, abwechselnd. Halbes Krügle
+  // (900 g) wiegt wie eine volle Euro 0,5: das gemerkte Krügle gewinnt.
+  Table t;
+  CHECK(t.put(549) == 1);
+  t.round(460);
+  CHECK(t.put(1023) == 2);
+  t.round(900);
+  CHECK(t.put(460) == 1);
+  t.round(380);
+  CHECK(t.put(900) == 2);
+  t.round(780);
+  CHECK(t.put(380) == 1);
+  t.round(300);
+  CHECK(t.put(780) == 2);
+  // Zwei gleiche Gläsle: egal, wer welches hat
+  Table g;
+  CHECK(g.put(549) == 1);
+  g.round(450);
+  CHECK(g.put(551) == 1);
+  g.round(470);
+  CHECK(g.put(450) == 1);
+  CHECK(g.put(470) == 1);
+}
+
+static void testScenarioThree() {
+  // Zu dritt reihum, direkt hintereinander: die volle Euro 0,5 (870 g) nach
+  // dem Krügle (910 g) ist ein neues Glas, kein abgetrunkenes Krügle
+  Table t;
+  CHECK(t.put(549) == 1);
+  t.round(470);
+  CHECK(t.put(1023) == 2);
+  t.round(910);
+  CHECK(t.put(870) == 3);
+  t.round(760);
+  CHECK(t.put(470) == 1);
+  t.round(390);
+  CHECK(t.put(910) == 2);
+  t.round(800);
+  CHECK(t.put(760) == 3);
+  t.round(650);
+  CHECK(t.put(390) == 1);
+  CHECK(t.put(800) == 2);
+  CHECK(t.put(650) == 3);
+}
+
+static void testScenarioSwapVsPause() {
+  // Direkt hintereinander: leichter als zuletzt = anderes Glas
+  Table t;
+  CHECK(t.put(1023) == 2);
+  t.round(1000);
+  CHECK(t.put(870) == 3); // volle Euro 0,5
+  Table e;
+  CHECK(e.put(870) == 3);
+  e.round(800);
+  CHECK(e.put(590) == 4); // volle Euro 0,33
+  // Nach der Pause: leichter = dazwischen getrunken, dasselbe Glas
+  Table p;
+  CHECK(p.put(870) == 3);
+  p.round(760);
+  CHECK(p.put(550, PAUSE) == 3); // wiegt wie ein volles Gläsle
+  Table q;
+  CHECK(q.put(870) == 3);
+  q.round(760);
+  CHECK(q.put(600, PAUSE) == 3); // wiegt wie eine volle Euro 0,33
+  // Innerhalb der Tauschzeit dazwischen getrunken: springt (bekannte Grenze)
+  Table r;
+  CHECK(r.put(870) == 3);
+  r.round(760);
+  CHECK(r.put(550) == 1);
+  // Grenze der Tauschzeit
+  Table b;
+  CHECK(b.put(870) == 3);
+  b.round(760);
+  CHECK(b.put(550, SWAP - 1) == 1);
+  Table c;
+  CHECK(c.put(870) == 3);
+  c.round(760);
+  CHECK(c.put(550, SWAP) == 3);
+  // Tauschzeit 0 = aus: immer wie nach einer Pause
+  Table o(0);
+  CHECK(o.put(870) == 3);
+  o.round(760);
+  CHECK(o.put(550) == 3);
+  // Deep-Sleep zaehlt als Pause
+  Table s;
+  CHECK(s.put(870) == 3);
+  s.round(760);
+  s.d.pause();
+  CHECK(s.put(550, 1000) == 3);
+  // Direkt: gleiches Glas mit fast gleichem Gewicht bleibt
+  Table k;
+  CHECK(k.put(1023) == 2);
+  k.round(900);
+  CHECK(k.put(892) == 2);
+}
+
+static void testScenarioOthers() {
+  // Krügle halb, dann jemand mit vollem Gläsle
+  Table t;
+  CHECK(t.put(1023) == 2);
+  t.round(800);
+  CHECK(t.put(549) == 1);
+  // Leeres Glas auflegen, dann eingeschenkt
+  Table e;
+  CHECK(e.put(1023) == 2);
+  e.round(1000);
+  CHECK(e.put(370) == 3);
+  CHECK(e.put(870) == 3);
+  // Nicht aufloesbar: halb volles Krügle, das die Waage noch nie voll gesehen
+  // hat, wiegt wie eine volle Euro 0,5
+  Table h;
+  CHECK(h.put(549) == 1);
+  h.round(450);
+  CHECK(h.put(830) == 3);
+}
+
+static void testRecentMemory() {
+  // Fuenftes Glas verdraengt das aelteste
+  static const Glass FIVE[] = {
+      {1, "A", 100.0f, 300.0f},  {2, "B", 500.0f, 300.0f},
+      {3, "C", 900.0f, 300.0f},  {4, "D", 1300.0f, 300.0f},
+      {5, "E", 1700.0f, 300.0f},
+  };
+  List l;
+  l.begin(FIVE, 5, 6);
+  Detector d;
+  for (int i = 0; i < 5; i++)
+    CHECK(d.place(l, FIVE[i].emptyG + 300.0f, TOL).id == FIVE[i].id);
+  CHECK(d.lastId() == 5);
+  CHECK(d.memory().recent[3].id == 2); // A ist herausgefallen
+  // Wieder benutzt → nach vorn, ohne Doppel
+  CHECK(d.place(l, 500.0f + 300.0f, TOL).id == 2);
+  CHECK(d.lastId() == 2 && d.memory().recent[1].id == 5);
+  int twos = 0;
+  for (int i = 0; i < RECENT; i++)
+    twos += d.memory().recent[i].id == 2;
+  CHECK(twos == 1);
+}
+
 int main() {
   testNames();
   testDefaults();
@@ -428,5 +620,11 @@ int main() {
   testUnknown();
   testLostGlass();
   testOnlyPossible();
+  testScenarioAlone();
+  testScenarioTwoAlternating();
+  testScenarioThree();
+  testScenarioSwapVsPause();
+  testScenarioOthers();
+  testRecentMemory();
   return finish("glass_core_test");
 }

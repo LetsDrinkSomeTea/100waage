@@ -307,6 +307,7 @@ Config defaults() {
   c.goalPercent = false;
   c.goalPct = GOAL_PCT_DEFAULT;
   c.randomMinPct = RANDOM_MIN_PCT_DEFAULT;
+  c.glassSwapMin = GLASS_SWAP_DEFAULT;
   c.statsRotation = true;
   c.statsAfterS = STATS_AFTER_DEFAULT;
   c.statsGoalS = STATS_GOAL_DEFAULT;
@@ -358,6 +359,8 @@ bool sanitize(Config &c) {
   if (c.goalPct < GOAL_PCT_MIN || c.goalPct > GOAL_PCT_MAX)
     setU8(c.goalPct, GOAL_PCT_DEFAULT, ch);
   setU8(c.randomMinPct, normRandomMinPct(c), ch);
+  if (c.glassSwapMin > GLASS_SWAP_MAX)
+    setU8(c.glassSwapMin, GLASS_SWAP_DEFAULT, ch);
 
   float az = std::isfinite(c.autoZeroThreshold) ? c.autoZeroThreshold
                                                 : AZ_THRESHOLD_DEFAULT;
@@ -424,6 +427,8 @@ Error validate(Config &c) {
     return {"randomMin", "Zufalls-Minimum ist keine gültige Zahl"};
   if (c.goalPct < GOAL_PCT_MIN || c.goalPct > GOAL_PCT_MAX)
     return {"goalPct", "Ziel muss zwischen 1 und 100 % liegen"};
+  if (c.glassSwapMin > GLASS_SWAP_MAX)
+    return {"glassSwapMin", "Tauschzeit muss zwischen 0 und 60 min liegen"};
 
   if (c.autoResetRange > AUTO_RESET_MAX)
     return {"autoResetRange",
@@ -610,7 +615,7 @@ uint32_t diff(const Config &a, const Config &b) {
   if (a.wifiTimeout != b.wifiTimeout || a.sleepTimeout != b.sleepTimeout)
     m |= CH_TIMEOUTS;
   if (!sameBits(a.tolerance, b.tolerance) ||
-      a.autoResetRange != b.autoResetRange)
+      a.autoResetRange != b.autoResetRange || a.glassSwapMin != b.glassSwapMin)
     m |= CH_GAME;
   if (a.autoZeroEnabled != b.autoZeroEnabled ||
       !sameBits(a.autoZeroThreshold, b.autoZeroThreshold) ||

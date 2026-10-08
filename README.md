@@ -115,9 +115,16 @@ Gramm, getrunkene Gramm mit Zeit. Die Bewertung rechnet wie immer in Gramm.
 
 So wird das Glas bestimmt:
 
-- **Dasselbe Glas wie zuletzt**, wenn das Gewicht nicht höher ist als beim
-  letzten Mal (plus Toleranz) und nicht unter dessen Leergewicht. Ein halb
-  ausgetrunkener Krug wird so nie zur vollen Tulpe.
+- **Ein schon benutztes Glas** (die Waage merkt sich die letzten 4, jedes mit
+  seinem letzten Gewicht), wenn das Gewicht nicht höher ist als beim letzten
+  Mal (plus Toleranz) und nicht unter dessen Leergewicht. Ein halb
+  ausgetrunkener Krug wird so nie zur vollen Tulpe, und zu zweit oder zu dritt
+  an einer Waage behält jedes Glas seinen Platz.
+- **Tauschzeit** (Admin, Standard 5 min): Steht ein Glas innerhalb dieser Zeit
+  wieder auf der Waage, wurde direkt weitergespielt und nichts dazwischen
+  getrunken. Ist es dann leichter als zuletzt, ist es ein anderes Glas. Nach
+  einer längeren Pause (oder nach dem Deep-Sleep) gilt leichter als „dazwischen
+  getrunken“, also dasselbe Glas. 0 = aus.
 - **Leeres Glas**, wenn das Gewicht einem Leergewicht entspricht.
 - **Volles Glas** (nachgefüllt oder neues Glas): Inhalt zwischen 70 % und
   115 % der Füllmenge. Das zuletzt benutzte Glas bleibt, solange es höchstens
@@ -127,9 +134,15 @@ So wird das Glas bestimmt:
   anderen schon leer schwerer wären oder überlaufen würden.
 - Im Web **festgelegt**: gilt bis zum Neustart (Deep-Sleep zählt nicht).
 
-Was die Waage nicht erkennen kann: ein leichteres, anderes Glas direkt nach
-einem schweren (z. B. halb volle fremde Tulpe nach dem Krug). Dann das Glas
-einmal leer auflegen oder im Web festlegen.
+Was die Waage nicht erkennen kann:
+
+- ein Glas, das sie noch nie voll gesehen hat und das halb voll so viel wiegt
+  wie ein anderes volles (z. B. halbes Krügle wie volle Euroflasche);
+- ein Glas, das nicht in der Liste steht;
+- innerhalb der Tauschzeit außerhalb der Waage getrunken, wenn das Gewicht dann
+  zu einem anderen vollen Glas passt.
+
+Dann das Glas einmal leer auflegen oder im Web festlegen.
 
 ### Standard-Modus
 
@@ -186,7 +199,7 @@ Display-Rotation und Info-Rotation, das erkannte Glas mit Auswahl zum
 Festlegen und „wäre X g drin“ für jedes Glas, dazu die Statistik. Änderungen gelten sofort (Ziel und Zufall
 während einer laufenden Runde ab der nächsten).
 
-**Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich,
+**Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich, Tauschzeit,
 Timeouts, Auto-Zero, Zeiten der Statistik-Anzeige, Passwort; alles ohne
 Neustart. Außerdem:
 

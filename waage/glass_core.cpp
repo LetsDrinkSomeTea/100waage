@@ -451,23 +451,51 @@ size_t List::exportHeader(char *buf, size_t cap) const {
 
 // ── Bestimmung ────────────────────────────────────────────────────────────────
 
-Detection Detector::place(const List &l, float absW, float tol) {
+Detection Detector::place(const List &l, float absW, float tol, uint32_t now,
+                          uint32_t swapMs) {
   // 0. Im Web festgelegt
   if (mem_.manualId) {
     const Glass *g = l.find(mem_.manualId);
     if (g) {
-      mem_.lastId = g->id;
-      mem_.refG = absW;
+      remember(g->id, absW, now);
       return {g->id, Source::Manual, absW - g->emptyG};
     }
     mem_.manualId = 0; // Glas gibt es nicht mehr
   }
 
-  // 1. Dasselbe Glas: nicht schwerer als zuletzt, nicht leichter als leer
-  const Glass *last = l.find(mem_.lastId);
-  if (last && absW <= mem_.refG + tol && absW >= last->emptyG - tol) {
-    mem_.refG = absW;
-    return {last->id, Source::Same, absW - last->emptyG};
+  // 1. Ein gemerktes Glas: nicht schwerer als zuletzt, nicht leichter als
+  // leer (direkt hintereinander: nicht leichter als zuletzt). Das letzte Glas
+  // zuerst; aeltere nur, wenn das letzte nicht als nachgefuellt durchgeht.
+  const Glass *last = l.find(lastId());
+  bool lastRefill = false;
+  if (last) {
+    const float c = absW - last->emptyG;
+    lastRefill = c >= last->nominalG * (float)FILL_MIN_PCT / 100.0f &&
+                 c <= last->nominalG * (float)FILL_MAX_PCT / 100.0f;
+  }
+  const Glass *same = nullptr;
+  float sameD = 0.0f;
+  for (int i = 0; i < RECENT; i++) {
+    const Recent &r = mem_.recent[i];
+    const Glass *g = l.find(r.id);
+    if (!g || (lastRefill && g != last))
+      continue;
+    const bool direct =
+        swapMs > 0 && r.timed && (uint32_t)(now - r.atMs) < swapMs;
+    float lo = g->emptyG - tol;
+    if (direct && r.refG - tol > lo)
+      lo = r.refG - tol;
+    if (absW > r.refG + tol || absW < lo)
+      continue;
+    const float d = fabsf(r.refG - absW);
+    if (!same || d < sameD) {
+      same = g;
+      sameD = d;
+    }
+  }
+  if (same) {
+    remember(same->id, absW, now);
+    return {same->id, Source::Same, absW - same->emptyG};
   }
 
   // 2. Leeres Glas
@@ -482,8 +510,7 @@ Detection Detector::place(const List &l, float absW, float tol) {
     }
   }
   if (best) {
-    mem_.lastId = best->id;
-    mem_.refG = absW;
+    remember(best->id, absW, now);
     return {best->id, Source::Empty, absW - best->emptyG};
   }
 
@@ -535,8 +562,7 @@ Detection Detector::place(const List &l, float absW, float tol) {
       best = nullptr;
   }
   if (best) {
-    mem_.lastId = best->id;
-    mem_.refG = absW;
+    remember(best->id, absW, now);
     return {best->id, Source::Auto, absW - best->emptyG};
   }
 
@@ -544,9 +570,27 @@ Detection Detector::place(const List &l, float absW, float tol) {
   return {0, Source::None, 0.0f};
 }
 
-void Detector::settle(float absW) {
-  if (mem_.lastId)
-    mem_.refG = absW;
+void Detector::settle(float absW, uint32_t now) {
+  if (lastId())
+    remember(lastId(), absW, now);
+}
+
+void Detector::pause() {
+  for (int i = 0; i < RECENT; i++)
+    mem_.recent[i].timed = false;
+}
+
+// Glas nach vorn (neu oder schon gemerkt), aeltestes faellt heraus
+void Detector::remember(uint16_t id, float ref, uint32_t now) {
+  int k = RECENT - 1;
+  for (int i = 0; i < RECENT; i++)
+    if (mem_.recent[i].id == id) {
+      k = i;
+      break;
+    }
+  for (int i = k; i > 0; i--)
+    mem_.recent[i] = mem_.recent[i - 1];
+  mem_.recent[0] = {id, true, ref, now};
 }
 
 } // namespace glass

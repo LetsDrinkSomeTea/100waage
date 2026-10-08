@@ -48,6 +48,7 @@ struct Config {
   bool goalPercent;     // Ziel in % vom Glasinhalt (nur Game-Modus)
   uint8_t goalPct;      // [%] Ziel im Prozent-Modus
   uint8_t randomMinPct; // [%] Untergrenze des Zufallsziels im Prozent-Modus
+  uint8_t glassSwapMin; // [min] Tauschzeit der Glasbestimmung, 0 = aus
   bool statsRotation;   // Statistik im Ruhezustand im Wechsel mit dem Ziel
   uint8_t statsAfterS;  // [s] ohne Glas bis zur ersten Statistik
   uint8_t statsGoalS;   // [s] Anzeigedauer des Ziels in der Rotation
@@ -69,6 +70,7 @@ constexpr uint8_t STATS_SHOW_MIN = 1, STATS_SHOW_MAX = 60;
 constexpr uint8_t STATS_GOAL_DEFAULT = 6, STATS_STEP_DEFAULT = 4;
 constexpr uint8_t GOAL_PCT_MIN = 1, GOAL_PCT_MAX = 100;
 constexpr uint8_t GOAL_PCT_DEFAULT = 50, RANDOM_MIN_PCT_DEFAULT = 20;
+constexpr uint8_t GLASS_SWAP_MAX = 60, GLASS_SWAP_DEFAULT = 5;
 
 Config defaults();
 
@@ -81,6 +83,7 @@ Config defaults();
 // (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0..2 (sonst Game).
 // statsAfterS 1..255 (sonst 20), statsGoalS/statsStepS 1..60 (sonst 6/3).
 // goalPct 1..100 (sonst 50), randomMinPct auf [1, goalPct] geklemmt.
+// glassSwapMin 0..60 (sonst 5).
 // Strings werden terminiert; leere oder nicht druckbare SSID → Default-SSID,
 // leeres Passwort → "admin" (kurze alte Passwoerter bleiben erhalten).
 // Liefert true, wenn etwas korrigiert wurde.
@@ -122,7 +125,7 @@ enum Change : uint32_t {
   CH_ROTATION = 1u << 5,
   CH_MODE = 1u << 6,
   CH_TIMEOUTS = 1u << 7, // wifiTimeout, sleepTimeout
-  CH_GAME = 1u << 8,     // tolerance, autoResetRange
+  CH_GAME = 1u << 8,     // tolerance, autoResetRange, glassSwapMin
   CH_AUTOZERO = 1u << 9, // autoZero*
   CH_BATT = 1u << 10,    // battDividerRatio, batteryPresent
   CH_STATS = 1u << 11,   // statsRotation, statsAfterS/GoalS/StepS

@@ -7,7 +7,7 @@
 
 static constexpr char NS[] = "glass";
 static constexpr char K_DELTAS[] = "d";
-static constexpr uint32_t RTC_MAGIC = 0x67A55001u;
+static constexpr uint32_t RTC_MAGIC = 0x67A55002u;
 
 static glass::List list;
 

@@ -91,6 +91,7 @@ Queue legt.
 | `goalPercent`       | aus                | Ziel in % vom Glasinhalt (nur Game-Modus)                | Start               |
 | `goalPct`           | 50 %               | 1–100                                                    | Start               |
 | `randomMinPct`      | 20 %               | wird auf [1, `goalPct`] geklemmt                         | Start               |
+| `glassSwapMin`      | 5 min              | 0–60, 0 = aus (Tauschzeit der Glasbestimmung)            | Admin               |
 | `statsRotation`     | an                 |                                                          | Start               |
 | `statsAfterS`       | 20 s               | 1–255                                                    | Admin               |
 | `statsStepS`        | 3 s                | 1–60                                                     | Admin               |
@@ -121,7 +122,7 @@ geschrieben; fehlt er, gilt der Speicher als leer.
 | `azThr`     | autoZeroThreshold | `azDelay` | autoZeroDelay    |
 | `rndOn`     | randomModeEnabled | `rndMin`  | randomMin        |
 | `goalPctOn` | goalPercent       | `goalPct` | goalPct          |
-| `rndMinPct` | randomMinPct      |           |                  |
+| `rndMinPct` | randomMinPct      | `swapMin` | glassSwapMin     |
 
 `config_set` schreibt nur die geänderten Schlüssel (Änderungsmaske `cfg::diff`).
 
@@ -317,27 +318,37 @@ absolut = `grams + load()`.
 
 Im Idle (beide Spielmodi), sobald ein Glas (w > `tolerance`) 500 ms ruhig
 steht, und erneut, wenn sich das absolute Gewicht um mehr als `tolerance`
-ändert. Gemerkt werden das **letzte Glas** und sein **Referenzgewicht** (beim
-Aufstellen; nach einer Runde mit bestimmtem Glas das absolute Endgewicht).
-Gewicht W absolut, Toleranz `tolerance`, Regeln in dieser Reihenfolge:
+ändert. Gemerkt werden die **letzten 4 Gläser** (`RECENT`), jedes mit
+**Referenzgewicht** (beim Aufstellen; nach einer Runde das absolute
+Endgewicht) und Zeitpunkt. **Tauschzeit** `glassSwapMin`: Stand ein gemerktes
+Glas vor weniger als dieser Zeit auf der Waage, gilt es als direkt
+weitergespielt (nichts dazwischen getrunken). Nach dem Deep-Sleep gelten alle
+als Pause. Gewicht W absolut, Toleranz `tolerance`, Regeln in dieser
+Reihenfolge:
 
-| #   | Bedingung                                                                                                   | Ergebnis                                                                                                           |
-| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 0   | Glas im Web festgelegt                                                                                      | dieses Glas                                                                                                        |
-| 1   | W ≤ Referenz + Toleranz und W ≥ Leergewicht(letztes Glas) − Toleranz                                        | dasselbe Glas                                                                                                      |
-| 2   | \|W − Leergewicht\| ≤ Toleranz für ein Glas                                                                 | leeres Glas (nächstes), Hinweis mit Namen im Prozent-Modus                                                         |
-| 3   | Inhalt in 70–115 % der Nennfüllung (`FILL_MIN_PCT`, `FILL_MAX_PCT`)                                         | kleinste Abweichung von der Nennfüllung; das letzte Glas bleibt bis 10 Prozentpunkte (`LAST_BONUS_PCT`) schlechter |
-| 3b  | kein Kandidat, letztes Glas hätte > Toleranz und ≤ 115 % Inhalt                                             | letztes Glas (leer erkannt, dann wenig eingeschenkt)                                                               |
-| 3c  | sonst genau ein Glas mit > Toleranz und ≤ 115 % Inhalt (alle anderen leer schon zu schwer oder überlaufend) | dieses Glas                                                                                                        |
-| 4   | sonst                                                                                                       | unbekannt, Gedächtnis bleibt                                                                                       |
+| #   | Bedingung                                                                                                                                                                                                                   | Ergebnis                                                                                                           |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 0   | Glas im Web festgelegt                                                                                                                                                                                                      | dieses Glas                                                                                                        |
+| 1   | ein gemerktes Glas mit W ≤ Referenz + Toleranz und W ≥ Leergewicht − Toleranz, innerhalb der Tauschzeit zusätzlich W ≥ Referenz − Toleranz; ältere Gläser nur, wenn das letzte nicht als nachgefüllt gilt (Inhalt 70–115 %) | dasselbe Glas (nächste Referenz)                                                                                   |
+| 2   | \|W − Leergewicht\| ≤ Toleranz für ein Glas                                                                                                                                                                                 | leeres Glas (nächstes), Hinweis mit Namen im Prozent-Modus                                                         |
+| 3   | Inhalt in 70–115 % der Nennfüllung (`FILL_MIN_PCT`, `FILL_MAX_PCT`)                                                                                                                                                         | kleinste Abweichung von der Nennfüllung; das letzte Glas bleibt bis 10 Prozentpunkte (`LAST_BONUS_PCT`) schlechter |
+| 3b  | kein Kandidat, letztes Glas hätte > Toleranz und ≤ 115 % Inhalt                                                                                                                                                             | letztes Glas (leer erkannt, dann wenig eingeschenkt)                                                               |
+| 3c  | sonst genau ein Glas mit > Toleranz und ≤ 115 % Inhalt (alle anderen leer schon zu schwer oder überlaufend)                                                                                                                 | dieses Glas                                                                                                        |
+| 4   | sonst                                                                                                                                                                                                                       | unbekannt, Gedächtnis bleibt                                                                                       |
 
 Ohne Leer-Referenz oder Liste: unbekannt. Liste oder Festlegung geändert: das
 stehende Glas wird neu bestimmt. Gedächtnis und Festlegung überleben den
 Deep-Sleep (RTC), nicht den Neustart. Ein festgelegtes Glas, das gelöscht
 wird, schaltet zurück auf automatisch.
 
-Grenze: ein leichteres, anderes Glas direkt nach einem schwereren erkennt
-Regel 1 als dasselbe Glas; auflösen durch leeres Auflegen oder Festlegen.
+Grenzen (auflösen durch leeres Auflegen oder Festlegen):
+
+- nach einer Pause ein leichteres, anderes Glas: gilt als dasselbe Glas
+  (dazwischen getrunken);
+- innerhalb der Tauschzeit außerhalb der Waage getrunken und das Gewicht passt
+  zu einem anderen vollen Glas: gilt als das andere Glas;
+- ein nie voll gesehenes, halb volles Glas, das wie ein anderes volles wiegt;
+  ein Glas, das nicht in der Liste steht.
 
 ## Duell (Protokoll v3)
 
@@ -652,19 +663,19 @@ danach wieder an. Während des Uploads blockiert der Loop (10–30 s).
 `./test/run.sh` baut jeden Test mit `g++ -std=c++17 -Wall -Wextra -Werror` und
 führt ihn aus; `SANITIZE=1` zusätzlich mit AddressSanitizer und UBSan.
 
-| Test                                   | Prüft                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------- |
-| `duell_core_test`, `duell_sim_test`    | Protokoll, Merge, Ranking; 2–4 Waagen mit Paketverlust, Ausstieg                |
-| `config_core_test`                     | Sanitize, Validierung, Parser, altes EEPROM-Abbild bit-genau                    |
-| `scale_core_test`                      | Filter, Stabilität, Tara, Nullung, Kalibrierung inkl. Fehlerpfade, Zeitüberlauf |
-| `button_core_test`                     | Prellen, Zonengrenzen, Weck-Druck                                               |
-| `battery_core_test`, `power_core_test` | Kurve, Hysterese, Abgleich; Sleep-Policy, AP-Timeout, Zeitüberlauf              |
-| `text_core_test`                       | CP437, Layout, alle Texte ohne Ersatzzeichen                                    |
-| `web_core_test`                        | JSON-Escaping, Cookies, Token, Login-Bremse                                     |
-| `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen                     |
-| `stats_core_test`                      | Stufen, Bestwert, schnellste Zeit, Erfolge, Duell, Verlauf                      |
-| `glass_core_test`                      | Namen, Liste und Abweichungen, Speichern, Prune nach Update, Export, Regeln 0–4 |
-| `ui_model_test`                        | Ebenen, Symbole, Texte, Erfolg im Ergebnis, Info-Rotation                       |
+| Test                                   | Prüft                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `duell_core_test`, `duell_sim_test`    | Protokoll, Merge, Ranking; 2–4 Waagen mit Paketverlust, Ausstieg                    |
+| `config_core_test`                     | Sanitize, Validierung, Parser, altes EEPROM-Abbild bit-genau                        |
+| `scale_core_test`                      | Filter, Stabilität, Tara, Nullung, Kalibrierung inkl. Fehlerpfade, Zeitüberlauf     |
+| `button_core_test`                     | Prellen, Zonengrenzen, Weck-Druck                                                   |
+| `battery_core_test`, `power_core_test` | Kurve, Hysterese, Abgleich; Sleep-Policy, AP-Timeout, Zeitüberlauf                  |
+| `text_core_test`                       | CP437, Layout, alle Texte ohne Ersatzzeichen                                        |
+| `web_core_test`                        | JSON-Escaping, Cookies, Token, Login-Bremse                                         |
+| `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen                         |
+| `stats_core_test`                      | Stufen, Bestwert, schnellste Zeit, Erfolge, Duell, Verlauf                          |
+| `glass_core_test`                      | Namen, Liste, Speichern, Prune, Export, Regeln 0–4, Szenarien am Tisch (Tauschzeit) |
+| `ui_model_test`                        | Ebenen, Symbole, Texte, Erfolg im Ergebnis, Info-Rotation                           |
 
 ## Abnahme auf der Hardware
 

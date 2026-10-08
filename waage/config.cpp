@@ -32,6 +32,7 @@ static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
   if (mask & cfg::CH_GAME) {
     p.putFloat("tol", c.tolerance);
     p.putUChar("arRange", c.autoResetRange);
+    p.putUChar("swapMin", c.glassSwapMin);
   }
   if (mask & cfg::CH_ROTATION)
     p.putUChar("rot", c.displayRotation);
@@ -78,6 +79,7 @@ static void readAll(Preferences &p, cfg::Config &c) {
   c.goal = p.getFloat("goal", d.goal);
   c.tolerance = p.getFloat("tol", d.tolerance);
   c.autoResetRange = p.getUChar("arRange", d.autoResetRange);
+  c.glassSwapMin = p.getUChar("swapMin", d.glassSwapMin);
   c.displayRotation = p.getUChar("rot", d.displayRotation);
   c.wifiTimeout = p.getUChar("wifiTo", d.wifiTimeout);
   c.sleepTimeout = p.getUChar("sleepTo", d.sleepTimeout);

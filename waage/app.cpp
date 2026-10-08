@@ -674,6 +674,7 @@ void app_setup() {
   GlassRtc rtc;
   if (glass_rtcRestore(&rtc)) { // aus dem Deep-Sleep: Glas und Leer-Referenz
     theGame.detector().setMemory(rtc.mem);
+    theGame.detector().pause(); // Schlaf zaehlt als Pause (Tauschzeit)
     if (rtc.emptyKnown)
       scale_core().setEmptyOffset(rtc.emptyOffset);
   }

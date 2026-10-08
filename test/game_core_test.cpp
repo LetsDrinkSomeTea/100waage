@@ -623,7 +623,7 @@ static void testGlassInGramMode() {
   CHECK(!d.g.view().pct);
   RoundDone r;
   CHECK(d.g.takeRound(&r) && r.goalPct == 0 && r.goalCg == 10000);
-  CHECK(d.g.detector().memory().refG == 720.0f); // Referenz = Endgewicht
+  CHECK(d.g.detector().lastRefG() == 720.0f); // Referenz = Endgewicht
 }
 
 static void testPercentRound() {

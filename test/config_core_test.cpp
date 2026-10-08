@@ -2308,6 +2308,21 @@ static void testGoalPercent() {
   b.randomMinPct = 10;
   CHECK(diff(a, b) == CH_RANDOM);
 
+  // Tauschzeit der Glasbestimmung
+  Config w = defaults();
+  CHECK(w.glassSwapMin == 5);
+  w.glassSwapMin = 61;
+  CHECK(sanitize(w) && w.glassSwapMin == GLASS_SWAP_DEFAULT);
+  w.glassSwapMin = 0;
+  CHECK(!sanitize(w) && w.glassSwapMin == 0);
+  w.glassSwapMin = 61;
+  CHECK(validate(w).field && strcmp(validate(w).field, "glassSwapMin") == 0);
+  w.glassSwapMin = 60;
+  CHECK(!validate(w).field);
+  b = a;
+  b.glassSwapMin = 10;
+  CHECK(diff(a, b) == CH_GAME);
+
   // rollGoalPct
   Config r = defaults(); // 20..50
   CHECK(rollGoalPct(r, 0) == 20);

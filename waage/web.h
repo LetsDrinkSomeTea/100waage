@@ -43,11 +43,13 @@
 // /api/admin/* → 401 {ok:false, error:"login"})
 //   GET  /admin                 Admin-Seite
 //   GET  /api/admin/config      {apSSID, apName, tolerance, autoResetRange,
+//                                glassSwapMin,
 //   wifiTimeout,
 //                                sleepTimeout, autoZeroEnabled,
 //                                autoZeroThreshold, autoZeroDelay,
 //                                battDividerRatio, scaleFactor, fw, proto}
-//   POST /api/admin/config      apSSID, tolerance, autoResetRange, wifiTimeout,
+//   POST /api/admin/config      apSSID, tolerance, autoResetRange,
+//                               glassSwapMin, wifiTimeout,
 //   sleepTimeout,
 //                               autoZeroEnabled=0|1, autoZeroThreshold,
 //                               autoZeroDelay, newPassword (leer =

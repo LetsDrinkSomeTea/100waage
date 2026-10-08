@@ -16,8 +16,11 @@
 // Bestimmung beim Aufstellen (Glas steht ruhig, absolutes Gewicht W, Toleranz
 // tol), Regeln in dieser Reihenfolge (siehe Specs.md):
 //  0. Glas im Web festgelegt → dieses Glas.
-//  1. W <= Referenz + tol und W >= Leergewicht(letztes Glas) - tol → dasselbe
-//     Glas (nicht nachgefuellt, hoechstens weiter abgetrunken).
+//  1. Ein gemerktes Glas mit W <= Referenz + tol und W >= Leergewicht - tol
+//     → dasselbe Glas (nicht nachgefuellt, hoechstens weiter abgetrunken);
+//     mehrere → naechste Referenz. Innerhalb der Tauschzeit zusaetzlich
+//     W >= Referenz - tol. Aeltere Glaeser nur, wenn das letzte nicht als
+//     nachgefuellt gilt (Inhalt im Fenster von Regel 3).
 //  2. |W - Leergewicht| <= tol fuer ein Glas → leeres Glas erkannt.
 //  3. Kandidaten: Inhalt W - Leergewicht in FILL_MIN_PCT..FILL_MAX_PCT % der
 //     Nennfuellung. Bester Kandidat = kleinste Abweichung von der
@@ -132,11 +135,18 @@ enum class Source : uint8_t {
 
 const char *sourceKey(Source s); // "none", "manual", "same", "empty", "auto"
 
-// Gedaechtnis (ueberlebt den Deep-Sleep, nicht den Neustart)
+// Gedaechtnis (ueberlebt den Deep-Sleep, nicht den Neustart): die zuletzt
+// benutzten Glaeser, je mit Referenzgewicht und Zeitpunkt.
+constexpr int RECENT = 4;
+struct Recent {
+  uint16_t id;   // 0 = frei
+  bool timed;    // atMs gueltig (nach dem Deep-Sleep nicht mehr)
+  float refG;    // Referenzgewicht
+  uint32_t atMs; // zuletzt auf der Waage
+};
 struct Memory {
-  uint16_t lastId;   // 0 = keins
-  uint16_t manualId; // 0 = automatische Erkennung
-  float refG;        // Referenzgewicht des letzten Glases
+  uint16_t manualId;     // 0 = automatische Erkennung
+  Recent recent[RECENT]; // [0] = letztes Glas
 };
 
 struct Detection {
@@ -154,12 +164,24 @@ public:
   void setManual(uint16_t id) { mem_.manualId = id; }
   uint16_t manual() const { return mem_.manualId; }
 
-  // Glas steht ruhig mit absolutem Gewicht absW: Regeln 0..4
-  Detection place(const List &l, float absW, float tol);
+  uint16_t lastId() const { return mem_.recent[0].id; }
+  float lastRefG() const { return mem_.recent[0].refG; }
+
+  // Alle Zeiten verwerfen (nach dem Deep-Sleep): gilt als Pause
+  void pause();
+
+  // Glas steht ruhig mit absolutem Gewicht absW: Regeln 0..4. swapMs =
+  // Tauschzeit (0 = aus): stand ein gemerktes Glas vor weniger als swapMs
+  // auf der Waage (direkt hintereinander gespielt, nichts dazwischen
+  // getrunken), gilt Regel 1 fuer es nur, wenn W hoechstens tol unter der
+  // Referenz liegt; leichter ist dann ein anderes Glas.
+  Detection place(const List &l, float absW, float tol, uint32_t now = 0,
+                  uint32_t swapMs = 0);
   // Glas steht nach einer Runde wieder (absolutes Endgewicht): Referenz
-  void settle(float absW);
+  void settle(float absW, uint32_t now = 0);
 
 private:
+  void remember(uint16_t id, float ref, uint32_t now);
   Memory mem_ = {};
 };
 

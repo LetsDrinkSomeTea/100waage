@@ -267,6 +267,7 @@ input[type=file]::file-selector-button{font:inherit;margin-right:10px;padding:7p
 <fieldset><legend>Messung</legend>
 <label class="r"><span>Toleranz<i>Für die Start/Stop-Erkennung</i></span><span class="ein"><input type="number" step="0.1" name="tolerance"><span>g</span></span></label>
 <label class="r"><span>Auto-Reset-Bereich<i>Ergebnisse außerhalb werden automatisch zurückgesetzt (0–100)</i></span><span class="ein"><input type="number" min="0" max="100" name="autoResetRange"><span>%</span></span></label>
+<label class="r"><span>Tauschzeit<i>Glaserkennung: steht ein Glas innerhalb dieser Zeit leichter wieder auf der Waage, ist es ein anderes Glas (direkt hintereinander gespielt). Danach gilt: dazwischen getrunken. 0 = aus (0–60)</i></span><span class="ein"><input type="number" min="0" max="60" name="glassSwapMin"><span>min</span></span></label>
 <label class="sw"><span>Auto-Zero<i>Nullabgleich, wenn die Waage stabil leer ist</i></span><input type="checkbox" name="autoZeroEnabled"></label>
 <div class="gruppe"><label class="r"><span>Gilt als leer bis</span><span class="ein"><input type="number" step="0.1" name="autoZeroThreshold"><span>g</span></span></label>
 <label class="r"><span>Stabil leer für</span><span class="ein"><input type="number" min="1" max="60" name="autoZeroDelay"><span>s</span></span></label></div></fieldset>
