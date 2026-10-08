@@ -12,12 +12,11 @@ constexpr uint32_t DEBOUNCE_MS = 30;
 constexpr uint32_t MIN_PRESS_MS = 50; // kuerzere Druecke loesen nichts aus
 constexpr uint32_t OVERLAY_MS =
     300; // ab hier zeigt das Display den Haltebalken
-// Zonengrenzen in der Standard-Einstellung (Tara 0,75 s, je Stufe 1,25 s).
-// Die wirksamen Grenzen kommen aus Timing (konfigurierbar).
-constexpr uint32_t MODE_MS = 750;     // Moduswechsel
-constexpr uint32_t RADIO_MS = 2000;   // AP an/aus
-constexpr uint32_t CLASSIC_MS = 3250; // Klassik an / zurueck
-constexpr uint32_t CANCEL_MS = 4500;  // Abbruch, nichts tun
+// Standard-Zeiten (einzige Quelle; cfg uebernimmt sie als Defaults):
+// kuerzer als DEFAULT_TARA_MS = Tara, danach je DEFAULT_STEP_MS fuer Modus,
+// AP und Klassik, dann Abbruch.
+constexpr uint32_t DEFAULT_TARA_MS = 750;
+constexpr uint32_t DEFAULT_STEP_MS = 1250;
 
 enum class Zone : uint8_t {
   None,    // nicht gedrueckt
@@ -28,12 +27,13 @@ enum class Zone : uint8_t {
   Cancel
 }; // >= cancelMs: nichts
 
-// Wirksame Zonengrenzen [ms], aufsteigend.
+// Wirksame Zonengrenzen [ms], aufsteigend. Ohne setTiming() gelten die
+// Standard-Zeiten.
 struct Timing {
-  uint32_t modeMs = MODE_MS;
-  uint32_t radioMs = RADIO_MS;
-  uint32_t classicMs = CLASSIC_MS;
-  uint32_t cancelMs = CANCEL_MS;
+  uint32_t modeMs = DEFAULT_TARA_MS;
+  uint32_t radioMs = DEFAULT_TARA_MS + DEFAULT_STEP_MS;
+  uint32_t classicMs = DEFAULT_TARA_MS + 2 * DEFAULT_STEP_MS;
+  uint32_t cancelMs = DEFAULT_TARA_MS + 3 * DEFAULT_STEP_MS;
 };
 
 // Grenzen aus der Tara-Zeit (Ende von Short) und der Breite jeder weiteren

@@ -1,4 +1,5 @@
 #pragma once
+#include "button_core.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -74,9 +75,16 @@ constexpr uint8_t GOAL_PCT_MIN = 1, GOAL_PCT_MAX = 100;
 constexpr uint8_t GOAL_PCT_DEFAULT = 50, RANDOM_MIN_PCT_DEFAULT = 20;
 constexpr uint8_t GLASS_SWAP_MAX = 60, GLASS_SWAP_DEFAULT = 5;
 constexpr uint16_t HOLD_TARA_MIN = 300, HOLD_TARA_MAX = 3000,
-                   HOLD_TARA_DEFAULT = 750;
+                   HOLD_TARA_DEFAULT = button::DEFAULT_TARA_MS;
 constexpr uint16_t HOLD_STEP_MIN = 500, HOLD_STEP_MAX = 3000,
-                   HOLD_STEP_DEFAULT = 1250;
+                   HOLD_STEP_DEFAULT = button::DEFAULT_STEP_MS;
+static_assert(HOLD_TARA_MIN <= HOLD_TARA_DEFAULT &&
+                  HOLD_TARA_DEFAULT <= HOLD_TARA_MAX &&
+                  HOLD_STEP_MIN <= HOLD_STEP_DEFAULT &&
+                  HOLD_STEP_DEFAULT <= HOLD_STEP_MAX,
+              "Taster-Defaults ausserhalb der Bereiche");
+static_assert(HOLD_TARA_MIN >= button::OVERLAY_MS,
+              "Haltebalken soll nicht erst nach der Tara-Zone erscheinen");
 
 Config defaults();
 
@@ -87,7 +95,7 @@ Config defaults();
 // goal] geklemmt, 0,1 g Raster. autoZeroThreshold 0,1..20 und <= tolerance.
 // autoZeroDelay 1..60 (sonst 5). autoResetRange <= 100. displayRotation 0/2
 // (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0..2 (sonst Game).
-// statsAfterS 1..255 (sonst 20), statsGoalS/statsStepS 1..60 (sonst 6/3).
+// statsAfterS 1..255 (sonst 15), statsGoalS/statsStepS 1..60 (sonst 6/4).
 // goalPct 1..100 (sonst 50), randomMinPct auf [1, goalPct] geklemmt.
 // glassSwapMin 0..60 (sonst 5). holdTaraMs 300..3000 (sonst 750),
 // holdStepMs 500..3000 (sonst 1250).

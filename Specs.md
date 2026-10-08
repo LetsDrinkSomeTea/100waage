@@ -93,8 +93,8 @@ Queue legt.
 | `randomMinPct`      | 20 %               | wird auf [1, `goalPct`] geklemmt                         | Start               |
 | `glassSwapMin`      | 5 min              | 0–60, 0 = aus (Tauschzeit der Glasbestimmung)            | Admin               |
 | `statsRotation`     | an                 |                                                          | Start               |
-| `statsAfterS`       | 20 s               | 1–255                                                    | Admin               |
-| `statsStepS`        | 3 s                | 1–60                                                     | Admin               |
+| `statsAfterS`       | 15 s               | 1–255                                                    | Admin               |
+| `statsStepS`        | 4 s                | 1–60                                                     | Admin               |
 | `statsGoalS`        | 6 s                | 1–60                                                     | Admin               |
 | `holdTaraMs`        | 750 ms             | 300–3000 (Web in s: `holdTaraS`)                         | Admin               |
 | `holdStepMs`        | 1250 ms            | 500–3000 (Web in s: `holdStepS`)                         | Admin               |
@@ -553,8 +553,8 @@ einer pro Runde, Rekord zuerst. Läuft als dritter Zustand im 3-s-Wechsel mit
 Aufgabe). Auch die erste Runde ist ein Rekord.
 
 **Info-Rotation** (`statsRotation`, Standard an): Im Game-Idle (Game- und
-Duell-Modus) ohne Glas zeigt die Anzeige nach `statsAfterS` (20 s) die
-Statistik-Bildschirme je `statsStepS` (3 s), danach das Ziel für `statsGoalS`
+Duell-Modus) ohne Glas zeigt die Anzeige nach `statsAfterS` (15 s) die
+Statistik-Bildschirme je `statsStepS` (4 s), danach das Ziel für `statsGoalS`
 (6 s), dann wieder von vorn, auch vor der ersten Runde:
 
 | Bildschirm     | Inhalt                                                      |
@@ -748,7 +748,7 @@ Vor dem Merge mit mindestens zwei Waagen:
       Glas weg und wieder hin → gleiches Glas; nach Deep-Sleep noch bekannt.
 - [ ] Gläser im Admin anlegen, exportieren, ins Repo, flashen → kein doppelter
       Eintrag.
-- [ ] Statistik: „Neuer Rekord!“ im Ergebnis-Wechsel; nach 20 s ohne Glas
-      Statistik je 3 s, Ziel 6 s, Zeiten im Admin änderbar; Glas/Taster
+- [ ] Statistik: „Neuer Rekord!“ im Ergebnis-Wechsel; nach 15 s ohne Glas
+      Statistik je 4 s, Ziel 6 s, Zeiten im Admin änderbar; Glas/Taster
       bringt sofort das Ziel; Werte nach
       Deep-Sleep noch da, Verlauf leer; Zurücksetzen im Admin.
