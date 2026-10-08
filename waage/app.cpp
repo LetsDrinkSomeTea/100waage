@@ -4,6 +4,7 @@
 #include "config.h"
 #include "duell.h"
 #include "game_core.h"
+#include "glass.h"
 #include "power_core.h"
 #include "radio.h"
 #include "scale.h"
@@ -65,14 +66,18 @@ static void applyScaleReq(game::ScaleReq r, const cfg::Config &c,
     s.startTare(now);
     break;
   case game::ScaleReq::TareEmpty:
-    if (!s.zeroFromWindow(c.tolerance, s.stableSpread(), now))
+    if (s.zeroFromWindow(c.tolerance, s.stableSpread(), now))
+      s.markEmpty(); // Glas abgehoben: Waage ist leer
+    else
       s.startTare(now);
     break;
   case game::ScaleReq::AutoZero:
     s.zeroFromWindow(c.autoZeroThreshold, c.autoZeroThreshold, now);
     break;
   case game::ScaleReq::NegZero:
-    s.zeroFromWindow(1e9f, s.stableSpread(), now);
+    // mit Glas tariert, Glas weg: Waage ist leer (auch nach Start mit Glas)
+    if (s.zeroFromWindow(1e9f, s.stableSpread(), now))
+      s.markEmpty();
     break;
   }
 }
@@ -129,8 +134,10 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
 
   if (ch & cfg::CH_ROTATION)
     ui_setRotation(c.displayRotation);
-  if (ch & cfg::CH_GAME)
+  if (ch & cfg::CH_GAME) {
     scale_core().setStableSpread(stableSpreadFor(c));
+    scale_core().setEmptyTolerance(c.tolerance);
+  }
   if (ch & cfg::CH_BATT)
     battery_configure(c.batteryPresent, c.battDividerRatio);
   if (ch & cfg::CH_SCALE)
@@ -273,6 +280,8 @@ static void updateCalibration(const cfg::Config &c, uint32_t now) {
   if (cal.active()) {
     bool wasError = cal.state() == scale::CalState::Error;
     cal.update(scale_core(), now, c.tolerance);
+    if (cal.state() == scale::CalState::WaitWeight)
+      scale_core().markEmpty(); // geleert und tariert
     float f;
     if (cal.takeNewFactor(&f)) {
       cfg::Config n = c;
@@ -343,6 +352,122 @@ void app_otaEnd(bool ok) {
   }
 }
 
+// ── Glaeser ───────────────────────────────────────────────────────────────────
+
+static const char *originKey(glass::Origin o) {
+  switch (o) {
+  case glass::Origin::Default:
+    return "default";
+  case glass::Origin::Modified:
+    return "modified";
+  case glass::Origin::Custom:
+    return "custom";
+  }
+  return "default";
+}
+
+// Absolutes Gewicht (gegen die leere Waage) oder false
+static bool absWeight(float *out) {
+  scale::Core &s = scale_core();
+  scale::Reading r = s.reading(millis());
+  if (!r.valid || !scale_ok() || !s.emptyKnown())
+    return false;
+  *out = r.grams + s.load();
+  return true;
+}
+
+void app_writeGlasses(web::JsonWriter &j) {
+  const glass::List &l = glass_list();
+  float w = 0.0f;
+  const bool haveW = absWeight(&w);
+  j.beginObject();
+  j.key("weight");
+  if (haveW)
+    j.num(w, 1);
+  else
+    j.null();
+  j.key("manual").uinteger(theGame.detector().manual());
+  j.key("current");
+  const glass::Glass *cur =
+      theGame.glassKnown() ? l.find(theGame.glass().id) : nullptr;
+  if (cur) {
+    j.beginObject();
+    j.key("id").uinteger(cur->id);
+    j.key("name").str(cur->name);
+    j.key("source").str(glass::sourceKey(theGame.glass().source));
+    j.endObject();
+  } else {
+    j.null();
+  }
+  j.key("glasses").beginArray();
+  for (int i = 0; i < l.count(); i++) {
+    const glass::Glass &g = l.at(i);
+    j.beginObject();
+    j.key("id").uinteger(g.id);
+    j.key("name").str(g.name);
+    j.key("empty").num(g.emptyG, 1);
+    j.key("nominal").num(g.nominalG, 1);
+    j.key("origin").str(originKey(l.origin(i)));
+    j.endObject();
+  }
+  j.endArray();
+  j.key("deleted").beginArray();
+  for (int i = 0; i < l.deletedCount(); i++) {
+    const glass::Glass *g = l.deletedAt(i);
+    if (!g)
+      continue;
+    j.beginObject();
+    j.key("id").uinteger(g->id);
+    j.key("name").str(g->name);
+    j.endObject();
+  }
+  j.endArray();
+  j.endObject();
+}
+
+static void glassesChanged() {
+  glass_save();
+  theGame.redetectGlass();
+}
+
+bool app_glassSelect(uint32_t id) {
+  if (id != 0 && !glass_list().find((uint16_t)id))
+    return false;
+  theGame.detector().setManual((uint16_t)id);
+  theGame.redetectGlass();
+  return true;
+}
+
+glass::Error app_glassSave(uint32_t id, const char *name, float emptyG,
+                           float nominalG) {
+  glass::List &l = glass_list();
+  glass::Error e = id == 0 ? l.add(name, emptyG, nominalG)
+                           : l.update((uint16_t)id, name, emptyG, nominalG);
+  if (!e.field)
+    glassesChanged();
+  return e;
+}
+
+bool app_glassDelete(uint32_t id) {
+  if (!glass_list().remove((uint16_t)id))
+    return false;
+  glassesChanged();
+  return true;
+}
+
+bool app_glassRestore(uint32_t id, bool all) {
+  if (all)
+    glass_list().restoreAll();
+  else if (!glass_list().restore((uint16_t)id))
+    return false;
+  glassesChanged();
+  return true;
+}
+
+size_t app_glassExport(char *out, size_t cap) {
+  return glass_list().exportHeader(out, cap);
+}
+
 // ── Status fuer das Web ───────────────────────────────────────────────────────
 
 static const char *phaseName() {
@@ -380,6 +505,11 @@ void app_writeStatus(web::JsonWriter &j) {
   j.key("phase").str(phaseName());
   j.key("busy").flag(app_isBusy());
   j.key("goal").num(theGame.localGoal(), 1);
+  j.key("goalPercent").flag(theGame.percentMode());
+  j.key("glass");
+  const glass::Glass *gl =
+      theGame.glassKnown() ? glass_list().find(theGame.glass().id) : nullptr;
+  j.str(gl ? gl->name : nullptr);
   j.key("random").flag(c.randomModeEnabled);
   j.key("radio").flag(radio_isOn());
   j.key("ap").flag(radio_apOn());
@@ -538,6 +668,16 @@ void app_setup() {
   btn.begin(digitalRead(PIN_BTN) == HIGH, now); // Weck-Druck ignorieren
   scale_begin(c.scaleFactor);
   scale_core().setStableSpread(stableSpreadFor(c));
+  scale_core().setEmptyTolerance(c.tolerance);
+  glass_begin();
+  theGame.setGlasses(&glass_list());
+  GlassRtc rtc;
+  if (glass_rtcRestore(&rtc)) { // aus dem Deep-Sleep: Glas und Leer-Referenz
+    theGame.detector().setMemory(rtc.mem);
+    theGame.detector().pause(); // Schlaf zaehlt als Pause (Tauschzeit)
+    if (rtc.emptyKnown)
+      scale_core().setEmptyOffset(rtc.emptyOffset);
+  }
   battery_begin(c.batteryPresent, c.battDividerRatio);
   stats_begin();
   theGame.begin(&duell_port(), randomWord, nullptr);
@@ -595,6 +735,8 @@ void app_loop() {
   in.weight = r.grams;
   in.stable = r.stable;
   in.radioOn = duelOn;
+  in.absValid = scale_core().emptyKnown();
+  in.absWeight = r.grams + scale_core().load();
   theGame.update(c, in);
   applyScaleReq(theGame.takeScaleReq(), c, now);
   game::RoundDone round;
@@ -611,4 +753,6 @@ void app_loop() {
 
   updateSleep(c, r, now);
   render(config_get(), now);
+  glass_rtcStore({theGame.detector().memory(), scale_core().emptyKnown(),
+                  scale_core().emptyOffset()});
 }

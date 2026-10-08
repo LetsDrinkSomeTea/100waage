@@ -2256,8 +2256,98 @@ static void testModes() {
   CHECK(!parseMode("", &out) && !parseMode("game", &out));
 }
 
+// Prozent-Ziel: Felder, Klemmen, Validierung, Aenderungsmaske, Zufall
+static void testGoalPercent() {
+  Config c = defaults();
+  CHECK(!c.goalPercent && c.goalPct == 50 && c.randomMinPct == 20);
+  CHECK(!percentGoal(c));
+  c.goalPercent = true;
+  CHECK(percentGoal(c));
+  c.scaleMode = ScaleMode::Duel; // Duell spielt in Gramm
+  CHECK(!percentGoal(c));
+  c.scaleMode = ScaleMode::Standard;
+  CHECK(!percentGoal(c));
+
+  // sanitize
+  Config s = defaults();
+  s.goalPct = 0;
+  CHECK(sanitize(s) && s.goalPct == GOAL_PCT_DEFAULT);
+  s.goalPct = 101;
+  CHECK(sanitize(s) && s.goalPct == GOAL_PCT_DEFAULT);
+  s.goalPct = 30;
+  s.randomMinPct = 40;
+  CHECK(sanitize(s) && s.randomMinPct == 30);
+  s.randomMinPct = 0;
+  CHECK(sanitize(s) && s.randomMinPct == 1);
+  memset(&s.goalPercent, 7, 1);
+  CHECK(sanitize(s) && s.goalPercent == true);
+
+  // validate: goalPct strikt, randomMinPct geklemmt
+  Config v = defaults();
+  v.goalPct = 0;
+  Error e = validate(v);
+  CHECK(e.field && strcmp(e.field, "goalPct") == 0);
+  v.goalPct = 101;
+  CHECK(validate(v).field);
+  v.goalPct = 100;
+  v.randomMinPct = 200;
+  CHECK(!validate(v).field && v.randomMinPct == 100);
+  // Gramm-Ziel wird im Prozent-Modus weiter geprueft (Duell nutzt es)
+  v.goalPercent = true;
+  v.goal = 0.5f;
+  CHECK(validate(v).field && strcmp(validate(v).field, "goal") == 0);
+
+  // diff
+  Config a = defaults(), b = a;
+  b.goalPercent = true;
+  CHECK(diff(a, b) == CH_GOAL);
+  b = a;
+  b.goalPct = 60;
+  CHECK(diff(a, b) == CH_GOAL);
+  b = a;
+  b.randomMinPct = 10;
+  CHECK(diff(a, b) == CH_RANDOM);
+
+  // Tauschzeit der Glasbestimmung
+  Config w = defaults();
+  CHECK(w.glassSwapMin == 5);
+  w.glassSwapMin = 61;
+  CHECK(sanitize(w) && w.glassSwapMin == GLASS_SWAP_DEFAULT);
+  w.glassSwapMin = 0;
+  CHECK(!sanitize(w) && w.glassSwapMin == 0);
+  w.glassSwapMin = 61;
+  CHECK(validate(w).field && strcmp(validate(w).field, "glassSwapMin") == 0);
+  w.glassSwapMin = 60;
+  CHECK(!validate(w).field);
+  b = a;
+  b.glassSwapMin = 10;
+  CHECK(diff(a, b) == CH_GAME);
+
+  // rollGoalPct
+  Config r = defaults(); // 20..50
+  CHECK(rollGoalPct(r, 0) == 20);
+  CHECK(rollGoalPct(r, 0xFFFFFFFFu) == 50);
+  bool seen[101] = {};
+  for (uint32_t k = 0; k < 4096; k++) {
+    uint8_t p = rollGoalPct(r, k * 1048573u);
+    CHECK(p >= 20 && p <= 50);
+    seen[p] = true;
+  }
+  CHECK(seen[20] && seen[35] && seen[50]);
+  r.randomMinPct = 50;
+  CHECK(rollGoalPct(r, 0x12345678u) == 50);
+  r.goalPct = 100;
+  r.randomMinPct = 1;
+  CHECK(rollGoalPct(r, 0xFFFFFFFFu) == 100);
+  r.randomMinPct = 0; // ungeklemmt: wie 1
+  CHECK(rollGoalPct(r, 0) == 1);
+  r.goalPct = 0; // ungueltig → goalPct
+  CHECK(rollGoalPct(r, 0) == 0);
+}
+
 int main() {
   testModes();
+  testGoalPercent();
   testDefaults();
   testSanitizeScaleFactor();
   testSanitizeTolerance();

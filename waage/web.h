@@ -12,18 +12,29 @@
 //   GET  /api/status            {fw, weight|null, mode:"Game"|"Standard",
 //                                phase:"Idle"|"Taring"|"Ready"|"Drinking"|"Result"|
 //                                      "Calibration"|"SensorError",
-//                                busy, goal, random, radio, ap, scaleOk,
+//                                busy, goal (Prozent-Modus: %), goalPercent,
+//                                glass:"<Name>"|null, random, radio, ap,
+//                                scaleOk,
 //                                battery:{percent, voltage, pinMv, ratio,
 //                                low}|null}
 //   GET  /api/config            {goal, randomModeEnabled, randomMin,
-//   displayRotation,
-//                                scaleMode, tolerance}
+//                                goalPercent, goalPct, randomMinPct,
+//                                displayRotation, scaleMode, statsRotation,
+//                                tolerance}
 //   POST /api/config            goal, randomModeEnabled=0|1, randomMin,
+//                               goalPercent=0|1, goalPct, randomMinPct,
 //                               displayRotation=0|2, scaleMode=Game|Standard
 //                               (alle optional) → 200 {ok:true,
 //                               applied:"now"|"next", config:{...wie GET}} →
 //                               400 {ok:false, error, field} | 409
 //                               (Moduswechsel waehrend Spiel)
+//   GET  /api/glasses           {weight (absolut)|null, manual:<id>|0,
+//                                current:{id, name, source:"auto"|"same"|
+//                                "empty"|"manual"}|null,
+//                                glasses:[{id, name, empty, nominal,
+//                                origin:"default"|"modified"|"custom"}],
+//                                deleted:[{id, name}]}
+//   POST /api/glasses/select    id=<id> | 0 (automatisch) → 200 wie GET | 400
 //   GET  /login                 Login-Seite (?e=1 falsches Passwort, ?e=2
 //   gesperrt) POST /login                 password → 302 /admin + Cookie | 302
 //   /login?e=1|2 GET  /logout                → 302 /
@@ -32,11 +43,13 @@
 // /api/admin/* → 401 {ok:false, error:"login"})
 //   GET  /admin                 Admin-Seite
 //   GET  /api/admin/config      {apSSID, apName, tolerance, autoResetRange,
+//                                glassSwapMin,
 //   wifiTimeout,
 //                                sleepTimeout, autoZeroEnabled,
 //                                autoZeroThreshold, autoZeroDelay,
 //                                battDividerRatio, scaleFactor, fw, proto}
-//   POST /api/admin/config      apSSID, tolerance, autoResetRange, wifiTimeout,
+//   POST /api/admin/config      apSSID, tolerance, autoResetRange,
+//                               glassSwapMin, wifiTimeout,
 //   sleepTimeout,
 //                               autoZeroEnabled=0|1, autoZeroThreshold,
 //                               autoZeroDelay, newPassword (leer =
@@ -59,6 +72,11 @@
 //                               X-Update-Size (Dateigroesse fuer die
 //                               Fortschrittsanzeige) → 200 {ok:true} (danach
 //                               Neustart) | 409 | 500 {ok:false, error}
+//   POST /api/admin/glasses     id (fehlt/0 = neu), name, empty, nominal
+//                               → 200 wie /api/glasses | 400 {error, field}
+//   POST /api/admin/glasses/delete  id → 200 | 400
+//   POST /api/admin/glasses/restore id | all=1 → 200 | 400
+//   GET  /api/admin/glasses/export  text/plain: glasses_default.h
 //   GET  /api/admin/duell       Duell-Debug: {proto, fw, radio, mac, phase,
 //   peers:[...],
 //                                round:{id, target, elapsed, final,

@@ -93,6 +93,57 @@ keine da, spielt man ganz normal solo.
   angezeigt.
 - Alle Waagen müssen dieselbe Firmware haben (Protokoll v3, `0xD3`).
 
+### Prozent-Ziel und Gläser
+
+Statt eines Ziels in Gramm lässt sich im Web „Ziel in Prozent“ einschalten:
+Getrunken werden soll ein Anteil vom Glasinhalt, z. B. 50 %. Das gilt nur im
+Game-Modus; im Duell bleibt das Ziel in Gramm.
+
+Dafür kennt die Waage die Leergewichte gängiger Gläser (Standard: Sahm Tulpe
+0,3, Sahm Krug 0,4, Euroflasche 0,5 und 0,33) und erkennt beim Aufstellen, welches
+Glas draufsteht. Bestimmt wird immer, angezeigt nur im Prozent-Modus:
+
+| Display                | Bedeutung                                                           |
+| ---------------------- | ------------------------------------------------------------------- |
+| `50%?`                 | Ziel im Ruhezustand                                                 |
+| `Krug 0,4` / `Bereit?` | Glas erkannt, Runde startet (Ziel = 50 % vom Inhalt jetzt)          |
+| `Glas?`                | Glas passt zu keinem bekannten: leer auflegen oder im Web festlegen |
+| Name als Hinweis       | leeres Glas erkannt                                                 |
+
+Ergebnis im 3-s-Wechsel: getrunkene Prozent mit Bewertung, Ziel in Prozent und
+Gramm, getrunkene Gramm mit Zeit. Die Bewertung rechnet wie immer in Gramm.
+
+So wird das Glas bestimmt:
+
+- **Ein schon benutztes Glas** (die Waage merkt sich die letzten 4, jedes mit
+  seinem letzten Gewicht), wenn das Gewicht nicht höher ist als beim letzten
+  Mal (plus Toleranz) und nicht unter dessen Leergewicht. Ein halb
+  ausgetrunkener Krug wird so nie zur vollen Tulpe, und zu zweit oder zu dritt
+  an einer Waage behält jedes Glas seinen Platz.
+- **Tauschzeit** (Admin, Standard 5 min): Steht ein Glas innerhalb dieser Zeit
+  wieder auf der Waage, wurde direkt weitergespielt und nichts dazwischen
+  getrunken. Ist es dann leichter als zuletzt, ist es ein anderes Glas. Nach
+  einer längeren Pause (oder nach dem Deep-Sleep) gilt leichter als „dazwischen
+  getrunken“, also dasselbe Glas. 0 = aus.
+- **Leeres Glas**, wenn das Gewicht einem Leergewicht entspricht.
+- **Volles Glas** (nachgefüllt oder neues Glas): Inhalt zwischen 70 % und
+  115 % der Füllmenge. Das zuletzt benutzte Glas bleibt, solange es höchstens
+  10 Prozentpunkte schlechter passt als das beste andere. Passt gar keins, gilt
+  das letzte Glas auch mit weniger Inhalt (leer erkannt, dann halb
+  eingeschenkt). Sonst das einzige Glas, das überhaupt passt, weil alle
+  anderen schon leer schwerer wären oder überlaufen würden.
+- Im Web **festgelegt**: gilt bis zum Neustart (Deep-Sleep zählt nicht).
+
+Was die Waage nicht erkennen kann:
+
+- ein Glas, das sie noch nie voll gesehen hat und das halb voll so viel wiegt
+  wie ein anderes volles (z. B. halbes Krügle wie volle Euroflasche);
+- ein Glas, das nicht in der Liste steht;
+- innerhalb der Tauschzeit außerhalb der Waage getrunken, wenn das Gewicht dann
+  zu einem anderen vollen Glas passt.
+
+Dann das Glas einmal leer auflegen oder im Web festlegen.
+
 ### Standard-Modus
 
 Einfache Waage mit 0,1 g Anzeige.
@@ -143,11 +194,12 @@ Die Werte bleiben über Deep-Sleep und Updates erhalten.
    Portal, sonst `http://192.168.4.1` bzw. `http://waage.local` aufrufen.
 
 **Startseite:** Live-Status (Gewicht, Modus, Ziel, Akku), Einstellungen für
-Modus (Game, Duell, Standard), Zielgewicht, Zufallsziel, Display-Rotation und
-Info-Rotation, dazu die Statistik. Änderungen gelten sofort (Ziel und Zufall
+Modus (Game, Duell, Standard), Ziel (Gramm oder Prozent), Zufallsziel,
+Display-Rotation und Info-Rotation, das erkannte Glas mit Auswahl zum
+Festlegen und „wäre X g drin“ für jedes Glas, dazu die Statistik. Änderungen gelten sofort (Ziel und Zufall
 während einer laufenden Runde ab der nächsten).
 
-**Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich,
+**Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich, Tauschzeit,
 Timeouts, Auto-Zero, Zeiten der Statistik-Anzeige, Passwort; alles ohne
 Neustart. Außerdem:
 
@@ -159,6 +211,13 @@ Neustart. Außerdem:
 - **Waage kalibrieren:** Waage leeren → Start (tariert) → bekanntes Gewicht
   auflegen → Gewicht eintragen → „Messen“ → Gewicht entfernen.
 - **Firmware-Update** (.bin), gesperrt während Spiel/Duell-Runde.
+- **Gläser:** bearbeiten, löschen, neue anlegen (leer auflegen, „Aktuelles
+  Gewicht übernehmen“, Name und Füllmenge). Standardgläser lassen sich
+  zurücksetzen und gelöscht wiederherstellen. Gespeichert werden nur die
+  Abweichungen; ein Firmware-Update bringt neue Standardgläser mit, eigene
+  Änderungen bleiben. **„Als Firmware-Liste exportieren“** liefert
+  `glasses_default.h`: ins Repo übernehmen, flashen, dann sind die Gläser auf
+  allen Waagen Standard (doppelte Einträge fallen beim Start automatisch weg).
 - **Statistik zurücksetzen** (mit Rückfrage). Nach einer Kalibrierung weist
   die Seite darauf hin, weil alte Werte dann nicht mehr vergleichbar sind.
 - **Duell-Debug:** sichtbare Waagen und Rundentabelle.

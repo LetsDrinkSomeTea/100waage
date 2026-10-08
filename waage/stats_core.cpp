@@ -1,4 +1,5 @@
 #include "stats_core.h"
+#include <string.h>
 
 namespace stats {
 
@@ -27,6 +28,10 @@ Achievement Tracker::record(const Round &r) {
     t_.bestDevCg = ad;
     t_.bestGoalCg = r.goalCg;
     t_.bestMs = r.durationMs;
+    t_.bestPct = r.goalPct;
+    memset(t_.bestGlass, 0, sizeof t_.bestGlass);
+    if (r.goalPct && r.glass)
+      strncpy(t_.bestGlass, r.glass, sizeof t_.bestGlass - 1);
     a = Achievement::Record;
   }
   const bool fastOk =
@@ -40,7 +45,7 @@ Achievement Tracker::record(const Round &r) {
       a = Achievement::Fastest;
   }
 
-  recent_[head_] = {dev, r.goalCg, r.durationMs, r.duel, 0};
+  recent_[head_] = {dev, r.goalCg, r.durationMs, r.duel, 0, r.goalPct};
   head_ = (head_ + 1) % RECENT;
   if (count_ < RECENT)
     count_++;

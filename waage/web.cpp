@@ -29,7 +29,7 @@ static uint32_t lastActivity = 0;
 
 static char token[33] = ""; // leer = keine Sitzung
 static web::LoginThrottle throttle;
-static char jsonBuf[2048];
+static char jsonBuf[4096]; // Glaeserliste: bis 24 Eintraege
 
 static bool otaRejected = false, otaBeginOk = false, otaEnded = false;
 static size_t otaSize = 0;
@@ -162,6 +162,9 @@ static void writePublicConfig(web::JsonWriter &j) {
   j.key("goal").num(c.goal, 1);
   j.key("randomModeEnabled").flag(c.randomModeEnabled);
   j.key("randomMin").num(c.randomMin, 1);
+  j.key("goalPercent").flag(c.goalPercent);
+  j.key("goalPct").uinteger(c.goalPct);
+  j.key("randomMinPct").uinteger(c.randomMinPct);
   j.key("displayRotation").uinteger(c.displayRotation);
   j.key("scaleMode").str(cfg::modeKey(c.scaleMode));
   j.key("statsRotation").flag(c.statsRotation);
@@ -194,6 +197,18 @@ static void handleConfigPost() {
     return;
   if (p)
     n.randomMin = f;
+  if (!argBool("goalPercent", &b, &p))
+    return;
+  if (p)
+    n.goalPercent = b;
+  if (!argUint("goalPct", 255, &u, &p))
+    return;
+  if (p)
+    n.goalPct = (uint8_t)u;
+  if (!argUint("randomMinPct", 255, &u, &p))
+    return;
+  if (p)
+    n.randomMinPct = (uint8_t)u;
   if (!argUint("displayRotation", 255, &u, &p))
     return;
   if (p)
@@ -227,6 +242,94 @@ static void handleStats() {
   web::JsonWriter j(jsonBuf, sizeof(jsonBuf));
   stats_writeJson(j);
   sendJson(200, j);
+}
+
+// ── Glaeser ───────────────────────────────────────────────────────────────────
+
+static void sendGlasses() {
+  web::JsonWriter j(jsonBuf, sizeof(jsonBuf));
+  app_writeGlasses(j);
+  sendJson(200, j);
+}
+
+static void handleGlasses() {
+  touch();
+  sendGlasses();
+}
+
+static void handleGlassSelect() {
+  touch();
+  uint32_t id = 0;
+  bool p;
+  if (!argUint("id", 65535, &id, &p))
+    return;
+  if (!app_glassSelect(p ? id : 0))
+    return sendError(400, "Glas nicht gefunden", "id");
+  sendGlasses();
+}
+
+static void handleGlassSave() {
+  touch();
+  if (!requireApiAuth())
+    return;
+  uint32_t id = 0;
+  float empty = 0.0f, nominal = 0.0f;
+  bool p, pe, pn;
+  if (!argUint("id", 65535, &id, &p) || !argFloat("empty", &empty, &pe) ||
+      !argFloat("nominal", &nominal, &pn))
+    return;
+  if (!pe)
+    return sendError(400, "Leergewicht fehlt", "empty");
+  if (!pn)
+    return sendError(400, "Füllmenge fehlt", "nominal");
+  const String name = server->hasArg("name") ? server->arg("name") : String();
+  if (name.length() > 64)
+    return sendError(400, "Name ist zu lang", "name");
+  glass::Error e = app_glassSave(p ? id : 0, name.c_str(), empty, nominal);
+  if (e.field)
+    return sendError(400, e.message, e.field);
+  sendGlasses();
+}
+
+static void handleGlassDelete() {
+  touch();
+  if (!requireApiAuth())
+    return;
+  uint32_t id = 0;
+  bool p;
+  if (!argUint("id", 65535, &id, &p))
+    return;
+  if (!p || !app_glassDelete(id))
+    return sendError(400, "Glas nicht gefunden", "id");
+  sendGlasses();
+}
+
+static void handleGlassRestore() {
+  touch();
+  if (!requireApiAuth())
+    return;
+  bool all = server->hasArg("all") && server->arg("all") == "1";
+  uint32_t id = 0;
+  bool p = false;
+  if (!all && !argUint("id", 65535, &id, &p))
+    return;
+  if (!all && !p)
+    return sendError(400, "Glas nicht gefunden", "id");
+  if (!app_glassRestore(id, all))
+    return sendError(400, "Kein geändertes Standardglas", "id");
+  sendGlasses();
+}
+
+static void handleGlassExport() {
+  touch();
+  if (!requireApiAuth())
+    return;
+  if (app_glassExport(jsonBuf, sizeof(jsonBuf)) == 0)
+    return sendError(500, "Export zu groß");
+  server->sendHeader("Cache-Control", "no-store");
+  server->sendHeader("Content-Disposition",
+                     "attachment; filename=\"glasses_default.h\"");
+  server->send(200, "text/plain; charset=utf-8", jsonBuf);
 }
 
 static void handleLoginPage() {
@@ -284,6 +387,7 @@ static void writeAdminConfig(web::JsonWriter &j) {
   j.key("apName").str(name);
   j.key("tolerance").num(c.tolerance, 1);
   j.key("autoResetRange").uinteger(c.autoResetRange);
+  j.key("glassSwapMin").uinteger(c.glassSwapMin);
   j.key("wifiTimeout").uinteger(c.wifiTimeout);
   j.key("sleepTimeout").uinteger(c.sleepTimeout);
   j.key("autoZeroEnabled").flag(c.autoZeroEnabled);
@@ -331,6 +435,10 @@ static void handleAdminConfigPost() {
     return;
   if (p)
     n.autoResetRange = (uint8_t)u;
+  if (!argUint("glassSwapMin", 255, &u, &p))
+    return;
+  if (p)
+    n.glassSwapMin = (uint8_t)u;
   if (!argUint("wifiTimeout", 255, &u, &p))
     return;
   if (p)
@@ -593,6 +701,8 @@ void web_start() {
   server->on("/api/config", HTTP_GET, handleConfigGet);
   server->on("/api/config", HTTP_POST, handleConfigPost);
   server->on("/api/stats", HTTP_GET, handleStats);
+  server->on("/api/glasses", HTTP_GET, handleGlasses);
+  server->on("/api/glasses/select", HTTP_POST, handleGlassSelect);
   server->on("/login", HTTP_GET, handleLoginPage);
   server->on("/login", HTTP_POST, handleLogin);
   server->on("/logout", HTTP_GET, handleLogout);
@@ -609,6 +719,10 @@ void web_start() {
              handleUpdateUpload);
   server->on("/api/admin/duell", HTTP_GET, handleDuell);
   server->on("/api/admin/stats/reset", HTTP_POST, handleStatsReset);
+  server->on("/api/admin/glasses", HTTP_POST, handleGlassSave);
+  server->on("/api/admin/glasses/delete", HTTP_POST, handleGlassDelete);
+  server->on("/api/admin/glasses/restore", HTTP_POST, handleGlassRestore);
+  server->on("/api/admin/glasses/export", HTTP_GET, handleGlassExport);
   server->onNotFound(handleNotFound);
   server->begin();
 

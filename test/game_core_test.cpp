@@ -2,6 +2,7 @@
 #include "check.h"
 #include "fakes.h"
 #include <cmath>
+#include <cstring>
 
 using namespace game;
 
@@ -587,6 +588,166 @@ static void testResetLeaves() {
   CHECK(d.g.localGoal() == 100.0f); // Duell-Ziel vergessen
 }
 
+// ── Glas und Prozent-Ziel ─────────────────────────────────────────────────────
+
+static const glass::Glass GLASSES[] = {
+    {1, "Tulpe 0,3", 270.0f, 300.0f},
+    {2, "Krug 0,4", 520.0f, 400.0f},
+    {3, "Euro 0,5", 370.0f, 500.0f},
+    {4, "Euro 0,33", 260.0f, 330.0f},
+};
+
+struct GlassDriver : Driver {
+  glass::List list;
+  explicit GlassDriver(bool percent) {
+    list.begin(GLASSES, 4, 5);
+    g.setGlasses(&list);
+    c.goalPercent = percent;
+    c.goalPct = 50;
+    press();
+    run(500, 0.0f);
+  }
+};
+
+static void testGlassInGramMode() {
+  GlassDriver d(false);
+  CHECK(!d.g.percentMode());
+  CHECK(!d.g.view().pct);
+  place(d, 920.0f); // voller Krug
+  CHECK(d.g.phase() == Phase::Ready);
+  CHECK(d.g.glassKnown() && d.g.glass().id == 2);
+  CHECK(d.g.view().glassSource == glass::Source::Auto);
+  drink(d, 720.0f); // 200 g getrunken, Ziel 100 g: wie bisher
+  CHECK(d.g.phase() == Phase::Result);
+  CHECK(d.g.view().drankCg == 20000);
+  CHECK(!d.g.view().pct);
+  RoundDone r;
+  CHECK(d.g.takeRound(&r) && r.goalPct == 0 && r.goalCg == 10000);
+  CHECK(d.g.detector().lastRefG() == 720.0f); // Referenz = Endgewicht
+}
+
+static void testPercentRound() {
+  GlassDriver d(true);
+  CHECK(d.g.percentMode());
+  CHECK(d.g.localGoal() == 50.0f);
+  CHECK(d.g.view().screen == Screen::IdleGame && d.g.view().pct);
+  CHECK(d.g.view().goal == 50.0f);
+
+  d.run(400, 920.0f); // noch nicht ruhig genug lange
+  CHECK(d.g.phase() == Phase::Idle);
+  d.run(200, 920.0f);
+  CHECK(d.g.phase() == Phase::Ready);
+  CHECK(strcmp(d.g.view().glassName, "Krug 0,4") == 0);
+  drink(d, 720.0f); // 200 g von 400 g = 50 %
+  CHECK(d.g.phase() == Phase::Result);
+  const View &v = d.g.view();
+  CHECK(v.pct);
+  CHECK(v.drankCg == 20000);
+  CHECK(v.goalCg == 20000);
+  CHECK(v.drankPctD == 500);
+  CHECK(v.rating == Rating::Perfect);
+  RoundDone r;
+  CHECK(d.g.takeRound(&r));
+  CHECK(r.goalPct == 50 && r.goalCg == 20000 && !r.duel);
+  CHECK(strcmp(r.glass, "Krug 0,4") == 0);
+
+  // Gutes Ergebnis, Kurzdruck mit Glas (Tara mit Glas): Glas weg, wieder hin.
+  // Gleiches Glas (Regel 1), nicht die Euro 0,5 (350 g = 70 % waere Kandidat)
+  d.press();
+  d.absOffset = 720.0f; // relativ 0 = absolut 720
+  d.run(300, 0.0f);
+  d.run(1100, -720.0f); // abgehoben → NegZero
+  CHECK(d.lastReq == ScaleReq::NegZero);
+  d.absOffset = 0.0f; // leer genullt
+  d.run(300, 0.0f);
+  place(d, 720.0f);
+  CHECK(d.g.phase() == Phase::Ready);
+  CHECK(d.g.glass().id == 2 && d.g.glass().source == glass::Source::Same);
+  drink(d, 620.0f); // 100 g von 200 g = 50 %
+  CHECK(d.g.view().goalCg == 10000);
+  CHECK(d.g.view().rating == Rating::Perfect);
+  CHECK(d.g.view().drankPctD == 500);
+
+  // Schlechtes Ergebnis: Abheben setzt zurueck, auch im Prozent-Modus
+  d.press();
+  d.run(500, 0.0f);
+  place(d, 920.0f); // nachgefuellt
+  CHECK(d.g.glass().id == 2 && d.g.glass().source == glass::Source::Auto);
+  drink(d, 820.0f); // 100 g statt 200 g
+  CHECK(d.g.view().rating == Rating::Shy);
+  CHECK(d.g.view().drankPctD == 250);
+  d.run(600, 0.0f);
+  CHECK(d.g.phase() == Phase::Idle);
+  CHECK(d.lastReq == ScaleReq::TareEmpty);
+}
+
+static void testPercentUnknownGlass() {
+  GlassDriver d(true);
+  d.run(600, 2000.0f); // passt zu keinem Glas
+  CHECK(d.g.phase() == Phase::Idle);
+  CHECK(d.g.view().glassUnknown);
+  CHECK(d.g.view().glassName[0] == 0);
+  d.run(3000, 2000.0f);
+  CHECK(d.g.phase() == Phase::Idle);
+  // Weg und leeres Glas auflegen: Tulpe erkannt, aber ohne Inhalt kein Start
+  d.run(300, 0.0f);
+  CHECK(!d.g.view().glassUnknown);
+  uint32_t seq = d.g.view().glassSeq;
+  d.run(600, 270.0f);
+  CHECK(d.g.view().glassSeq == seq + 1);
+  CHECK(d.g.view().glassSource == glass::Source::Empty);
+  CHECK(strcmp(d.g.view().glassName, "Tulpe 0,3") == 0);
+  CHECK(d.g.phase() == Phase::Idle);
+  CHECK(!d.g.view().glassUnknown);
+  // Eingeschenkt (halb voll, 420 g): gilt als Tulpe, Start
+  d.run(300, 0.0f);
+  place(d, 420.0f);
+  CHECK(d.g.phase() == Phase::Ready);
+  CHECK(d.g.glass().id == 1);
+}
+
+static void testPercentNoAbsolute() {
+  // Ohne Leer-Referenz keine Bestimmung → kein Start
+  GlassDriver d(true);
+  d.absOk = false;
+  d.run(1000, 920.0f);
+  CHECK(d.g.phase() == Phase::Idle);
+  CHECK(d.g.view().glassUnknown);
+  // Ohne Liste ebenso
+  GlassDriver e(true);
+  e.g.setGlasses(nullptr);
+  e.run(1000, 920.0f);
+  CHECK(e.g.phase() == Phase::Idle);
+  // Gramm-Modus startet trotzdem
+  GlassDriver f(false);
+  f.absOk = false;
+  place(f, 920.0f);
+  CHECK(f.g.phase() == Phase::Ready);
+  CHECK(!f.g.glassKnown());
+}
+
+static void testPercentModes() {
+  // Duell-Modus spielt in Gramm
+  GlassDriver d(true);
+  d.c.scaleMode = cfg::ScaleMode::Duel;
+  d.press();
+  CHECK(!d.g.percentMode());
+  CHECK(d.g.localGoal() == 100.0f);
+  // Zufall: ganze Prozent zwischen randomMinPct und goalPct
+  GlassDriver r(true);
+  r.c.randomModeEnabled = true;
+  for (int i = 0; i < 50; i++) {
+    r.press();
+    float p = r.g.localGoal();
+    CHECK(p >= 20.0f && p <= 50.0f && p == floorf(p));
+  }
+  // Web-Umschalten im Idle wirkt sofort
+  GlassDriver w(false);
+  w.c.goalPercent = true;
+  w.g.applyGoalSettings(w.c, w.now);
+  CHECK(w.g.percentMode() && w.g.localGoal() == 50.0f);
+}
+
 int main() {
   testRating();
   testBootTare();
@@ -618,5 +779,10 @@ int main() {
   testRoundEvents();
   testDuelFinalEvent();
   testResetLeaves();
+  testGlassInGramMode();
+  testPercentRound();
+  testPercentUnknownGlass();
+  testPercentNoAbsolute();
+  testPercentModes();
   return finish("game_core_test");
 }

@@ -45,6 +45,7 @@ Queue legt.
 | `power_core`   | wrap-sichere Zeiten, Sleep-Policy, AP-Auto-Aus                                                                                                              |
 | `text_core`    | UTF-8 → CP437, Zeilenlayout, Zahlformate, Trinksprüche                                                                                                      |
 | `stats_core`   | Statistik: Stufen, Bestwert, schnellste Zeit, Erfolg der Runde, Duell-Siege, Verlauf                                                                        |
+| `glass_core`   | Gläserliste (Standard + Abweichungen, Speichern, Export als `glasses_default.h`), Glasbestimmung (Regeln 0–4)                                               |
 | `ui_model`     | baut pro Loop ein vergleichbares Bild (Ebenen, Symbole, Texte)                                                                                              |
 | `web_core`     | JSON-Writer, Cookie-Parser, konstantzeitiger Vergleich, Token, Login-Bremse                                                                                 |
 
@@ -56,6 +57,8 @@ Queue legt.
 | `scale`               | HX711-Ansteuerung, Sensorfehler, Power-Down                                  |
 | `battery`             | ADC-Messung                                                                  |
 | `stats`               | Statistik im NVS (Namespace `stats`), JSON für das Web                       |
+| `glass`               | Gläser-Abweichungen im NVS (Namespace `glass`), Gedächtnis im RTC-Speicher   |
+| `glasses_default.h`   | Standardgläser der Firmware (Export aus dem Web)                             |
 | `display` / `ui`      | Zeichenprimitive / rendert nur bei Änderung                                  |
 | `duell`               | ESP-NOW, Empfangs-Queue, Ausstieg mit Flush, `DuelPort` für `game_core`      |
 | `radio`               | Funk- und AP-Lebenszyklus, verzögerter AP-Neustart und Reboot                |
@@ -85,6 +88,10 @@ Queue legt.
 | `autoZeroDelay`     | 5 s                | 1–60                                                     | Admin               |
 | `randomModeEnabled` | aus                |                                                          | Start               |
 | `randomMin`         | 20 g               | wird auf [min(`tolerance` + 1, `goal`), `goal`] geklemmt | Start               |
+| `goalPercent`       | aus                | Ziel in % vom Glasinhalt (nur Game-Modus)                | Start               |
+| `goalPct`           | 50 %               | 1–100                                                    | Start               |
+| `randomMinPct`      | 20 %               | wird auf [1, `goalPct`] geklemmt                         | Start               |
+| `glassSwapMin`      | 5 min              | 0–60, 0 = aus (Tauschzeit der Glasbestimmung)            | Admin               |
 | `statsRotation`     | an                 |                                                          | Start               |
 | `statsAfterS`       | 20 s               | 1–255                                                    | Admin               |
 | `statsStepS`        | 3 s                | 1–60                                                     | Admin               |
@@ -104,16 +111,18 @@ MAC-Bytes), damit mehrere Waagen unterscheidbar sind; sonst die SSID selbst.
 Namespace `waage`, ein Schlüssel pro Feld. `schema` (aktuell 1) wird zuletzt
 geschrieben; fehlt er, gilt der Speicher als leer.
 
-| Schlüssel | Feld              | Schlüssel | Feld             |
-| --------- | ----------------- | --------- | ---------------- |
-| `ssid`    | apSSID            | `pw`      | adminPassword    |
-| `scale`   | scaleFactor       | `goal`    | goal             |
-| `tol`     | tolerance         | `arRange` | autoResetRange   |
-| `rot`     | displayRotation   | `wifiTo`  | wifiTimeout      |
-| `sleepTo` | sleepTimeout      | `battDiv` | battDividerRatio |
-| `mode`    | scaleMode         | `azOn`    | autoZeroEnabled  |
-| `azThr`   | autoZeroThreshold | `azDelay` | autoZeroDelay    |
-| `rndOn`   | randomModeEnabled | `rndMin`  | randomMin        |
+| Schlüssel   | Feld              | Schlüssel | Feld             |
+| ----------- | ----------------- | --------- | ---------------- |
+| `ssid`      | apSSID            | `pw`      | adminPassword    |
+| `scale`     | scaleFactor       | `goal`    | goal             |
+| `tol`       | tolerance         | `arRange` | autoResetRange   |
+| `rot`       | displayRotation   | `wifiTo`  | wifiTimeout      |
+| `sleepTo`   | sleepTimeout      | `battDiv` | battDividerRatio |
+| `mode`      | scaleMode         | `azOn`    | autoZeroEnabled  |
+| `azThr`     | autoZeroThreshold | `azDelay` | autoZeroDelay    |
+| `rndOn`     | randomModeEnabled | `rndMin`  | randomMin        |
+| `goalPctOn` | goalPercent       | `goalPct` | goalPct          |
+| `rndMinPct` | randomMinPct      | `swapMin` | glassSwapMin     |
 
 `config_set` schreibt nur die geänderten Schlüssel (Änderungsmaske `cfg::diff`).
 
@@ -253,7 +262,93 @@ Ziel (beides in cg):
 ### Zufallsziel
 
 Bei jedem Reset wird neu gewürfelt: ganze Gramm in
-[⌈max(`randomMin`, `tolerance` + 1)⌉, ⌊`goal`⌋].
+[⌈max(`randomMin`, `tolerance` + 1)⌉, ⌊`goal`⌋], im Prozent-Modus ganze
+Prozent in [`randomMinPct`, `goalPct`].
+
+### Prozent-Ziel
+
+Aktiv, wenn `goalPercent` an ist und der Modus Game ist (`cfg::percentGoal`);
+im Duell gilt das Gramm-Ziel. Das Ziel ist ein Prozentwert.
+
+- **Idle → Ready:** sobald das Glas bestimmt ist (siehe Glasbestimmung), mehr
+  als `tolerance` Inhalt hat und ruhig steht. Ziel in Gramm = Prozent × Inhalt
+  beim Aufstellen (absolutes Gewicht − Leergewicht, Schaum zählt mit).
+- **Unbekanntes Glas:** kein Start, Anzeige `Glas?`.
+- Bewertung und „gut“ wie immer in Gramm gegen das berechnete Ziel.
+- **Anzeige:** Idle `50%?`; Ready 1,5 s (`GLASS_PROMPT_MS`) Glasname und
+  „Bereit?“, dann Trinkspruch; Ergebnis im 3-s-Wechsel `49.9%` / Bewertung →
+  `Ziel 50%` / `=148.20g` → Gramm / Zeit → ggf. Erfolg.
+- **Statistik:** zählt wie Gramm-Runden (Abweichung in Gramm); bester Treffer
+  merkt Prozent und Glas (`Ziel 50% Krug 0,4`), der Verlauf das Prozent-Ziel.
+
+## Gläser
+
+### Liste
+
+Pro Glas: feste ID, Name (1–12 Zeichen, druckbares ASCII und ä ö ü Ä Ö Ü ß),
+Leergewicht (1–3000 g), Nennfüllung (10–3000 g), höchstens 24 Gläser.
+
+- **Standardgläser** stehen in `glasses_default.h` (IDs 1–999, nie
+  wiederverwenden; `DEFAULT_NEXT_ID` = erste freie). Die Leergewichte sind
+  vorerst Platzhalter.
+- Im NVS (Namespace `glass`, Blob `d` mit Versionsbyte) liegen nur
+  **Abweichungen**: eigene Gläser (IDs ab 1000), geänderte und gelöschte
+  Standardgläser. Beim Laden fallen Abweichungen weg, die die Firmware schon
+  enthält (gleicher Name und Gewichte auf 0,05 g) oder deren Standardglas es
+  nicht mehr gibt; ein geändertes Standardglas ohne Firmware-Eintrag wird ein
+  eigenes Glas.
+- **Export** erzeugt `glasses_default.h` aus der wirksamen Liste; eigene
+  Gläser bekommen neue IDs ab `DEFAULT_NEXT_ID`.
+
+### Leer-Referenz
+
+Die Bestimmung braucht das Gewicht gegen die **leere** Waage, auch nach einer
+Tara mit Glas. `scale::Core` merkt sich den Offset der leeren Waage;
+`load()` ist das Gewicht, das beim aktuellen Nullpunkt auf der Waage stand,
+absolut = `grams + load()`.
+
+- Die erste Tara/Nullung nach dem Start gilt als leer, danach jede mit
+  |`load`| ≤ `tolerance` (gleicht Drift aus).
+- NegZero, erfolgreiche TareEmpty-Nullung und der Kalibrierschritt
+  WaitWeight setzen die Referenz ausdrücklich (`markEmpty`), auch wenn die
+  Waage mit Glas gestartet ist.
+- Die Referenz liegt mit dem Gedächtnis im RTC-Speicher.
+
+### Glasbestimmung
+
+Im Idle (beide Spielmodi), sobald ein Glas (w > `tolerance`) 500 ms ruhig
+steht, und erneut, wenn sich das absolute Gewicht um mehr als `tolerance`
+ändert. Gemerkt werden die **letzten 4 Gläser** (`RECENT`), jedes mit
+**Referenzgewicht** (beim Aufstellen; nach einer Runde das absolute
+Endgewicht) und Zeitpunkt. **Tauschzeit** `glassSwapMin`: Stand ein gemerktes
+Glas vor weniger als dieser Zeit auf der Waage, gilt es als direkt
+weitergespielt (nichts dazwischen getrunken). Nach dem Deep-Sleep gelten alle
+als Pause. Gewicht W absolut, Toleranz `tolerance`, Regeln in dieser
+Reihenfolge:
+
+| #   | Bedingung                                                                                                                                                                                                                   | Ergebnis                                                                                                           |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 0   | Glas im Web festgelegt                                                                                                                                                                                                      | dieses Glas                                                                                                        |
+| 1   | ein gemerktes Glas mit W ≤ Referenz + Toleranz und W ≥ Leergewicht − Toleranz, innerhalb der Tauschzeit zusätzlich W ≥ Referenz − Toleranz; ältere Gläser nur, wenn das letzte nicht als nachgefüllt gilt (Inhalt 70–115 %) | dasselbe Glas (nächste Referenz)                                                                                   |
+| 2   | \|W − Leergewicht\| ≤ Toleranz für ein Glas                                                                                                                                                                                 | leeres Glas (nächstes), Hinweis mit Namen im Prozent-Modus                                                         |
+| 3   | Inhalt in 70–115 % der Nennfüllung (`FILL_MIN_PCT`, `FILL_MAX_PCT`)                                                                                                                                                         | kleinste Abweichung von der Nennfüllung; das letzte Glas bleibt bis 10 Prozentpunkte (`LAST_BONUS_PCT`) schlechter |
+| 3b  | kein Kandidat, letztes Glas hätte > Toleranz und ≤ 115 % Inhalt                                                                                                                                                             | letztes Glas (leer erkannt, dann wenig eingeschenkt)                                                               |
+| 3c  | sonst genau ein Glas mit > Toleranz und ≤ 115 % Inhalt (alle anderen leer schon zu schwer oder überlaufend)                                                                                                                 | dieses Glas                                                                                                        |
+| 4   | sonst                                                                                                                                                                                                                       | unbekannt, Gedächtnis bleibt                                                                                       |
+
+Ohne Leer-Referenz oder Liste: unbekannt. Liste oder Festlegung geändert: das
+stehende Glas wird neu bestimmt. Gedächtnis und Festlegung überleben den
+Deep-Sleep (RTC), nicht den Neustart. Ein festgelegtes Glas, das gelöscht
+wird, schaltet zurück auf automatisch.
+
+Grenzen (auflösen durch leeres Auflegen oder Festlegen):
+
+- nach einer Pause ein leichteres, anderes Glas: gilt als dasselbe Glas
+  (dazwischen getrunken);
+- innerhalb der Tauschzeit außerhalb der Waage getrunken und das Gewicht passt
+  zu einem anderen vollen Glas: gilt als das andere Glas;
+- ein nie voll gesehenes, halb volles Glas, das wie ein anderes volles wiegt;
+  ein Glas, das nicht in der Liste steht.
 
 ## Duell (Protokoll v3)
 
@@ -401,8 +496,9 @@ Rechts oben von rechts nach links: Akku, `Vs n`, WLAN-Bogen.
 ## Statistik
 
 `stats_core` zählt pro Waage (nicht pro Person). Summen und Bestwerte liegen im
-NVS (Namespace `stats`, mit Versionsbyte; bei anderer Version wird neu
-begonnen), der Verlauf der letzten 10 Runden nur im RAM.
+NVS (Namespace `stats`, mit Versionsbyte, aktuell 2; Version 1 ohne Prozent
+und Glas des besten Treffers wird übernommen, andere Versionen beginnen neu),
+der Verlauf der letzten 10 Runden nur im RAM.
 
 | Wert            | Regel                                                                       |
 | --------------- | --------------------------------------------------------------------------- |
@@ -531,6 +627,9 @@ Anfragen `application/x-www-form-urlencoded`, Antworten JSON mit
 | `GET /api/status`                                                  | Gewicht, Modus, Phase, busy, Ziel, Funk/AP, Akku (Prozent, Spannung, Pin-mV, Teiler, Warnung) |
 | `GET/POST /api/config`                                             | Ziel, Zufall, Rotation, Modus, Info-Rotation (Moduswechsel während Spiel → 409)               |
 | `GET /api/stats`                                                   | Statistik: Zähler, bester Treffer, schnellste Zeit, Duelle, letzte Runden                     |
+| `GET /api/glasses`, `POST /api/glasses/select`                     | Gläserliste, erkanntes Glas, absolutes Gewicht; Glas festlegen (`id`, 0 = automatisch)        |
+| `POST /api/admin/glasses{,/delete,/restore}`                       | Glas anlegen/ändern, löschen, Standard wiederherstellen (`all=1`: alles)                      |
+| `GET /api/admin/glasses/export`                                    | `glasses_default.h` zum Download                                                              |
 | `POST /api/admin/stats/reset`                                      | Statistik zurücksetzen                                                                        |
 | `GET/POST /api/admin/config`                                       | SSID, Toleranz, Auto-Reset, Timeouts, Auto-Zero, Passwort                                     |
 | `POST /api/admin/battcal`                                          | `measuredV=<V>` oder `reset=1`                                                                |
@@ -564,18 +663,19 @@ danach wieder an. Während des Uploads blockiert der Loop (10–30 s).
 `./test/run.sh` baut jeden Test mit `g++ -std=c++17 -Wall -Wextra -Werror` und
 führt ihn aus; `SANITIZE=1` zusätzlich mit AddressSanitizer und UBSan.
 
-| Test                                   | Prüft                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------- |
-| `duell_core_test`, `duell_sim_test`    | Protokoll, Merge, Ranking; 2–4 Waagen mit Paketverlust, Ausstieg                |
-| `config_core_test`                     | Sanitize, Validierung, Parser, altes EEPROM-Abbild bit-genau                    |
-| `scale_core_test`                      | Filter, Stabilität, Tara, Nullung, Kalibrierung inkl. Fehlerpfade, Zeitüberlauf |
-| `button_core_test`                     | Prellen, Zonengrenzen, Weck-Druck                                               |
-| `battery_core_test`, `power_core_test` | Kurve, Hysterese, Abgleich; Sleep-Policy, AP-Timeout, Zeitüberlauf              |
-| `text_core_test`                       | CP437, Layout, alle Texte ohne Ersatzzeichen                                    |
-| `web_core_test`                        | JSON-Escaping, Cookies, Token, Login-Bremse                                     |
-| `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen                     |
-| `stats_core_test`                      | Stufen, Bestwert, schnellste Zeit, Erfolge, Duell, Verlauf                      |
-| `ui_model_test`                        | Ebenen, Symbole, Texte, Erfolg im Ergebnis, Info-Rotation                       |
+| Test                                   | Prüft                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `duell_core_test`, `duell_sim_test`    | Protokoll, Merge, Ranking; 2–4 Waagen mit Paketverlust, Ausstieg                    |
+| `config_core_test`                     | Sanitize, Validierung, Parser, altes EEPROM-Abbild bit-genau                        |
+| `scale_core_test`                      | Filter, Stabilität, Tara, Nullung, Kalibrierung inkl. Fehlerpfade, Zeitüberlauf     |
+| `button_core_test`                     | Prellen, Zonengrenzen, Weck-Druck                                                   |
+| `battery_core_test`, `power_core_test` | Kurve, Hysterese, Abgleich; Sleep-Policy, AP-Timeout, Zeitüberlauf                  |
+| `text_core_test`                       | CP437, Layout, alle Texte ohne Ersatzzeichen                                        |
+| `web_core_test`                        | JSON-Escaping, Cookies, Token, Login-Bremse                                         |
+| `game_core_test`, `game_duel_sim_test` | Solo- und Duell-Regeln mit Gewichtsskripten, mehrere Waagen                         |
+| `stats_core_test`                      | Stufen, Bestwert, schnellste Zeit, Erfolge, Duell, Verlauf                          |
+| `glass_core_test`                      | Namen, Liste, Speichern, Prune, Export, Regeln 0–4, Szenarien am Tisch (Tauschzeit) |
+| `ui_model_test`                        | Ebenen, Symbole, Texte, Erfolg im Ergebnis, Info-Rotation                           |
 
 ## Abnahme auf der Hardware
 
@@ -601,6 +701,12 @@ Vor dem Merge mit mindestens zwei Waagen:
       „aufgegeben“.
 - [ ] Game-Modus mit AP an: Waage taucht bei anderen nicht als Gegner auf.
 - [ ] Duell-Modus: AP aus → `Vs n` bleibt, Duell läuft weiter.
+- [ ] Gläser: echte Leergewichte wiegen und eintragen; Krug voll → erkannt,
+      Runde, halb leer wieder aufgestellt → weiter Krug; leeres Glas auflegen →
+      Name; Prozent-Runde mit Ergebnis in Prozent und Gramm; Tara mit Glas,
+      Glas weg und wieder hin → gleiches Glas; nach Deep-Sleep noch bekannt.
+- [ ] Gläser im Admin anlegen, exportieren, ins Repo, flashen → kein doppelter
+      Eintrag.
 - [ ] Statistik: „Neuer Rekord!“ im Ergebnis-Wechsel; nach 20 s ohne Glas
       Statistik je 3 s, Ziel 6 s, Zeiten im Admin änderbar; Glas/Taster
       bringt sofort das Ziel; Werte nach

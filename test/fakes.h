@@ -65,6 +65,8 @@ struct Driver {
   uint32_t rnd = 0;
   uint32_t now = 1000;
   bool radio = false;
+  bool absOk = true;      // Leer-Referenz bekannt
+  float absOffset = 0.0f; // absolut = w + absOffset (Tara mit Glas)
   game::ScaleReq lastReq = game::ScaleReq::None;
   int reqCount = 0;
 
@@ -88,6 +90,8 @@ struct Driver {
     in.weight = w;
     in.stable = stable;
     in.radioOn = radio;
+    in.absValid = absOk;
+    in.absWeight = w + absOffset;
     g.update(c, in);
     take();
   }

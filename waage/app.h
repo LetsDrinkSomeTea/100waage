@@ -1,5 +1,6 @@
 #pragma once
 #include "config_core.h"
+#include "glass_core.h"
 #include "web_core.h"
 #include <stdint.h>
 
@@ -41,6 +42,16 @@ void app_writeCal(web::JsonWriter &j);
 
 // Akku-Teiler abgleichen (measuredV) oder auf Standard setzen. HTTP-Status.
 int app_battCal(float measuredV, bool resetDefault, const char **err);
+
+// Glaeser (Liste, Festlegen, Bearbeiten, Export)
+void app_writeGlasses(web::JsonWriter &j);
+bool app_glassSelect(uint32_t id); // 0 = automatisch; false: unbekannt
+// id 0 = neues Glas
+glass::Error app_glassSave(uint32_t id, const char *name, float emptyG,
+                           float nominalG);
+bool app_glassDelete(uint32_t id);
+bool app_glassRestore(uint32_t id, bool all);
+size_t app_glassExport(char *out, size_t cap); // 0 = Puffer zu klein
 
 // OTA-Update
 void app_otaBegin();

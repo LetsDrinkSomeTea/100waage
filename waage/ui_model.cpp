@@ -128,6 +128,14 @@ static void fmtGoal(int32_t goalCg, char *out, size_t n) {
   strncat(out, "g", n - strlen(out) - 1);
 }
 
+// "50%" (ganze Prozent) bzw. "49.9%" (Zehntel)
+static void fmtPct(float pct, char *out, size_t n) {
+  snprintf(out, n, "%d%%", (int)(pct + 0.5f));
+}
+static void fmtPctD(uint16_t d, char *out, size_t n) {
+  snprintf(out, n, "%u.%u%%", (unsigned)(d / 10), (unsigned)(d % 10));
+}
+
 static const char *plural(uint32_t n, const char *one, const char *many) {
   return n == 1 ? one : many;
 }
@@ -164,9 +172,14 @@ static void buildStats(Frame &f, StatsScreen sc, const stats::Tracker &st) {
       break;
     }
     fmtHundredths(t.bestDevCg, "g daneben", a, sizeof(a));
-    fmtGoal(t.bestGoalCg, b, sizeof(b));
-    fmtSeconds(t.bestMs, c, sizeof(c));
-    snprintf(line, sizeof(line), "Ziel %s, %s", b, c);
+    if (t.bestPct) {
+      fmtPct(t.bestPct, b, sizeof(b));
+      snprintf(line, sizeof(line), "Ziel %s %s", b, t.bestGlass);
+    } else {
+      fmtGoal(t.bestGoalCg, b, sizeof(b));
+      fmtSeconds(t.bestMs, c, sizeof(c));
+      snprintf(line, sizeof(line), "Ziel %s, %s", b, c);
+    }
     setText(f, "Bester Treffer", a, line);
     break;
   case StatsScreen::Fastest:
@@ -216,11 +229,13 @@ static void buildStats(Frame &f, StatsScreen sc, const stats::Tracker &st) {
 static void buildGame(Frame &f, const game::View &v, const Status &s,
                       uint8_t alt, StatsScreen sc, uint32_t now) {
   char a[32], b[32];
-  // Ergebnis-Wechsel: Wert, Zeit und ggf. Erfolg
+  // Ergebnis-Wechsel: Wert, (Prozent: Ziel,) Zeit und ggf. Erfolg
   const bool ach = showsAchievement(v, s);
-  const uint8_t k = (uint8_t)(alt % (ach ? 3 : 2));
+  const bool pctResult = v.pct && v.screen == game::Screen::ResultSolo;
+  const uint8_t base = pctResult ? 3 : 2;
+  const uint8_t k = (uint8_t)(alt % (base + (ach ? 1 : 0)));
   const bool altTime = k == 1;
-  if (ach && k == 2) {
+  if (ach && k == base) {
     buildAchievement(f, s);
     return;
   }
@@ -230,9 +245,17 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
       buildStats(f, sc, *s.stats); // ohne Statusleiste
       break;
     }
-    text::fmtGrams1(v.goal, a, sizeof(a));
-    strncat(a, "g?", sizeof(a) - strlen(a) - 1);
-    setText(f, a);
+    if (v.pct && v.glassUnknown) {
+      setText(f, "Glas?");
+    } else if (v.pct) {
+      fmtPct(v.goal, a, sizeof(a));
+      strncat(a, "?", sizeof(a) - strlen(a) - 1);
+      setText(f, a);
+    } else {
+      text::fmtGrams1(v.goal, a, sizeof(a));
+      strncat(a, "g?", sizeof(a) - strlen(a) - 1);
+      setText(f, a);
+    }
     setIcons(f, s);
     f.border = v.glassOn;
     f.shuffle = v.randomMode;
@@ -247,7 +270,11 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
 
   case game::Screen::Taring:
     // Kein eigener Hinweis: wie Idle, nur ohne veraltetes Gewicht/Glas
-    if (cfg::playsGame(s.mode)) {
+    if (cfg::playsGame(s.mode) && v.pct) {
+      fmtPct(v.goal, a, sizeof(a));
+      strncat(a, "?", sizeof(a) - strlen(a) - 1);
+      f.shuffle = v.randomMode;
+    } else if (cfg::playsGame(s.mode)) {
       text::fmtGrams1(v.goal, a, sizeof(a));
       strncat(a, "g?", sizeof(a) - strlen(a) - 1);
       f.shuffle = v.randomMode;
@@ -265,7 +292,10 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
     break;
 
   case game::Screen::Ready:
-    if ((uint32_t)(now - v.screenSince) < READY_PROMPT_MS)
+    if (v.pct && v.glassName[0] &&
+        (uint32_t)(now - v.screenSince) < GLASS_PROMPT_MS)
+      setText(f, v.glassName, "Bereit?"); // erkanntes Glas
+    else if (!v.pct && (uint32_t)(now - v.screenSince) < READY_PROMPT_MS)
       setText(f, "Bereit?");
     else
       setText(f, text::trinkspruch(v.toastIdx));
@@ -286,6 +316,23 @@ static void buildGame(Frame &f, const game::View &v, const Status &s,
     char grams[24], dur[24];
     fmtHundredths(v.drankCg, "g", grams, sizeof(grams));
     fmtHundredths((int32_t)((v.durationMs + 5) / 10), "s", dur, sizeof(dur));
+    if (pctResult) {
+      // Prozent / Bewertung → Ziel → Gramm / Zeit
+      if (k == 0) {
+        fmtPctD(v.drankPctD, a, sizeof(a));
+        setText(f, a, ratingText(v.rating));
+      } else if (k == 1) {
+        char pct[12], goal[24];
+        fmtPct(v.goal, pct, sizeof(pct));
+        snprintf(a, sizeof(a), "Ziel %s", pct);
+        fmtHundredths(v.goalCg, "g", goal, sizeof(goal));
+        snprintf(b, sizeof(b), "=%s", goal);
+        setText(f, a, b);
+      } else {
+        setText(f, grams, dur);
+      }
+      break;
+    }
     setText(f, altTime ? dur : grams, ratingText(v.rating));
     break;
   }
@@ -358,6 +405,15 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
     lastSoloSeq_ = v.soloFallbackSeq;
     toast("Solo!", now);
   }
+  // Leeres Glas erkannt (Prozent-Modus) → Name kurz zeigen
+  if (!glassSeqInit_) {
+    glassSeqInit_ = true;
+    lastGlassSeq_ = v.glassSeq;
+  } else if (v.glassSeq != lastGlassSeq_) {
+    lastGlassSeq_ = v.glassSeq;
+    if (v.pct && v.glassSource == glass::Source::Empty && v.glassName[0])
+      toast(v.glassName, now);
+  }
 
   // Ergebnis-Wechsel (Wert/Zeit) neu starten bei neuem Bildschirm oder neuem
   // Duell-Stand
@@ -371,7 +427,7 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
     alt_ = 0;
     altSince_ = now;
   } else if (isResult && (uint32_t)(now - altSince_) >= RESULT_ALT_MS) {
-    alt_ = (uint8_t)((alt_ + 1) % 6); // 6 = Vielfaches von 2 und 3
+    alt_ = (uint8_t)((alt_ + 1) % 12); // 12 = Vielfaches von 2, 3 und 4
     altSince_ = now;
   }
   const StatsScreen sc = statsScreen(v, s, h.active, now);

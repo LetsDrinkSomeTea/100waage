@@ -1,4 +1,5 @@
 #pragma once
+#include "glass_core.h"
 #include <stdint.h>
 
 // ── Statistik (rein, ohne Arduino) ────────────────────────────────────────────
@@ -35,12 +36,17 @@ struct Totals {
   int32_t fastestGoalCg;
   int32_t fastestDevCg; // mit Vorzeichen
   uint32_t duels, wins;
+  // ab Version 2: Prozent-Ziel des besten Treffers (0 = Gramm) und Glas
+  uint8_t bestPct;
+  char bestGlass[glass::NAME_BYTES + 1];
 };
 
 struct Round {
   int32_t drankCg, goalCg;
   uint32_t durationMs;
   bool duel;
+  uint8_t goalPct = 0;         // Prozent-Ziel, 0 = Gramm
+  const char *glass = nullptr; // Glas der Prozent-Runde
 };
 
 struct Entry {
@@ -49,6 +55,7 @@ struct Entry {
   uint32_t durationMs;
   bool duel;
   uint8_t rank; // Duell: finaler Rang, 0 = (noch) keiner
+  uint8_t pct;  // Prozent-Ziel, 0 = Gramm
 };
 
 enum class Achievement : uint8_t { None, Record, Fastest };

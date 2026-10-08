@@ -1,6 +1,7 @@
 #pragma once
 #include "config_core.h"
 #include "duell_core.h"
+#include "glass_core.h"
 #include <stdint.h>
 
 // ── Spiellogik (rein, ohne Arduino) ───────────────────────────────────────────
@@ -44,6 +45,15 @@
 //    (ein mit Glas tariertes Glas wurde abgehoben) → ScaleReq::NegZero.
 //  - Standard-Modus: nur Idle mit Gewichtsanzeige, keine Duell-Aufrufe.
 //  - Solange !weightValid (Tara laeuft, Sensorfehler) aendert sich nichts.
+//  - Glasbestimmung (beide Spielmodi, siehe glass_core): im Idle, sobald ein
+//    Glas (w > tol) PLACE_STABLE_MS ruhig steht, und erneut, wenn sich das
+//    absolute Gewicht um mehr als tol aendert. Ohne absolutes Gewicht
+//    (absValid) oder Liste: unbekannt. Nach einer Runde mit bekanntem Glas
+//    wird die Referenz auf das absolute Endgewicht gesetzt (settle).
+//  - Prozent-Ziel (cfg::percentGoal, nur Game): Ziel = Prozent (Zufall:
+//    rollGoalPct). Idle → Ready, sobald das Glas bestimmt ist und mehr als tol
+//    Inhalt hat; Ziel in Gramm = Prozent x Inhalt beim Aufstellen. Unbekanntes
+//    Glas: kein Start, Anzeige "Glas?". Bewertung und "gut" in Gramm.
 
 namespace game {
 
@@ -95,11 +105,13 @@ struct Input {
   bool weightValid; // Waage ok, keine Tara, nicht in Kalibrierung
   float weight;     // [g], adaptiv geglaettet
   bool stable;
-  bool radioOn; // Duell moeglich: Duell-Modus und Funk an
+  bool radioOn;    // Duell moeglich: Duell-Modus und Funk an
+  bool absValid;   // Leer-Referenz bekannt (scale::Core::emptyKnown)
+  float absWeight; // [g] weight + load: Gewicht gegen die leere Waage
 };
 
 enum class Screen : uint8_t {
-  IdleGame,     // Ziel "100.0g?", Rahmen wenn Glas drauf
+  IdleGame,     // Ziel "100.0g?" / "50%?", Rahmen wenn Glas drauf
   IdleStandard, // aktuelles Gewicht
   Taring,       // "Tara..."
   WaitDuel,     // "Warte..." / "2/3 bereit"
@@ -114,9 +126,16 @@ struct View {
   Screen screen;
   uint32_t screenSince; // Beginn des aktuellen Bildschirms
   float weight; // IdleStandard (0, wenn Auto-Zero aktiv und |w| < Schwelle)
-  float goal;   // IdleGame: lokales Ziel; DuelStart: Duell-Ziel
+  float goal;   // IdleGame: lokales Ziel (Prozent-Modus: %); DuelStart
   bool randomMode;
-  bool glassOn;           // IdleGame: w > tol
+  bool glassOn;      // IdleGame: w > tol
+  bool pct;          // Prozent-Ziel (Idle, Ready, Ergebnis)
+  bool glassUnknown; // IdleGame (Prozent): Glas steht, unbekannt
+  uint32_t glassSeq; // erhoeht bei jeder Glasbestimmung
+  glass::Source glassSource;
+  char glassName[glass::NAME_BYTES + 1]; // bestimmtes Glas ("" = keins)
+  int32_t goalCg;         // Result: Ziel in cg (Prozent: berechnet)
+  uint16_t drankPctD;     // Result (Prozent): getrunken in 0,1 % vom Inhalt
   int ready, readyTotal;  // WaitDuel
   uint16_t toastIdx;      // Trinkspruch dieser Runde (Index modulo Anzahl)
   int32_t drankCg;        // Result
@@ -135,6 +154,8 @@ struct RoundDone {
   int32_t drankCg, goalCg; // Ziel: Duell-Ziel, falls im Duell gestartet
   uint32_t durationMs;
   bool duel;
+  uint8_t goalPct;                   // Prozent-Ziel, 0 = Gramm
+  char glass[glass::NAME_BYTES + 1]; // Glas der Prozent-Runde
 };
 
 // Erster finaler Duell-Stand der eigenen Runde (einmal pro Runde).
@@ -154,6 +175,14 @@ class Game {
 public:
   // rnd liefert eine Zufallszahl (Zufallsziel, Trinkspruch).
   void begin(DuelPort *duel, uint32_t (*rnd)(void *), void *rndCtx);
+  // Glaeserliste fuer die Glasbestimmung (nullptr = keine).
+  void setGlasses(const glass::List *l) { list_ = l; }
+  glass::Detector &detector() { return det_; }
+  // Letzte Glasbestimmung; known() = Glas steht und wurde bestimmt.
+  const glass::Detection &glass() const { return detection_; }
+  bool glassKnown() const { return glassActive_ && detection_.id != 0; }
+  // Liste oder Festlegung geaendert: stehendes Glas im Idle neu bestimmen
+  void redetectGlass() { glassActive_ = false; }
 
   // Einziger Reset (Entscheidung 1): Phase Idle, Duell verlassen, Ziel neu
   // (Zufallsmodus: neu gewuerfelt), Tara angefordert (Tare oder TareEmpty).
@@ -173,7 +202,8 @@ public:
 
   Phase phase() const { return phase_; }
   Duel duel() const { return duel_; }
-  float localGoal() const { return localGoal_; }
+  float localGoal() const { return localGoal_; } // Prozent-Modus: %
+  bool percentMode() const { return pct_; }
   bool gameRunning() const {
     return phase_ == Phase::Ready || phase_ == Phase::Drinking;
   }
@@ -213,7 +243,11 @@ private:
     }
   };
   void setScreen(Screen s, uint32_t now);
-  float refGoal() const { return duelTargetSet_ ? duelTarget_ : localGoal_; }
+  float refGoal() const {
+    return duelTargetSet_ ? duelTarget_ : (pct_ ? pctTargetG_ : localGoal_);
+  }
+  void updateGlass(const cfg::Config &c, const Input &in);
+  void rollLocalGoal(const cfg::Config &c);
   void stopTimers();
   void updateStandard(const cfg::Config &c, const Input &in);
   void updateAutoZero(const cfg::Config &c, const Input &in);
@@ -232,6 +266,16 @@ private:
       negZero_, emptyTrack_;
   uint32_t autoZeroLast_ = 0;
   bool autoZeroDone_ = false;
+  // Glas und Prozent-Ziel
+  const glass::List *list_ = nullptr;
+  glass::Detector det_;
+  glass::Detection detection_ = {};
+  bool glassActive_ = false; // Bestimmung gilt fuer das stehende Glas
+  float glassAtAbs_ = 0.0f;  // absolutes Gewicht bei der Bestimmung
+  Timer glassPlace_;
+  bool roundGlass_ = false; // Runde mit bestimmtem Glas gestartet
+  bool pct_ = false;        // Prozent-Ziel aktiv (ab Reset)
+  float pctTargetG_ = 0.0f, pctContentG_ = 0.0f;
 };
 
 } // namespace game
