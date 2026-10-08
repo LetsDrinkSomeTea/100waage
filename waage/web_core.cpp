@@ -155,7 +155,7 @@ JsonWriter &JsonWriter::beginArray() {
   if (!ok_)
     return *this;
   first_[depth_] = true;
-  objMask_ &= (uint16_t) ~(1u << depth_);
+  objMask_ &= (uint16_t)~(1u << depth_);
   depth_++;
   return *this;
 }
