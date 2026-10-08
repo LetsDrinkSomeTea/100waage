@@ -145,6 +145,8 @@ static ApplyResult applyConfig(cfg::Config next, bool fromWeb,
   }
   if (ch & cfg::CH_BATT)
     battery_configure(c.batteryPresent, c.battDividerRatio);
+  if (ch & cfg::CH_BUTTON)
+    btn.setTiming(button::makeTiming(c.holdTaraMs, c.holdStepMs));
   if (ch & cfg::CH_SCALE)
     scale_core().setFactor(c.scaleFactor);
   if ((ch & cfg::CH_SSID) && radio_apOn()) {
@@ -660,6 +662,7 @@ static void render(const cfg::Config &c, uint32_t now) {
   h.active = btn.overlay(now);
   h.zone = btn.zone(now);
   h.heldMs = btn.heldMs(now);
+  h.timing = btn.timing();
 
   const char *sys[3];
   bool hasSys = systemScreen(now, sys);
@@ -723,6 +726,7 @@ void app_setup() {
   uint32_t now = millis();
   bootAt = now;
   btn.begin(digitalRead(PIN_BTN) == HIGH, now); // Weck-Druck ignorieren
+  btn.setTiming(button::makeTiming(c.holdTaraMs, c.holdStepMs));
   scale_begin(c.scaleFactor);
   scale_core().setStableSpread(stableSpreadFor(c));
   scale_core().setEmptyTolerance(c.tolerance);

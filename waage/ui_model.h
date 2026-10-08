@@ -24,13 +24,10 @@ constexpr uint32_t RESULT_ALT_MS = 3000;   // Ergebnis-Wechsel (Wert/Zeit)
 constexpr uint32_t ANIM_MS = 300;          // Ladeanimation
 constexpr uint32_t TOAST_MS = 1500;
 constexpr int MODE_DOTS = 3; // Game, Duell, Standard
-constexpr int BAR_W = 128;   // Haltebalken ueber CANCEL_MS
-constexpr int TICK_MODE_PX =
-    (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS);
-constexpr int TICK_RADIO_PX =
-    (int)((uint64_t)button::RADIO_MS * BAR_W / button::CANCEL_MS);
-constexpr int TICK_CLASSIC_PX =
-    (int)((uint64_t)button::CLASSIC_MS * BAR_W / button::CANCEL_MS);
+constexpr int BAR_W = 128;   // Haltebalken ueber cancelMs
+
+// Breite des Haltebalkens fuer ms (0..BAR_W, ab cancelMs voll).
+uint8_t barPx(uint32_t ms, const button::Timing &t);
 
 enum class Kind : uint8_t {
   Text, // Textzeilen (+ ggf. Symbole)
@@ -55,6 +52,7 @@ struct Frame {
   // 0 = keine, sonst 1 + Position des gefuellten Punkts
   uint8_t modeDots;
   uint8_t barPx;     // Hold: gefuellte Breite 0..BAR_W
+  uint8_t tickPx[3]; // Hold: Marken bei Mode, Radio, Classic
   uint8_t animFrame; // Anim: 0..4
 };
 
@@ -94,6 +92,7 @@ struct Hold {
   bool active; // Taster gedrueckt und >= OVERLAY_MS
   button::Zone zone;
   uint32_t heldMs;
+  button::Timing timing; // Zonengrenzen fuer Balken und Marken
 };
 
 // Anzeigename eines Modus (UTF-8), z. B. "Duell-Modus".

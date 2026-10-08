@@ -68,7 +68,7 @@ static void testLayers() {
   f = m.build(v, s, NO_HOLD, sys, now + 200); // System vor Toast
   CHECK(textIs(f, "Kalibrierung", "Waage leeren"));
 
-  Hold h = {true, button::Zone::Mode, button::MODE_MS + 200};
+  Hold h = {true, button::Zone::Mode, button::MODE_MS + 200, {}};
   f = m.build(v, s, h, sys, now + 300); // Haltebalken vor allem
   CHECK(f.kind == Kind::Hold);
   CHECK(!strcmp(f.text.line[0], "Duell-Modus"));
@@ -100,29 +100,37 @@ static void testToastWrap() {
 static void testHoldBar() {
   Model m;
   game::View v = idleView();
+  const button::Timing d; // Standard: 0,75 / 2 / 3,25 / 4,5 s
   struct {
     uint32_t ms;
     int px;
   } cases[] = {{0, 0},
-               {button::MODE_MS, TICK_MODE_PX},
-               {button::RADIO_MS, TICK_RADIO_PX},
-               {button::CLASSIC_MS, TICK_CLASSIC_PX},
+               {button::MODE_MS, 21},
+               {button::RADIO_MS, 56},
+               {button::CLASSIC_MS, 92},
                {button::CANCEL_MS, BAR_W},
                {button::CANCEL_MS * 4, BAR_W}};
   for (auto &c : cases) {
-    Hold h = {true, button::Zone::Short, c.ms};
+    Hold h = {true, button::Zone::Short, c.ms, {}};
     Frame f = m.build(v, status(), h, nullptr, 1000);
     CHECK(f.barPx == c.px);
+    CHECK(f.barPx == barPx(c.ms, d));
     CHECK(f.modeDots == 0);
+    CHECK(f.tickPx[0] == 21 && f.tickPx[1] == 56 && f.tickPx[2] == 92);
   }
-  CHECK(0 < TICK_MODE_PX && TICK_MODE_PX < TICK_RADIO_PX &&
-        TICK_RADIO_PX < TICK_CLASSIC_PX && TICK_CLASSIC_PX < BAR_W);
+  // Eigene Zeiten: Marken und Balken folgen
+  Hold h = {true, button::Zone::Mode, 1000, button::makeTiming(500, 500)};
+  Frame f = m.build(v, status(), h, nullptr, 1000);
+  CHECK(f.tickPx[0] == 32 && f.tickPx[1] == 64 && f.tickPx[2] == 96);
+  CHECK(f.barPx == 64);
+  // kaputtes Timing ohne Division durch 0
+  CHECK(barPx(100, button::Timing{0, 0, 0, 0}) == BAR_W);
 }
 
 // Klassik-Zone: Text und Punkte des Zielmodus, Toast danach mit Punkten
 static void testClassicHold() {
   game::View v = idleView();
-  Hold h = {true, button::Zone::Classic, button::CLASSIC_MS};
+  Hold h = {true, button::Zone::Classic, button::CLASSIC_MS, {}};
   {
     Model m;
     Status s = status();
@@ -219,7 +227,7 @@ static void testModeDots() {
     Model m;
     Status s = status();
     s.mode = c.from;
-    Hold h = {true, button::Zone::Mode, button::MODE_MS};
+    Hold h = {true, button::Zone::Mode, button::MODE_MS, {}};
     Frame f = m.build(v, s, h, nullptr, 1000);
     CHECK(f.kind == Kind::Hold && f.modeDots == c.dots);
     CHECK(f.text.size == 1 && f.text.lines == 1);
@@ -241,7 +249,7 @@ static void testModeDots() {
   }
   // Andere Zonen ohne Punkte
   Model m;
-  Hold h = {true, button::Zone::Radio, button::RADIO_MS};
+  Hold h = {true, button::Zone::Radio, button::RADIO_MS, {}};
   Frame f = m.build(v, status(), h, nullptr, 1000);
   CHECK(f.modeDots == 0 && textIs(f, "AP an"));
 }
@@ -521,7 +529,7 @@ static void testStatsRotation() {
   // Taster gehalten startet neu
   Model m2;
   m2.build(v, s, NO_HOLD, nullptr, T0);
-  Hold h = {true, button::Zone::Short, 500};
+  Hold h = {true, button::Zone::Short, 500, {}};
   m2.build(v, s, h, nullptr, T0 + A);
   CHECK(textIs(m2.build(v, s, NO_HOLD, nullptr, T0 + A + S), "100.0g?"));
 

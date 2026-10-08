@@ -4,6 +4,12 @@
 
 namespace ui {
 
+uint8_t barPx(uint32_t ms, const button::Timing &t) {
+  if (t.cancelMs == 0 || ms >= t.cancelMs)
+    return BAR_W;
+  return (uint8_t)((uint64_t)ms * BAR_W / t.cancelMs);
+}
+
 bool sameFrame(const Frame &a, const Frame &b) {
   return memcmp(&a, &b, sizeof(Frame)) == 0;
 }
@@ -449,8 +455,10 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
       setModeText(f, label, (uint8_t)(1 + cfg::modePosition(s.classicMode)));
     else
       setText(f, label);
-    uint32_t held = h.heldMs > button::CANCEL_MS ? button::CANCEL_MS : h.heldMs;
-    f.barPx = (uint8_t)((uint64_t)held * BAR_W / button::CANCEL_MS);
+    f.barPx = barPx(h.heldMs, h.timing);
+    f.tickPx[0] = barPx(h.timing.modeMs, h.timing);
+    f.tickPx[1] = barPx(h.timing.radioMs, h.timing);
+    f.tickPx[2] = barPx(h.timing.classicMs, h.timing);
     return f;
   }
   if (system) {

@@ -76,6 +76,10 @@ static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
     p.putUChar("statsGoal", c.statsGoalS);
     p.putUChar("statsStep", c.statsStepS);
   }
+  if (mask & cfg::CH_BUTTON) {
+    p.putUShort("holdTara", c.holdTaraMs);
+    p.putUShort("holdStep", c.holdStepMs);
+  }
 }
 
 static constexpr uint32_t ALL = 0xFFFFFFFFu;
@@ -112,6 +116,8 @@ static void readAll(Preferences &p, cfg::Config &c) {
   c.statsAfterS = p.getUChar("statsAfter", d.statsAfterS);
   c.statsGoalS = p.getUChar("statsGoal", d.statsGoalS);
   c.statsStepS = p.getUChar("statsStep", d.statsStepS);
+  c.holdTaraMs = p.getUShort("holdTara", d.holdTaraMs);
+  c.holdStepMs = p.getUShort("holdStep", d.holdStepMs);
 }
 
 // Liest das alte EEPROM-Abbild nur lesend (legt nichts an, aendert nichts).

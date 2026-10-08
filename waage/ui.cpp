@@ -60,8 +60,7 @@ static void draw(const ui::Frame &f) {
       drawModeText(f);
     else if (f.text.lines > 0)
       drawCentered(f.text.line[0], f.text.size, 0, 22);
-    drawHoldBar(f.barPx, ui::TICK_MODE_PX, ui::TICK_RADIO_PX,
-                ui::TICK_CLASSIC_PX);
+    drawHoldBar(f.barPx, f.tickPx[0], f.tickPx[1], f.tickPx[2]);
     break;
   case ui::Kind::Anim:
     drawLoadingAnimation(f.animFrame);

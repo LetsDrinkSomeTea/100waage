@@ -96,6 +96,8 @@ Queue legt.
 | `statsAfterS`       | 20 s               | 1–255                                                    | Admin               |
 | `statsStepS`        | 3 s                | 1–60                                                     | Admin               |
 | `statsGoalS`        | 6 s                | 1–60                                                     | Admin               |
+| `holdTaraMs`        | 750 ms             | 300–3000 (Web in s: `holdTaraS`)                         | Admin               |
+| `holdStepMs`        | 1250 ms            | 500–3000 (Web in s: `holdStepS`)                         | Admin               |
 
 Beim **Laden** klemmt `sanitize` jeden Wert in seinen Bereich und scheitert nie
 (ein gültiger `scaleFactor` bleibt bit-genau). Aus dem **Web** prüft `validate`
@@ -111,18 +113,19 @@ MAC-Bytes), damit mehrere Waagen unterscheidbar sind; sonst die SSID selbst.
 Namespace `waage`, ein Schlüssel pro Feld. `schema` (aktuell 1) wird zuletzt
 geschrieben; fehlt er, gilt der Speicher als leer.
 
-| Schlüssel   | Feld              | Schlüssel | Feld             |
-| ----------- | ----------------- | --------- | ---------------- |
-| `ssid`      | apSSID            | `pw`      | adminPassword    |
-| `scale`     | scaleFactor       | `goal`    | goal             |
-| `tol`       | tolerance         | `arRange` | autoResetRange   |
-| `rot`       | displayRotation   | `wifiTo`  | wifiTimeout      |
-| `sleepTo`   | sleepTimeout      | `battDiv` | battDividerRatio |
-| `mode`      | scaleMode         | `azOn`    | autoZeroEnabled  |
-| `azThr`     | autoZeroThreshold | `azDelay` | autoZeroDelay    |
-| `rndOn`     | randomModeEnabled | `rndMin`  | randomMin        |
-| `goalPctOn` | goalPercent       | `goalPct` | goalPct          |
-| `rndMinPct` | randomMinPct      | `swapMin` | glassSwapMin     |
+| Schlüssel   | Feld              | Schlüssel  | Feld             |
+| ----------- | ----------------- | ---------- | ---------------- |
+| `ssid`      | apSSID            | `pw`       | adminPassword    |
+| `scale`     | scaleFactor       | `goal`     | goal             |
+| `tol`       | tolerance         | `arRange`  | autoResetRange   |
+| `rot`       | displayRotation   | `wifiTo`   | wifiTimeout      |
+| `sleepTo`   | sleepTimeout      | `battDiv`  | battDividerRatio |
+| `mode`      | scaleMode         | `azOn`     | autoZeroEnabled  |
+| `azThr`     | autoZeroThreshold | `azDelay`  | autoZeroDelay    |
+| `rndOn`     | randomModeEnabled | `rndMin`   | randomMin        |
+| `goalPctOn` | goalPercent       | `goalPct`  | goalPct          |
+| `rndMinPct` | randomMinPct      | `swapMin`  | glassSwapMin     |
+| `holdTara`  | holdTaraMs        | `holdStep` | holdStepMs       |
 
 `config_set` schreibt nur die geänderten Schlüssel (Änderungsmaske `cfg::diff`).
 
@@ -452,11 +455,18 @@ Waage aufweckt, löst nichts aus.
 | < 0,75 s                 | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                      |
 | 0,75–2 s                 | nächster Modus: Game → Duell → Standard → Game  | Zielmodus, z. B. „Duell-Modus“, mit Punkten |
 | 2–3,25 s                 | AP an/aus                                       | „AP an“ / „AP aus“                          |
-| 3,25–5 s                 | Klassik an / zurück                             | „Klassik“ / „Zurück“, mit Punkten           |
-| ≥ 5 s                    | nichts                                          | „Abbrechen“                                 |
+| 3,25–4,5 s               | Klassik an / zurück                             | „Klassik“ / „Zurück“, mit Punkten           |
+| ≥ 4,5 s                  | nichts                                          | „Abbrechen“                                 |
 
-Ab 300 ms zeigt das Display einen Balken über 5 s mit Marken bei 0,75 s, 2 s
-und 3,25 s (Pixel 19, 51 und 83); der Text zeigt die Wirkung beim Loslassen.
+Die Zeiten in der Tabelle sind die Standardwerte. Konfigurierbar sind
+`holdTaraMs` (Ende der Tara-Zone, Standard 750 ms) und `holdStepMs` (Breite von
+Modus-, AP- und Klassik-Zone, Standard 1250 ms); die Grenzen sind also Tara,
+Tara + Stufe, Tara + 2 × Stufe, Tara + 3 × Stufe (`button::makeTiming`). Neue
+Werte gelten sofort, auch für einen laufenden Druck.
+
+Ab 300 ms zeigt das Display einen Balken bis zum Abbruch mit Marken an den drei
+Zonengrenzen (Standard: 4,5 s, Marken bei 0,75 s, 2 s und 3,25 s = Pixel 21, 56
+und 92); der Text zeigt die Wirkung beim Loslassen.
 In der Modus-Zone steht der Zielmodus in kleiner Schrift, darunter drei Punkte
 (Game, Duell, Standard) mit dem Zielmodus gefüllt. Der Hinweis nach dem
 Wechsel zeigt Name und Punkte noch einmal. So wird die Reihenfolge sichtbar,
@@ -711,8 +721,10 @@ Vor dem Merge mit mindestens zwei Waagen:
       (bekanntes Gewicht vorher und nachher wiegen).
 - [ ] Kurzdruck mit Glas tariert; Glas weg → nach 1 s Nullung (NegZero).
 - [ ] Solo: gutes Ergebnis bleibt beim Abheben, schlechtes verschwindet.
-- [ ] Haltebalken: Texte bei 0,3 / 0,75 / 2 / 3,25 / 5 s, Loslassen in jeder
+- [ ] Haltebalken: Texte bei 0,3 / 0,75 / 2 / 3,25 / 4,5 s, Loslassen in jeder
       Zone; Modus-Punkte im Balken und im Hinweis, Zyklus Game → Duell → Standard.
+- [ ] Taster-Zeiten im Admin ändern (z. B. 0,5 / 0,8 s): Balken, Marken und
+      Zonen folgen sofort, Werte bleiben nach Neustart.
 - [ ] Klassik: aus Duell mit Prozent/Zufall → Game 100 g; Balken zeigt dann
       „Zurück“; zurück nach Deep-Sleep stellt alles wieder her; nach einer
       Änderung im Web wieder „Klassik“.
