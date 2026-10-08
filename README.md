@@ -175,8 +175,8 @@ Die Werte bleiben über Deep-Sleep und Updates erhalten.
 - **Im Ergebnis:** Bei einem neuen besten Treffer oder einer neuen schnellsten
   Zeit wechselt das Ergebnis zusätzlich zu `Neuer Rekord!` bzw.
   `Schnellste Zeit!`.
-- **Im Ruhezustand:** Steht 20 s kein Glas auf der Waage, zeigt das Display je
-  3 s besten Treffer, schnellste Zeit, Runden, Stufen und die letzten Runden,
+- **Im Ruhezustand:** Steht 15 s kein Glas auf der Waage, zeigt das Display je
+  4 s besten Treffer, schnellste Zeit, Runden, Stufen und die letzten Runden,
   danach 6 s das Ziel, dann wieder von vorn. Glas aufstellen oder Taster
   drücken bringt sofort das Ziel zurück. Abschaltbar auf der Startseite, die
   Zeiten sind im Admin-Bereich einstellbar.

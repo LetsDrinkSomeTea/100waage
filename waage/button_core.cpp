@@ -4,8 +4,7 @@ namespace button {
 
 static_assert(DEBOUNCE_MS < MIN_PRESS_MS,
               "Mindestdruck muss laenger als die Entprellung sein");
-static_assert(MIN_PRESS_MS < MODE_MS && MODE_MS < RADIO_MS &&
-                  RADIO_MS < CLASSIC_MS && CLASSIC_MS < CANCEL_MS,
+static_assert(MIN_PRESS_MS < DEFAULT_TARA_MS && DEFAULT_STEP_MS > 0,
               "Zonen muessen aufsteigend sein");
 
 namespace {

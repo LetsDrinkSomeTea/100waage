@@ -7,6 +7,13 @@
 
 using namespace button;
 
+// Zonengrenzen der Standard-Zeiten (aus Timing, nicht doppelt definiert)
+constexpr Timing DEF{};
+constexpr uint32_t MODE_MS = DEF.modeMs;
+constexpr uint32_t RADIO_MS = DEF.radioMs;
+constexpr uint32_t CLASSIC_MS = DEF.classicMs;
+constexpr uint32_t CANCEL_MS = DEF.cancelMs;
+
 namespace {
 
 // Startzeiten, an denen alle Szenarien laufen: normal, mitten drin und kurz vor
@@ -1153,13 +1160,12 @@ void testFuzzAgainstModel() {
 // ── Konfigurierbare Zeiten ────────────────────────────────────────────────────
 
 void testTiming() {
-  // Standard = Konstanten
-  Timing d = makeTiming(750, 1250);
-  Timing k;
-  CHECK(d.modeMs == k.modeMs && d.radioMs == k.radioMs &&
-        d.classicMs == k.classicMs && d.cancelMs == k.cancelMs);
-  CHECK(k.modeMs == MODE_MS && k.radioMs == RADIO_MS &&
-        k.classicMs == CLASSIC_MS && k.cancelMs == CANCEL_MS);
+  // Standard: makeTiming aus den Standard-Zeiten = Timing{}
+  Timing d = makeTiming(DEFAULT_TARA_MS, DEFAULT_STEP_MS);
+  CHECK(d.modeMs == DEF.modeMs && d.radioMs == DEF.radioMs &&
+        d.classicMs == DEF.classicMs && d.cancelMs == DEF.cancelMs);
+  CHECK(DEF.modeMs == 750 && DEF.radioMs == 2000 && DEF.classicMs == 3250 &&
+        DEF.cancelMs == 4500);
   // gleiche Breite fuer Modus, AP und Klassik
   CHECK(RADIO_MS - MODE_MS == CLASSIC_MS - RADIO_MS &&
         CLASSIC_MS - RADIO_MS == CANCEL_MS - CLASSIC_MS);
