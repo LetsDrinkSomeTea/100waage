@@ -25,14 +25,17 @@ Duell-Modus per Funk gegeneinander antreten. Technische Details stehen in [Specs
 
 ### Taster
 
-| Aktion           | Wirkung                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Drücken < 0,75 s | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                               |
-| Halten           | Ab 0,3 s erscheint ein Balken mit Marken bei 0,75 s, 2 s und 3,25 s; der Text zeigt, was beim Loslassen passiert |
-| Halten 0,75–2 s  | Nächster Modus: Game → Duell → Standard → Game                                                                   |
-| Halten 2–3,25 s  | Config-AP an/aus                                                                                                 |
-| Halten 3,25–5 s  | **Klassik** an bzw. zurück (siehe unten)                                                                         |
-| Halten ≥ 5 s     | Abbrechen, nichts passiert                                                                                       |
+| Aktion            | Wirkung                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Drücken < 0,75 s  | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                               |
+| Halten            | Ab 0,3 s erscheint ein Balken mit Marken bei 0,75 s, 2 s und 3,25 s; der Text zeigt, was beim Loslassen passiert |
+| Halten 0,75–2 s   | Nächster Modus: Game → Duell → Standard → Game                                                                   |
+| Halten 2–3,25 s   | Config-AP an/aus                                                                                                 |
+| Halten 3,25–4,5 s | **Klassik** an bzw. zurück (siehe unten)                                                                         |
+| Halten ≥ 4,5 s    | Abbrechen, nichts passiert                                                                                       |
+
+Die Zeiten sind Standardwerte: „Tara bis“ (0,75 s) und „Je weitere Stufe“
+(1,25 s für Modus, AP und Klassik) lassen sich im Admin-Bereich einstellen.
 
 Beim Moduswechsel zeigt der Balken den Zielmodus mit drei Punkten darunter
 (Game, Duell, Standard, der Zielmodus ist gefüllt). Nach dem Loslassen
@@ -215,7 +218,7 @@ Festlegen und „wäre X g drin“ für jedes Glas, dazu die Statistik. Änderun
 während einer laufenden Runde ab der nächsten).
 
 **Admin** (Passwort, Standard `admin`): WLAN-Name, Toleranz, Auto-Reset-Bereich, Tauschzeit,
-Timeouts, Auto-Zero, Zeiten der Statistik-Anzeige, Passwort; alles ohne
+Timeouts, Auto-Zero, Taster-Zeiten, Zeiten der Statistik-Anzeige, Passwort; alles ohne
 Neustart. Außerdem:
 
 - **Akku vorhanden:** für Waagen ohne Akku (Netzbetrieb) ausschalten; dann

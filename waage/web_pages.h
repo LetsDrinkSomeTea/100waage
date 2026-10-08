@@ -271,6 +271,9 @@ input[type=file]::file-selector-button{font:inherit;margin-right:10px;padding:7p
 <label class="sw"><span>Auto-Zero<i>Nullabgleich, wenn die Waage stabil leer ist</i></span><input type="checkbox" name="autoZeroEnabled"></label>
 <div class="gruppe"><label class="r"><span>Gilt als leer bis</span><span class="ein"><input type="number" step="0.1" name="autoZeroThreshold"><span>g</span></span></label>
 <label class="r"><span>Stabil leer für</span><span class="ein"><input type="number" min="1" max="60" name="autoZeroDelay"><span>s</span></span></label></div></fieldset>
+<fieldset><legend>Taster</legend>
+<label class="r"><span>Tara bis<i>Kürzer drücken tariert, länger halten wechselt den Modus (0,3–3)</i></span><span class="ein"><input type="number" step="0.05" min="0.3" max="3" name="holdTaraS"><span>s</span></span></label>
+<label class="r"><span>Je weitere Stufe<i>Haltezeit für Modus, AP und Klassik, danach Abbruch (0,5–3)</i></span><span class="ein"><input type="number" step="0.05" min="0.5" max="3" name="holdStepS"><span>s</span></span></label></fieldset>
 <fieldset><legend>Energie</legend>
 <label class="r"><span>Deep-Sleep nach<i>Ohne Aktivität, 0 = nie</i></span><span class="ein"><input type="number" min="0" max="255" name="sleepTimeout"><span>min</span></span></label>
 <label class="sw"><span>Akku vorhanden<i>Aus bei Netzbetrieb: keine Akkumessung, kein Akkusymbol</i></span><input type="checkbox" name="batteryPresent"></label></fieldset>

@@ -60,7 +60,8 @@ static bool same(const Config &a, const Config &b) {
          bits(a.randomMin) == bits(b.randomMin) &&
          a.statsRotation == b.statsRotation && a.statsAfterS == b.statsAfterS &&
          a.statsGoalS == b.statsGoalS && a.statsStepS == b.statsStepS &&
-         a.batteryPresent == b.batteryPresent;
+         a.batteryPresent == b.batteryPresent && a.holdTaraMs == b.holdTaraMs &&
+         a.holdStepMs == b.holdStepMs;
 }
 
 static bool sanF(float Config::*f, float in, float &out) {
@@ -133,6 +134,7 @@ static void testDefaults() {
   CHECK(c.statsRotation == true);
   CHECK(c.batteryPresent == true);
   CHECK(c.statsAfterS == 15 && c.statsGoalS == 6 && c.statsStepS == 4);
+  CHECK(c.holdTaraMs == 750 && c.holdStepMs == 1250);
   CHECK(c.scaleFactor == SCALE_FACTOR_DEFAULT &&
         c.battDividerRatio == BATT_RATIO_DEFAULT);
 
@@ -516,7 +518,8 @@ static bool inRanges(const Config &c) {
          c.statsGoalS <= 60 && c.statsStepS >= 1 && c.statsStepS <= 60 &&
          (c.displayRotation == 0 || c.displayRotation == 2) &&
          c.battDividerRatio >= 1.0f && c.battDividerRatio <= 6.0f &&
-         (uint8_t)c.scaleMode < MODE_COUNT;
+         (uint8_t)c.scaleMode < MODE_COUNT && c.holdTaraMs >= 300 &&
+         c.holdTaraMs <= 3000 && c.holdStepMs >= 500 && c.holdStepMs <= 3000;
 }
 
 static float specialFloat() {
@@ -802,6 +805,29 @@ static void testValidateFields() {
   CHECK(rejects(c, "statsStepS"));
   c.statsStepS = 61;
   CHECK(rejects(c, "statsStepS"));
+
+  // Taster-Zeiten
+  c = base;
+  c.holdTaraMs = 300;
+  c.holdStepMs = 3000;
+  CHECK(validate(c).field == nullptr);
+  c.holdTaraMs = 299;
+  CHECK(rejects(c, "holdTaraS"));
+  c.holdTaraMs = 3001;
+  CHECK(rejects(c, "holdTaraS"));
+  c = base;
+  c.holdStepMs = 499;
+  CHECK(rejects(c, "holdStepS"));
+  c.holdStepMs = 3001;
+  CHECK(rejects(c, "holdStepS"));
+  // sanitize: ausserhalb → Default
+  c = base;
+  c.holdTaraMs = 0;
+  c.holdStepMs = 65535;
+  CHECK(sanitize(c) && c.holdTaraMs == 750 && c.holdStepMs == 1250);
+  c.holdTaraMs = 3000;
+  c.holdStepMs = 500;
+  CHECK(!sanitize(c));
 
   // displayRotation
   c = base;
@@ -1199,6 +1225,12 @@ static void testDiff() {
   b = a;
   b.scaleMode = ScaleMode::Standard;
   CHECK(diff(a, b) == CH_MODE);
+  b = a;
+  b.holdTaraMs = 600;
+  CHECK(diff(a, b) == CH_BUTTON);
+  b = a;
+  b.holdStepMs = 1000;
+  CHECK(diff(a, b) == CH_BUTTON);
   b = a;
   b.wifiTimeout = 0;
   CHECK(diff(a, b) == CH_TIMEOUTS);

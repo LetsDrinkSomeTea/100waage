@@ -29,7 +29,7 @@ TESTS=(
   "game_duel_sim_test:game_core.cpp config_core.cpp duell_core.cpp glass_core.cpp"
   "stats_core_test:stats_core.cpp"
   "glass_core_test:glass_core.cpp"
-  "ui_model_test:ui_model.cpp text_core.cpp game_core.cpp config_core.cpp stats_core.cpp glass_core.cpp"
+  "ui_model_test:ui_model.cpp text_core.cpp game_core.cpp config_core.cpp stats_core.cpp glass_core.cpp button_core.cpp"
 )
 
 for entry in "${TESTS[@]}"; do

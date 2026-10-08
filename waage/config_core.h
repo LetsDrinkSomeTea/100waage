@@ -53,6 +53,8 @@ struct Config {
   uint8_t statsAfterS;  // [s] ohne Glas bis zur ersten Statistik
   uint8_t statsGoalS;   // [s] Anzeigedauer des Ziels in der Rotation
   uint8_t statsStepS;   // [s] Anzeigedauer je Statistik-Bildschirm
+  uint16_t holdTaraMs;  // [ms] Taster: kuerzer = Tara, ab hier Moduswechsel
+  uint16_t holdStepMs;  // [ms] Taster: Breite jeder weiteren Zone
 };
 
 // Bereiche (gelten fuer sanitize und validate)
@@ -71,6 +73,10 @@ constexpr uint8_t STATS_GOAL_DEFAULT = 6, STATS_STEP_DEFAULT = 4;
 constexpr uint8_t GOAL_PCT_MIN = 1, GOAL_PCT_MAX = 100;
 constexpr uint8_t GOAL_PCT_DEFAULT = 50, RANDOM_MIN_PCT_DEFAULT = 20;
 constexpr uint8_t GLASS_SWAP_MAX = 60, GLASS_SWAP_DEFAULT = 5;
+constexpr uint16_t HOLD_TARA_MIN = 300, HOLD_TARA_MAX = 3000,
+                   HOLD_TARA_DEFAULT = 750;
+constexpr uint16_t HOLD_STEP_MIN = 500, HOLD_STEP_MAX = 3000,
+                   HOLD_STEP_DEFAULT = 1250;
 
 Config defaults();
 
@@ -83,7 +89,8 @@ Config defaults();
 // (sonst 0). battDividerRatio 1..6 (sonst 2). scaleMode 0..2 (sonst Game).
 // statsAfterS 1..255 (sonst 20), statsGoalS/statsStepS 1..60 (sonst 6/3).
 // goalPct 1..100 (sonst 50), randomMinPct auf [1, goalPct] geklemmt.
-// glassSwapMin 0..60 (sonst 5).
+// glassSwapMin 0..60 (sonst 5). holdTaraMs 300..3000 (sonst 750),
+// holdStepMs 500..3000 (sonst 1250).
 // Strings werden terminiert; leere oder nicht druckbare SSID → Default-SSID,
 // leeres Passwort → "admin" (kurze alte Passwoerter bleiben erhalten).
 // Liefert true, wenn etwas korrigiert wurde.
@@ -129,6 +136,7 @@ enum Change : uint32_t {
   CH_AUTOZERO = 1u << 9, // autoZero*
   CH_BATT = 1u << 10,    // battDividerRatio, batteryPresent
   CH_STATS = 1u << 11,   // statsRotation, statsAfterS/GoalS/StepS
+  CH_BUTTON = 1u << 12,  // holdTaraMs, holdStepMs
 };
 uint32_t diff(const Config &a, const Config &b);
 
@@ -153,7 +161,7 @@ inline bool percentGoal(const Config &c) {
 // Zufallsziel im Prozent-Modus: ganze Prozent in [randomMinPct .. goalPct].
 uint8_t rollGoalPct(const Config &c, uint32_t r);
 
-// ── Klassik (Taster 3,25–5 s) ─────────────────────────────────────────────────
+// ── Klassik (Taster-Zone nach dem AP) ─────────────────────────────────────────
 // Klassik = Game-Modus, Ziel in Gramm mit dem Default-Ziel, kein Zufall. Beim
 // Wechsel nach Klassik merkt sich die Waage Modus, Ziel, Prozent an/aus und
 // Zufall an/aus (dazu randomMin, das sanitize am Klassik-Ziel klemmen kann);

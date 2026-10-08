@@ -121,6 +121,18 @@ static bool argUint(const char *name, uint32_t maxValue, uint32_t *out,
   return false;
 }
 
+// Sekunden aus dem Formular (z. B. "0,75") in ms. Werte ausserhalb von
+// 0..60 s werden 0 und scheitern dann an validate() mit Bereichsmeldung.
+static bool argSeconds(const char *name, uint16_t *ms) {
+  float f;
+  bool p;
+  if (!argFloat(name, &f, &p))
+    return false;
+  if (p)
+    *ms = (f >= 0.0f && f <= 60.0f) ? (uint16_t)(f * 1000.0f + 0.5f) : 0;
+  return true;
+}
+
 static bool argBool(const char *name, bool *out, bool *present) {
   *present = server->hasArg(name) && server->arg(name).length() > 0;
   if (!*present)
@@ -396,6 +408,8 @@ static void writeAdminConfig(web::JsonWriter &j) {
   j.key("statsAfterS").uinteger(c.statsAfterS);
   j.key("statsGoalS").uinteger(c.statsGoalS);
   j.key("statsStepS").uinteger(c.statsStepS);
+  j.key("holdTaraS").num(c.holdTaraMs / 1000.0f, 2);
+  j.key("holdStepS").num(c.holdStepMs / 1000.0f, 2);
   j.key("battDividerRatio").num(c.battDividerRatio, 3);
   j.key("batteryPresent").flag(c.batteryPresent);
   j.key("scaleFactor").num(c.scaleFactor, 4);
@@ -471,6 +485,10 @@ static void handleAdminConfigPost() {
     return;
   if (p)
     n.statsStepS = (uint8_t)u;
+  if (!argSeconds("holdTaraS", &n.holdTaraMs))
+    return;
+  if (!argSeconds("holdStepS", &n.holdStepMs))
+    return;
   if (!argBool("batteryPresent", &b, &p))
     return;
   if (p)

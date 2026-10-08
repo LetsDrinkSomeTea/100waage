@@ -17,19 +17,32 @@ uint32_t since(uint32_t now, uint32_t t) {
   return d > 0x7FFFFFFFu ? 0 : d;
 }
 
-Zone zoneFor(uint32_t held) {
-  if (held < MODE_MS)
+} // namespace
+
+Timing makeTiming(uint32_t taraMs, uint32_t stepMs) {
+  if (taraMs <= MIN_PRESS_MS)
+    taraMs = MIN_PRESS_MS + 1;
+  if (stepMs < 1)
+    stepMs = 1;
+  Timing t;
+  t.modeMs = taraMs;
+  t.radioMs = taraMs + stepMs;
+  t.classicMs = taraMs + 2 * stepMs;
+  t.cancelMs = taraMs + 3 * stepMs;
+  return t;
+}
+
+Zone zoneFor(uint32_t held, const Timing &t) {
+  if (held < t.modeMs)
     return Zone::Short;
-  if (held < RADIO_MS)
+  if (held < t.radioMs)
     return Zone::Mode;
-  if (held < CLASSIC_MS)
+  if (held < t.classicMs)
     return Zone::Radio;
-  if (held < CANCEL_MS)
+  if (held < t.cancelMs)
     return Zone::Classic;
   return Zone::Cancel;
 }
-
-} // namespace
 
 void Button::begin(bool levelAtBoot, uint32_t now) {
   // Ein beim Boot gehaltener Taster gilt sofort als gedrueckt, aber ignoriert.
@@ -63,7 +76,7 @@ Zone Button::update(bool level, uint32_t now) {
     return Zone::None;
   }
   uint32_t held = since(rawSince_, pressSince_);
-  return held < MIN_PRESS_MS ? Zone::None : zoneFor(held);
+  return held < MIN_PRESS_MS ? Zone::None : zoneFor(held, timing_);
 }
 
 uint32_t Button::heldMs(uint32_t now) const {
@@ -83,7 +96,7 @@ uint32_t Button::heldMs(uint32_t now) const {
 Zone Button::zone(uint32_t now) const {
   if (!pressed_ || ignore_)
     return Zone::None;
-  return zoneFor(heldMs(now));
+  return zoneFor(heldMs(now), timing_);
 }
 
 bool Button::overlay(uint32_t now) const {

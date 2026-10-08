@@ -137,6 +137,13 @@ void setF(float &f, float v, bool &changed) {
   }
 }
 
+void setU16(uint16_t &f, uint16_t v, bool &changed) {
+  if (f != v) {
+    f = v;
+    changed = true;
+  }
+}
+
 void setU8(uint8_t &f, uint8_t v, bool &changed) {
   if (f != v) {
     f = v;
@@ -312,6 +319,8 @@ Config defaults() {
   c.statsAfterS = STATS_AFTER_DEFAULT;
   c.statsGoalS = STATS_GOAL_DEFAULT;
   c.statsStepS = STATS_STEP_DEFAULT;
+  c.holdTaraMs = HOLD_TARA_DEFAULT;
+  c.holdStepMs = HOLD_STEP_DEFAULT;
   return c;
 }
 
@@ -377,6 +386,10 @@ bool sanitize(Config &c) {
     setU8(c.statsGoalS, STATS_GOAL_DEFAULT, ch);
   if (c.statsStepS < STATS_SHOW_MIN || c.statsStepS > STATS_SHOW_MAX)
     setU8(c.statsStepS, STATS_STEP_DEFAULT, ch);
+  if (c.holdTaraMs < HOLD_TARA_MIN || c.holdTaraMs > HOLD_TARA_MAX)
+    setU16(c.holdTaraMs, HOLD_TARA_DEFAULT, ch);
+  if (c.holdStepMs < HOLD_STEP_MIN || c.holdStepMs > HOLD_STEP_MAX)
+    setU16(c.holdStepMs, HOLD_STEP_DEFAULT, ch);
   if (c.displayRotation != 0 && c.displayRotation != 2)
     setU8(c.displayRotation, 0, ch);
 
@@ -452,6 +465,10 @@ Error validate(Config &c) {
     return {"statsGoalS", "Anzeigedauer muss zwischen 1 und 60 s liegen"};
   if (c.statsStepS < STATS_SHOW_MIN || c.statsStepS > STATS_SHOW_MAX)
     return {"statsStepS", "Anzeigedauer muss zwischen 1 und 60 s liegen"};
+  if (c.holdTaraMs < HOLD_TARA_MIN || c.holdTaraMs > HOLD_TARA_MAX)
+    return {"holdTaraS", "Tara-Zeit muss zwischen 0,3 und 3 s liegen"};
+  if (c.holdStepMs < HOLD_STEP_MIN || c.holdStepMs > HOLD_STEP_MAX)
+    return {"holdStepS", "Haltezeit je Stufe muss zwischen 0,5 und 3 s liegen"};
 
   if (c.displayRotation != 0 && c.displayRotation != 2)
     return {"displayRotation", "Display-Rotation muss 0° oder 180° sein"};
@@ -627,6 +644,8 @@ uint32_t diff(const Config &a, const Config &b) {
   if (a.statsRotation != b.statsRotation || a.statsAfterS != b.statsAfterS ||
       a.statsGoalS != b.statsGoalS || a.statsStepS != b.statsStepS)
     m |= CH_STATS;
+  if (a.holdTaraMs != b.holdTaraMs || a.holdStepMs != b.holdStepMs)
+    m |= CH_BUTTON;
   return m;
 }
 

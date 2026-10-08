@@ -1150,6 +1150,56 @@ void testFuzzAgainstModel() {
 
 } // namespace
 
+// ── Konfigurierbare Zeiten ────────────────────────────────────────────────────
+
+void testTiming() {
+  // Standard = Konstanten
+  Timing d = makeTiming(750, 1250);
+  Timing k;
+  CHECK(d.modeMs == k.modeMs && d.radioMs == k.radioMs &&
+        d.classicMs == k.classicMs && d.cancelMs == k.cancelMs);
+  CHECK(k.modeMs == MODE_MS && k.radioMs == RADIO_MS &&
+        k.classicMs == CLASSIC_MS && k.cancelMs == CANCEL_MS);
+  // gleiche Breite fuer Modus, AP und Klassik
+  CHECK(RADIO_MS - MODE_MS == CLASSIC_MS - RADIO_MS &&
+        CLASSIC_MS - RADIO_MS == CANCEL_MS - CLASSIC_MS);
+
+  Timing t = makeTiming(400, 600); // 0,4 / 1,0 / 1,6 / 2,2 s
+  CHECK(t.modeMs == 400 && t.radioMs == 1000 && t.classicMs == 1600 &&
+        t.cancelMs == 2200);
+  CHECK(zoneFor(399, t) == Zone::Short && zoneFor(400, t) == Zone::Mode);
+  CHECK(zoneFor(999, t) == Zone::Mode && zoneFor(1000, t) == Zone::Radio);
+  CHECK(zoneFor(1599, t) == Zone::Radio && zoneFor(1600, t) == Zone::Classic);
+  CHECK(zoneFor(2199, t) == Zone::Classic && zoneFor(2200, t) == Zone::Cancel);
+  // unsinnige Werte bleiben aufsteigend
+  Timing z = makeTiming(0, 0);
+  CHECK(z.modeMs > MIN_PRESS_MS && z.modeMs < z.radioMs &&
+        z.radioMs < z.classicMs && z.classicMs < z.cancelMs);
+
+  // Button nutzt die gesetzten Zeiten beim Loslassen und waehrend des Haltens
+  const uint32_t holds[] = {300, 399, 400, 999, 1000, 1600, 2199, 2200};
+  for (uint32_t hold : holds) {
+    Button b;
+    b.begin(false, 0);
+    b.setTiming(t);
+    Zone ev = Zone::None, during = Zone::None;
+    uint32_t now = 0;
+    for (; now < 100; now++)
+      b.update(false, now);
+    for (; now < 100 + hold; now++) {
+      b.update(true, now);
+      during = b.zone(now);
+    }
+    for (; now < 100 + hold + 200; now++) {
+      Zone z2 = b.update(false, now);
+      if (z2 != Zone::None)
+        ev = z2;
+    }
+    CHECK(ev == zoneFor(hold, t));
+    CHECK(during == zoneFor(hold - 1, t));
+  }
+}
+
 int main() {
   testDebounceTiming();
   testDefaultConstructed();
@@ -1171,5 +1221,6 @@ int main() {
   testDebounceBoundaryPulse();
   testLongTimes();
   testFuzzAgainstModel();
+  testTiming();
   return finish("button_core_test");
 }
