@@ -2345,6 +2345,77 @@ static void testGoalPercent() {
   CHECK(rollGoalPct(r, 0) == 0);
 }
 
+// ── Klassik ───────────────────────────────────────────────────────────────────
+
+static void testClassic() {
+  Config d = defaults();
+  CHECK(isClassic(d)); // Werkseinstellung ist klassisch
+  ClassicBackup none = {};
+  CHECK(classicAction(d, none) == ClassicAction::Already);
+
+  // Eigene Einstellungen: Duell, 50 %, Zufall, Ziel 250 g, randomMin 150 g
+  Config c = d;
+  c.scaleMode = ScaleMode::Duel;
+  c.goal = 250.0f;
+  c.goalPercent = true;
+  c.goalPct = 40;
+  c.randomModeEnabled = true;
+  c.randomMin = 150.0f;
+  c.tolerance = 5.0f;
+  CHECK(!sanitize(c));
+  CHECK(!isClassic(c));
+  CHECK(classicAction(c, none) == ClassicAction::ToClassic);
+
+  ClassicBackup b = classicBackup(c);
+  Config k = classic(c);
+  CHECK(isClassic(k));
+  CHECK(k.scaleMode == ScaleMode::Game && k.goal == 100.0f);
+  CHECK(!k.goalPercent && !k.randomModeEnabled);
+  // nur Klassik-Felder (und das geklemmte randomMin) aendern sich
+  CHECK(diff(c, k) == (CH_MODE | CH_GOAL | CH_RANDOM));
+  CHECK(k.goalPct == 40 && k.tolerance == 5.0f && k.randomMin == 100.0f);
+  CHECK(classicAction(k, b) == ClassicAction::Back);
+
+  Config r = restoreClassic(k, b);
+  CHECK(diff(c, r) == 0); // alles wie vorher, auch randomMin
+  CHECK(classicAction(r, none) == ClassicAction::ToClassic);
+
+  // Nur ein Teil abweichend: z. B. nur Zufall an
+  Config z = d;
+  z.randomModeEnabled = true;
+  CHECK(!isClassic(z));
+  z = d;
+  z.goalPercent = true;
+  CHECK(!isClassic(z)); // Prozent zaehlt, auch wenn das Gramm-Ziel stimmt
+  z = d;
+  z.scaleMode = ScaleMode::Standard;
+  CHECK(!isClassic(z));
+  z = d;
+  z.goal = 100.1f;
+  CHECK(!isClassic(z));
+  // Felder ausserhalb von Klassik spielen keine Rolle
+  z = d;
+  z.goalPct = 10;
+  z.randomMin = 50.0f;
+  z.displayRotation = 2;
+  CHECK(isClassic(z));
+
+  // Hohe Toleranz: Default-Ziel wird geklemmt, gilt trotzdem als Klassik
+  z = d;
+  z.tolerance = 100.0f;
+  z.goalPercent = true;
+  sanitize(z);
+  Config zk = classic(z);
+  CHECK(zk.goal == 101.0f && isClassic(zk));
+
+  // Kaputter gemerkter Zustand (z. B. aus dem NVS): sanitize faengt ihn ab
+  ClassicBackup bad = {true, (ScaleMode)7, NAN_F, true, false, -3.0f};
+  Config rb = restoreClassic(k, bad);
+  Config rs = rb;
+  CHECK(!sanitize(rs));
+  CHECK(rb.scaleMode == ScaleMode::Game && rb.goal == 100.0f);
+}
+
 int main() {
   testModes();
   testGoalPercent();
@@ -2380,5 +2451,6 @@ int main() {
   testReviewRollGoalBuckets();
   testReviewLegacyEeprom();
   testReviewApName();
+  testClassic();
   return finish("config_core_test");
 }

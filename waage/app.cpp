@@ -109,7 +109,10 @@ bool app_isBusy() {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
+// classicToggle: Wechsel durch Klassik selbst, behaelt den gemerkten Zustand.
+// Jede andere Aenderung an Modus, Ziel oder Zufall verwirft ihn.
+static ApplyResult applyConfig(cfg::Config next, bool fromWeb,
+                               bool classicToggle) {
   ApplyResult r = {};
   r.status = Apply::Ok;
   if (fromWeb) {
@@ -131,6 +134,8 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
   uint32_t ch = config_set(next);
   const cfg::Config &c = config_get();
   r.changes = ch;
+  if ((ch & cfg::CLASSIC_CHANGES) && !classicToggle)
+    config_setClassicBackup({});
 
   if (ch & cfg::CH_ROTATION)
     ui_setRotation(c.displayRotation);
@@ -164,6 +169,53 @@ ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
   return r;
 }
 
+ApplyResult app_applyConfig(cfg::Config next, bool fromWeb) {
+  return applyConfig(next, fromWeb, false);
+}
+
+// ── Klassik ───────────────────────────────────────────────────────────────────
+
+// Wirkt wie ein Moduswechsel: eine laufende Runde endet sofort, mit Tara.
+static void toggleClassic(uint32_t now) {
+  const cfg::Config c = config_get();
+  const cfg::ClassicBackup b = config_classicBackup();
+  cfg::Config next;
+  switch (cfg::classicAction(c, b)) {
+  case cfg::ClassicAction::ToClassic:
+    config_setClassicBackup(cfg::classicBackup(c)); // zuerst merken
+    next = cfg::classic(c);
+    break;
+  case cfg::ClassicAction::Back:
+    next = cfg::restoreClassic(c, b);
+    config_setClassicBackup({});
+    break;
+  case cfg::ClassicAction::Already:
+  default:
+    uiModel.modeToast("Klassik", cfg::ScaleMode::Game, now);
+    return;
+  }
+  ApplyResult r = applyConfig(next, false, true);
+  if (!(r.changes & cfg::CH_MODE))
+    resetGame(millis()); // Moduswechsel hat schon zurueckgesetzt
+  const cfg::Config &n = config_get();
+  if (cfg::isClassic(n))
+    uiModel.modeToast("Klassik", n.scaleMode, millis());
+  else
+    uiModel.modeToast(n.scaleMode, millis());
+}
+
+// Was "Klassik" beim Loslassen taete (fuer den Haltetext): zurueck, und in
+// welchen Modus.
+static bool classicBack(const cfg::Config &c, cfg::ScaleMode *target) {
+  const cfg::ClassicBackup &b = config_classicBackup();
+  if (cfg::classicAction(c, b) == cfg::ClassicAction::Back) {
+    *target = cfg::restoreClassic(c, b).scaleMode;
+    return true;
+  }
+  *target = cfg::ScaleMode::Game;
+  return false;
+}
+
 // ── Taster ────────────────────────────────────────────────────────────────────
 
 static void handleButton(button::Zone z, uint32_t now) {
@@ -187,6 +239,9 @@ static void handleButton(button::Zone z, uint32_t now) {
       radio_startAP(config_get());
       uiModel.toast(radio_apName(), millis(), AP_NAME_TOAST_MS);
     }
+    break;
+  case button::Zone::Classic:
+    toggleClassic(now);
     break;
   case button::Zone::Cancel:
     uiModel.toast("Abgebrochen", now);
@@ -598,6 +653,8 @@ static void render(const cfg::Config &c, uint32_t now) {
   st.statsStepMs = c.statsStepS * 1000u;
   st.ach = lastAch;
   st.achSeq = lastAchSeq;
+  // nur fuer den Haltetext gebraucht; sonst bleibt Game/false
+  st.classicBack = btn.overlay(now) && classicBack(c, &st.classicMode);
 
   ui::Hold h = {};
   h.active = btn.overlay(now);

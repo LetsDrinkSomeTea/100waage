@@ -126,6 +126,10 @@ geschrieben; fehlt er, gilt der Speicher als leer.
 
 `config_set` schreibt nur die geänderten Schlüssel (Änderungsmaske `cfg::diff`).
 
+Der Klassik-Merker liegt im selben Namespace: `clsMode`, `clsGoal`, `clsPctOn`,
+`clsRnd`, `clsRndMin`, zuletzt `clsOn` (gültig). Löschen schreibt nur
+`clsOn = false`. Ungültige Werte fängt `sanitize` beim Zurückspringen ab.
+
 ### Migration vom alten Format
 
 Beim ersten Start ohne `schema` wird das alte Abbild der Arduino-EEPROM-Emulation
@@ -448,14 +452,36 @@ Waage aufweckt, löst nichts aus.
 | < 0,75 s                 | Reset + Tara (bricht auch eine Kalibrierung ab) | „Tara“                                      |
 | 0,75–2 s                 | nächster Modus: Game → Duell → Standard → Game  | Zielmodus, z. B. „Duell-Modus“, mit Punkten |
 | 2–3,25 s                 | AP an/aus                                       | „AP an“ / „AP aus“                          |
-| ≥ 3,25 s                 | nichts                                          | „Abbrechen“                                 |
+| 3,25–5 s                 | Klassik an / zurück                             | „Klassik“ / „Zurück“, mit Punkten           |
+| ≥ 5 s                    | nichts                                          | „Abbrechen“                                 |
 
-Ab 300 ms zeigt das Display einen Balken über 3,25 s mit Marken bei 0,75 s und
-2 s (Pixel 29 und 78); der Text zeigt die Wirkung beim Loslassen. In der
-Modus-Zone steht der Zielmodus in kleiner Schrift, darunter drei Punkte
+Ab 300 ms zeigt das Display einen Balken über 5 s mit Marken bei 0,75 s, 2 s
+und 3,25 s (Pixel 19, 51 und 83); der Text zeigt die Wirkung beim Loslassen.
+In der Modus-Zone steht der Zielmodus in kleiner Schrift, darunter drei Punkte
 (Game, Duell, Standard) mit dem Zielmodus gefüllt. Der Hinweis nach dem
 Wechsel zeigt Name und Punkte noch einmal. So wird die Reihenfolge sichtbar,
-ohne sie erklären zu müssen.
+ohne sie erklären zu müssen. Die Klassik-Zone zeigt ebenso die Punkte des
+Modus, in dem die Waage danach steht.
+
+### Klassik
+
+Klassik = Game-Modus, Ziel `GOAL_DEFAULT` (100 g) in Gramm, Zufall aus
+(`cfg::classic`, danach `sanitize`, z. B. bei Toleranz ≥ 99 g). Beim Loslassen
+in der Klassik-Zone (`cfg::classicAction`):
+
+| Zustand                           | Aktion                                             | Hinweis                |
+| --------------------------------- | -------------------------------------------------- | ---------------------- |
+| nicht Klassik                     | Zustand merken (`ClassicBackup`), dann Klassik     | „Klassik“, Punkt Game  |
+| Klassik, gemerkter Zustand gültig | gemerkten Zustand wiederherstellen, Merker löschen | Name des Modus, Punkte |
+| Klassik, nichts gemerkt           | nichts                                             | „Klassik“, Punkt Game  |
+
+Gemerkt werden `scaleMode`, `goal`, `goalPercent`, `randomModeEnabled` und
+`randomMin` (das `sanitize` am Klassik-Ziel klemmen kann). Jede andere
+Änderung mit `CH_MODE`, `CH_GOAL` oder `CH_RANDOM` (Taster oder Web) löscht den
+Merker; nur der Klassik-Wechsel selbst behält ihn (`applyConfig(...,
+classicToggle)`). Klassik wirkt wie ein Moduswechsel: Reset mit Tara, auch wenn
+der Modus gleich bleibt; eine Duell-Runde wird verlassen. Ein Werksreset
+löscht den Merker.
 
 ### Modi und Funk
 
@@ -685,8 +711,11 @@ Vor dem Merge mit mindestens zwei Waagen:
       (bekanntes Gewicht vorher und nachher wiegen).
 - [ ] Kurzdruck mit Glas tariert; Glas weg → nach 1 s Nullung (NegZero).
 - [ ] Solo: gutes Ergebnis bleibt beim Abheben, schlechtes verschwindet.
-- [ ] Haltebalken: Texte bei 0,3 / 0,75 / 2 / 3,25 s, Loslassen in jeder Zone;
-      Modus-Punkte im Balken und im Hinweis, Zyklus Game → Duell → Standard.
+- [ ] Haltebalken: Texte bei 0,3 / 0,75 / 2 / 3,25 / 5 s, Loslassen in jeder
+      Zone; Modus-Punkte im Balken und im Hinweis, Zyklus Game → Duell → Standard.
+- [ ] Klassik: aus Duell mit Prozent/Zufall → Game 100 g; Balken zeigt dann
+      „Zurück“; zurück nach Deep-Sleep stellt alles wieder her; nach einer
+      Änderung im Web wieder „Klassik“.
 - [ ] Umlaute auf dem Display („Schüchtern“, Trinksprüche).
 - [ ] Deep-Sleep aus stehendem Ergebnis; Schlafstrom (HX711 aus); Aufwachen im
       Duell-Modus mit Funk an, im Game-Modus ohne.

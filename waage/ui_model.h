@@ -29,6 +29,8 @@ constexpr int TICK_MODE_PX =
     (int)((uint64_t)button::MODE_MS * BAR_W / button::CANCEL_MS);
 constexpr int TICK_RADIO_PX =
     (int)((uint64_t)button::RADIO_MS * BAR_W / button::CANCEL_MS);
+constexpr int TICK_CLASSIC_PX =
+    (int)((uint64_t)button::CLASSIC_MS * BAR_W / button::CANCEL_MS);
 
 enum class Kind : uint8_t {
   Text, // Textzeilen (+ ggf. Symbole)
@@ -73,6 +75,9 @@ struct Status {
   uint32_t statsStepMs;        // je Statistik-Bildschirm
   stats::Achievement ach;      // Erfolg der Runde achSeq (View::roundSeq)
   uint32_t achSeq;
+  // Klassik-Zone: true = "Zurück" in classicMode, false = "Klassik" (Game)
+  bool classicBack;
+  cfg::ScaleMode classicMode;
 };
 
 // Statistik-Bildschirme der Info-Rotation (nach dem Ziel, in dieser Folge)
@@ -96,8 +101,10 @@ const char *modeName(cfg::ScaleMode m);
 
 // Aktionstext beim Loslassen in der jeweiligen Zone (UTF-8):
 // Short "Tara", Mode Name des naechsten Modus (Game → Duell → Standard),
-// Radio "AP aus" / "AP an", Cancel "Abbrechen".
-const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn);
+// Radio "AP aus" / "AP an", Classic "Klassik" / "Zurück" (classicBack),
+// Cancel "Abbrechen".
+const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn,
+                      bool classicBack = false);
 
 // Texte der Bewertung (UTF-8), z. B. "Schüchtern".
 const char *ratingText(game::Rating r);
@@ -108,6 +115,8 @@ public:
   void toast(const char *utf8, uint32_t now, uint32_t ms = TOAST_MS);
   // Kurzmeldung nach einem Moduswechsel: Name + Modus-Punkte.
   void modeToast(cfg::ScaleMode m, uint32_t now);
+  // Wie oben, aber mit eigenem Text (z. B. "Klassik").
+  void modeToast(const char *utf8, cfg::ScaleMode m, uint32_t now);
 
   // system: nullptr oder bis zu 3 UTF-8-Zeilen (nullptr-Eintraege = leer),
   // z. B. Kalibrierschritte, "Sensorfehler", OTA-Fortschritt.

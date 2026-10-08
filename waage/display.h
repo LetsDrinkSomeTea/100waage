@@ -17,7 +17,7 @@ void drawLayout(const text::Layout &l);
 void drawCentered(const char *cp437, int textSize, int y, int h);
 
 void drawLoadingAnimation(int frame);
-void drawHoldBar(int filledPx, int tickA, int tickB);
+void drawHoldBar(int filledPx, int tickA, int tickB, int tickC);
 
 // low: Ausrufezeichen statt Fuellung (Akku-Warnung)
 void drawBatteryIcon(int16_t x, int16_t y, int percentage, bool low);

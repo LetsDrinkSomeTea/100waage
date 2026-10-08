@@ -52,13 +52,13 @@ void drawLoadingAnimation(int frame) {
   }
 }
 
-// Balken unten (y 24..31) mit Markierungen bei tickA/tickB
-void drawHoldBar(int filledPx, int tickA, int tickB) {
+// Balken unten (y 24..31) mit Markierungen bei tickA/tickB/tickC
+void drawHoldBar(int filledPx, int tickA, int tickB, int tickC) {
   constexpr int Y = 24, H = 8;
   display.drawRect(0, Y, SCREEN_WIDTH, H, SSD1306_WHITE);
   if (filledPx > 0)
     display.fillRect(0, Y, filledPx, H, SSD1306_WHITE);
-  for (int x : {tickA, tickB}) {
+  for (int x : {tickA, tickB, tickC}) {
     display.drawFastVLine(x, Y - 3, 3, SSD1306_WHITE);
     // In der Fuellung invertiert, damit die Marke sichtbar bleibt
     display.drawFastVLine(x, Y + 1, H - 2,

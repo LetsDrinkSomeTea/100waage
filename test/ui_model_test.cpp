@@ -42,6 +42,9 @@ static void testLabels() {
       !strcmp(holdLabel(Zone::Mode, ScaleMode::Standard, false), "Game-Modus"));
   CHECK(!strcmp(holdLabel(Zone::Radio, ScaleMode::Game, false), "AP an"));
   CHECK(!strcmp(holdLabel(Zone::Radio, ScaleMode::Duel, true), "AP aus"));
+  CHECK(!strcmp(holdLabel(Zone::Classic, ScaleMode::Duel, false), "Klassik"));
+  CHECK(!strcmp(holdLabel(Zone::Classic, ScaleMode::Game, false, true),
+                "Zurück"));
   CHECK(!strcmp(holdLabel(Zone::Cancel, ScaleMode::Game, true), "Abbrechen"));
   CHECK(!strcmp(ratingText(game::Rating::Shy), "Schüchtern"));
   CHECK(!strcmp(ratingText(game::Rating::Perfect), "Perfekt!"));
@@ -103,6 +106,7 @@ static void testHoldBar() {
   } cases[] = {{0, 0},
                {button::MODE_MS, TICK_MODE_PX},
                {button::RADIO_MS, TICK_RADIO_PX},
+               {button::CLASSIC_MS, TICK_CLASSIC_PX},
                {button::CANCEL_MS, BAR_W},
                {button::CANCEL_MS * 4, BAR_W}};
   for (auto &c : cases) {
@@ -112,7 +116,41 @@ static void testHoldBar() {
     CHECK(f.modeDots == 0);
   }
   CHECK(0 < TICK_MODE_PX && TICK_MODE_PX < TICK_RADIO_PX &&
-        TICK_RADIO_PX < BAR_W);
+        TICK_RADIO_PX < TICK_CLASSIC_PX && TICK_CLASSIC_PX < BAR_W);
+}
+
+// Klassik-Zone: Text und Punkte des Zielmodus, Toast danach mit Punkten
+static void testClassicHold() {
+  game::View v = idleView();
+  Hold h = {true, button::Zone::Classic, button::CLASSIC_MS};
+  {
+    Model m;
+    Status s = status();
+    s.mode = cfg::ScaleMode::Duel;
+    Frame f = m.build(v, s, h, nullptr, 1000);
+    CHECK(f.kind == Kind::Hold && f.text.size == 1);
+    CHECK(!strcmp(f.text.line[0], "Klassik"));
+    CHECK(f.modeDots == 1); // Game
+  }
+  {
+    Model m;
+    Status s = status();
+    s.classicBack = true;
+    s.classicMode = cfg::ScaleMode::Duel;
+    Frame f = m.build(v, s, h, nullptr, 1000);
+    CHECK(f.text.size == 1 && !strcmp(f.text.line[0], "Zur\x81"
+                                                      "ck")); // CP437
+    CHECK(f.modeDots == 2);                                   // Duell
+  }
+  {
+    Model m;
+    m.modeToast("Klassik", cfg::ScaleMode::Game, 1000);
+    Frame f = m.build(v, status(), NO_HOLD, nullptr, 1001);
+    CHECK(f.modeDots == 1 && f.text.size == 1);
+    CHECK(!strcmp(f.text.line[0], "Klassik"));
+    f = m.build(v, status(), NO_HOLD, nullptr, 1000 + TOAST_MS);
+    CHECK(f.modeDots == 0);
+  }
 }
 
 static void testIcons() {
@@ -638,6 +676,7 @@ int main() {
   testLayers();
   testToastWrap();
   testHoldBar();
+  testClassicHold();
   testIcons();
   testModeDots();
   testLowBatt();

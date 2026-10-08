@@ -14,13 +14,15 @@ constexpr uint32_t OVERLAY_MS =
     300;                            // ab hier zeigt das Display den Haltebalken
 constexpr uint32_t MODE_MS = 750;   // Moduswechsel
 constexpr uint32_t RADIO_MS = 2000; // AP an/aus
-constexpr uint32_t CANCEL_MS = 3250; // Abbruch, nichts tun
+constexpr uint32_t CLASSIC_MS = 3250; // Klassik an / zurueck
+constexpr uint32_t CANCEL_MS = 5000;  // Abbruch, nichts tun
 
 enum class Zone : uint8_t {
-  None,  // nicht gedrueckt
-  Short, // < MODE_MS: Reset + Tara
-  Mode,  // MODE_MS..RADIO_MS: naechster Modus (Game → Duell → Standard)
-  Radio, // RADIO_MS..CANCEL_MS: AP an/aus
+  None,    // nicht gedrueckt
+  Short,   // < MODE_MS: Reset + Tara
+  Mode,    // MODE_MS..RADIO_MS: naechster Modus (Game → Duell → Standard)
+  Radio,   // RADIO_MS..CLASSIC_MS: AP an/aus
+  Classic, // CLASSIC_MS..CANCEL_MS: Klassik an / zurueck
   Cancel
 }; // >= CANCEL_MS: nichts
 
@@ -30,7 +32,7 @@ public:
   // wird ignoriert, bis der Taster losgelassen wurde.
   void begin(bool levelAtBoot, uint32_t now);
 
-  // Liefert beim Loslassen die Zone der Haltedauer (Short/Mode/Radio/Cancel),
+  // Liefert beim Loslassen die Zone der Haltedauer (Short..Cancel),
   // sonst Zone::None. Druecke < MIN_PRESS_MS liefern None.
   Zone update(bool level, uint32_t now);
 
