@@ -15,3 +15,9 @@ uint32_t config_set(const cfg::Config &next);
 
 // Werkseinstellungen (schreibt Defaults und das Schema; kein erneuter Import).
 void config_factoryReset();
+
+// Gemerkter Zustand fuer "Klassik zurueck" (eigene Schluessel im selben
+// Namespace, ueberlebt Deep-Sleep und Neustart). Schreibt nur bei Aenderung;
+// ein ungueltiger Zustand loescht nur das Gueltig-Flag.
+const cfg::ClassicBackup &config_classicBackup();
+void config_setClassicBackup(const cfg::ClassicBackup &b);

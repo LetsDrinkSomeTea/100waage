@@ -20,7 +20,8 @@ const char *modeName(cfg::ScaleMode m) {
   return "";
 }
 
-const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn) {
+const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn,
+                      bool classicBack) {
   switch (z) {
   case button::Zone::Short:
     return "Tara";
@@ -28,6 +29,8 @@ const char *holdLabel(button::Zone z, cfg::ScaleMode mode, bool apOn) {
     return modeName(cfg::nextMode(mode));
   case button::Zone::Radio:
     return apOn ? "AP aus" : "AP an";
+  case button::Zone::Classic:
+    return classicBack ? "Zurück" : "Klassik";
   case button::Zone::Cancel:
     return "Abbrechen";
   case button::Zone::None:
@@ -72,7 +75,11 @@ void Model::toast(const char *utf8, uint32_t now, uint32_t ms) {
 }
 
 void Model::modeToast(cfg::ScaleMode m, uint32_t now) {
-  toast(modeName(m), now);
+  modeToast(modeName(m), m, now);
+}
+
+void Model::modeToast(const char *utf8, cfg::ScaleMode m, uint32_t now) {
+  toast(utf8, now);
   toastDots_ = (uint8_t)(1 + cfg::modePosition(m));
 }
 
@@ -434,11 +441,14 @@ Frame Model::build(const game::View &v, const Status &s, const Hold &h,
 
   if (h.active) {
     f.kind = Kind::Hold;
+    const char *label = holdLabel(h.zone, s.mode, s.apOn, s.classicBack);
     if (h.zone == button::Zone::Mode)
-      setModeText(f, holdLabel(h.zone, s.mode, s.apOn),
+      setModeText(f, label,
                   (uint8_t)(1 + cfg::modePosition(cfg::nextMode(s.mode))));
+    else if (h.zone == button::Zone::Classic)
+      setModeText(f, label, (uint8_t)(1 + cfg::modePosition(s.classicMode)));
     else
-      setText(f, holdLabel(h.zone, s.mode, s.apOn));
+      setText(f, label);
     uint32_t held = h.heldMs > button::CANCEL_MS ? button::CANCEL_MS : h.heldMs;
     f.barPx = (uint8_t)((uint64_t)held * BAR_W / button::CANCEL_MS);
     return f;

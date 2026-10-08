@@ -25,17 +25,32 @@ Duell-Modus per Funk gegeneinander antreten. Technische Details stehen in [Specs
 
 ### Taster
 
-| Aktion           | Wirkung                                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------------------------- |
-| Drücken < 0,75 s | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                       |
-| Halten           | Ab 0,3 s erscheint ein Balken mit Marken bei 0,75 s und 2 s; der Text zeigt, was beim Loslassen passiert |
-| Halten 0,75–2 s  | Nächster Modus: Game → Duell → Standard → Game                                                           |
-| Halten 2–3,25 s  | Config-AP an/aus                                                                                         |
-| Halten ≥ 3,25 s  | Abbrechen, nichts passiert                                                                               |
+| Aktion           | Wirkung                                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Drücken < 0,75 s | Zurücksetzen **und tarieren** (immer, auch mit Glas auf der Waage)                                               |
+| Halten           | Ab 0,3 s erscheint ein Balken mit Marken bei 0,75 s, 2 s und 3,25 s; der Text zeigt, was beim Loslassen passiert |
+| Halten 0,75–2 s  | Nächster Modus: Game → Duell → Standard → Game                                                                   |
+| Halten 2–3,25 s  | Config-AP an/aus                                                                                                 |
+| Halten 3,25–5 s  | **Klassik** an bzw. zurück (siehe unten)                                                                         |
+| Halten ≥ 5 s     | Abbrechen, nichts passiert                                                                                       |
 
 Beim Moduswechsel zeigt der Balken den Zielmodus mit drei Punkten darunter
 (Game, Duell, Standard, der Zielmodus ist gefüllt). Nach dem Loslassen
 erscheinen Name und Punkte noch einmal kurz.
+
+### Klassik
+
+Wer mit den Einstellungen herumgespielt hat und wieder das klassische Spiel
+will: 3,25 s halten, bis `Klassik` erscheint. Die Waage stellt dann auf
+Game-Modus, Ziel 100 g (Firmware-Standard, in Gramm statt Prozent) und
+Zufall aus. Alles andere bleibt, wie es ist.
+
+Die vorherigen Einstellungen (Modus, Ziel, Prozent an/aus, Zufall an/aus)
+merkt sich die Waage, auch über Deep-Sleep und Ausschalten. Nochmal 3,25 s
+halten (der Balken zeigt dann `Zurück`) springt dorthin zurück, solange
+seitdem nichts an Modus, Ziel, Prozent oder Zufall geändert wurde, ob per
+Taster oder im Web. Wie beim Moduswechsel endet eine laufende Runde, die
+Waage tariert.
 
 ### Modi
 

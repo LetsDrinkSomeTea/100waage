@@ -22,8 +22,10 @@ Zone expectZone(uint32_t heldMs) {
     return Zone::Short;
   if (heldMs < RADIO_MS)
     return Zone::Mode;
-  if (heldMs < CANCEL_MS)
+  if (heldMs < CLASSIC_MS)
     return Zone::Radio;
+  if (heldMs < CANCEL_MS)
+    return Zone::Classic;
   return Zone::Cancel;
 }
 
@@ -226,7 +228,8 @@ void testReleaseBoundaries() {
       {MIN_PRESS_MS - 1, Zone::None}, {MIN_PRESS_MS, Zone::Short},
       {MODE_MS - 1, Zone::Short},     {MODE_MS, Zone::Mode},
       {RADIO_MS - 1, Zone::Mode},     {RADIO_MS, Zone::Radio},
-      {CANCEL_MS - 1, Zone::Radio},   {CANCEL_MS, Zone::Cancel},
+      {CLASSIC_MS - 1, Zone::Radio},  {CLASSIC_MS, Zone::Classic},
+      {CANCEL_MS - 1, Zone::Classic}, {CANCEL_MS, Zone::Cancel},
       {30000, Zone::Cancel},
   };
   for (uint32_t base : BASES) {
@@ -264,8 +267,8 @@ void testWhileHeld() {
 
     bool heldOk = true, zoneOk = true, overlayOk = true, pressedOk = true;
     // Zone direkt vor und an jeder Grenze
-    const uint32_t bounds[] = {MODE_MS, RADIO_MS, CANCEL_MS};
-    Zone atBefore[3] = {}, atBound[3] = {}, before = Zone::Cancel;
+    const uint32_t bounds[] = {MODE_MS, RADIO_MS, CLASSIC_MS, CANCEL_MS};
+    Zone atBefore[4] = {}, atBound[4] = {}, before = Zone::Cancel;
     bool ov299 = true, ov300 = false;
     Log log;
     run(b, w, base, w.length(), 1, log, [&](uint32_t now) {
@@ -295,7 +298,7 @@ void testWhileHeld() {
         ov299 = b.overlay(now);
       if (off == OVERLAY_MS)
         ov300 = b.overlay(now);
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 4; i++) {
         if (off == bounds[i] - 1)
           atBefore[i] = b.zone(now);
         if (off == bounds[i])
@@ -314,7 +317,9 @@ void testWhileHeld() {
     CHECK(atBefore[1] == Zone::Mode);
     CHECK(atBound[1] == Zone::Radio);
     CHECK(atBefore[2] == Zone::Radio);
-    CHECK(atBound[2] == Zone::Cancel);
+    CHECK(atBound[2] == Zone::Classic);
+    CHECK(atBefore[3] == Zone::Classic);
+    CHECK(atBound[3] == Zone::Cancel);
     CHECK(log.zones.size() == 1 && log.zones[0] == Zone::Cancel);
     CHECK(log.edges == 2);
   }
@@ -403,7 +408,7 @@ void testReleaseBounceAfterRadio() {
 // Ereignis.
 void testRandomBursts() {
   const uint32_t holds[] = {500, MODE_MS + 500, RADIO_MS + 500,
-                            CANCEL_MS + 2000};
+                            CLASSIC_MS + 500, CANCEL_MS + 2000};
   const uint32_t steps[] = {1, 3, 7, 16, 60};
   Lcg r{12345};
   int bad = 0, trials = 0;
@@ -1034,8 +1039,8 @@ struct RefButton {
 // Ueberlauf.
 void testFuzzAgainstModel() {
   Lcg r{0xB0771E5u};
-  const uint32_t holdsNear[] = {MIN_PRESS_MS, OVERLAY_MS, MODE_MS, RADIO_MS,
-                                CANCEL_MS};
+  const uint32_t holdsNear[] = {MIN_PRESS_MS, OVERLAY_MS, MODE_MS,
+                                RADIO_MS,     CLASSIC_MS, CANCEL_MS};
   int mismatches = 0, invariantFails = 0, events = 0, trials = 0;
   for (int trial = 0; trial < 160; trial++) {
     const uint32_t base =
@@ -1058,7 +1063,7 @@ void testFuzzAgainstModel() {
         hold = 1 + r.next(120);
         break;
       case 1:
-        hold = holdsNear[r.next(5)] - 15 + r.next(30);
+        hold = holdsNear[r.next(6)] - 15 + r.next(30);
         break;
       case 2:
         hold = 100 + r.next(9000);

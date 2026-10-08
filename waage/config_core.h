@@ -153,4 +153,37 @@ inline bool percentGoal(const Config &c) {
 // Zufallsziel im Prozent-Modus: ganze Prozent in [randomMinPct .. goalPct].
 uint8_t rollGoalPct(const Config &c, uint32_t r);
 
+// ── Klassik (Taster 3,25–5 s) ─────────────────────────────────────────────────
+// Klassik = Game-Modus, Ziel in Gramm mit dem Default-Ziel, kein Zufall. Beim
+// Wechsel nach Klassik merkt sich die Waage Modus, Ziel, Prozent an/aus und
+// Zufall an/aus (dazu randomMin, das sanitize am Klassik-Ziel klemmen kann);
+// erneutes Klassik springt dorthin zurueck, solange seitdem
+// nichts an Modus, Ziel oder Zufall geaendert wurde (CLASSIC_CHANGES).
+struct ClassicBackup {
+  bool valid;
+  ScaleMode scaleMode;
+  float goal;
+  bool goalPercent;
+  bool randomModeEnabled;
+  float randomMin;
+};
+
+constexpr uint32_t CLASSIC_CHANGES = CH_MODE | CH_GOAL | CH_RANDOM;
+
+// c mit den Klassik-Werten (danach sanitize, z. B. bei hoher Toleranz).
+Config classic(const Config &c);
+// c entspricht schon Klassik (nach sanitize verglichen).
+bool isClassic(const Config &c);
+// Gemerkter Zustand von c (valid = true).
+ClassicBackup classicBackup(const Config &c);
+// c mit dem gemerkten Zustand b (danach sanitize).
+Config restoreClassic(const Config &c, const ClassicBackup &b);
+
+enum class ClassicAction : uint8_t {
+  ToClassic, // merken, dann Klassik
+  Back,      // zurueck zum gemerkten Zustand
+  Already    // schon Klassik, nichts gemerkt: nichts aendern
+};
+ClassicAction classicAction(const Config &c, const ClassicBackup &b);
+
 } // namespace cfg

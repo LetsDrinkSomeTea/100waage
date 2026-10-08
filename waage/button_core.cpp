@@ -5,7 +5,7 @@ namespace button {
 static_assert(DEBOUNCE_MS < MIN_PRESS_MS,
               "Mindestdruck muss laenger als die Entprellung sein");
 static_assert(MIN_PRESS_MS < MODE_MS && MODE_MS < RADIO_MS &&
-                  RADIO_MS < CANCEL_MS,
+                  RADIO_MS < CLASSIC_MS && CLASSIC_MS < CANCEL_MS,
               "Zonen muessen aufsteigend sein");
 
 namespace {
@@ -22,8 +22,10 @@ Zone zoneFor(uint32_t held) {
     return Zone::Short;
   if (held < RADIO_MS)
     return Zone::Mode;
-  if (held < CANCEL_MS)
+  if (held < CLASSIC_MS)
     return Zone::Radio;
+  if (held < CANCEL_MS)
+    return Zone::Classic;
   return Zone::Cancel;
 }
 

@@ -16,6 +16,20 @@ static constexpr char LEGACY_NS[] = "eeprom";
 static constexpr char LEGACY_KEY[] = "eeprom";
 
 static cfg::Config current;
+static cfg::ClassicBackup classicBak = {};
+
+static void readClassic(Preferences &p) {
+  classicBak = {};
+  classicBak.valid = p.getBool("clsOn", false);
+  if (!classicBak.valid)
+    return;
+  classicBak.scaleMode = (cfg::ScaleMode)p.getUChar("clsMode", 0);
+  classicBak.goal = p.getFloat("clsGoal", 0.0f);
+  classicBak.goalPercent = p.getBool("clsPctOn", false);
+  classicBak.randomModeEnabled = p.getBool("clsRnd", false);
+  classicBak.randomMin = p.getFloat("clsRndMin", 0.0f);
+  // Ungueltige Werte faengt sanitize beim Zurueckspringen ab.
+}
 
 static void writeAll(Preferences &p, const cfg::Config &c, uint32_t mask) {
   if (mask & cfg::CH_SSID)
@@ -132,6 +146,7 @@ void config_begin() {
     writeAll(p, current, ALL);
     p.putUChar(K_SCHEMA, SCHEMA);
   }
+  readClassic(p);
   p.end();
 }
 
@@ -157,5 +172,26 @@ void config_factoryReset() {
   current = cfg::defaults();
   writeAll(p, current, ALL);
   p.putUChar(K_SCHEMA, SCHEMA);
+  p.putBool("clsOn", false);
+  classicBak = {};
   p.end();
+}
+
+const cfg::ClassicBackup &config_classicBackup() { return classicBak; }
+
+void config_setClassicBackup(const cfg::ClassicBackup &b) {
+  if (!b.valid && !classicBak.valid)
+    return;
+  Preferences p;
+  p.begin(NS, false);
+  if (b.valid) {
+    p.putUChar("clsMode", (uint8_t)b.scaleMode);
+    p.putFloat("clsGoal", b.goal);
+    p.putBool("clsPctOn", b.goalPercent);
+    p.putBool("clsRnd", b.randomModeEnabled);
+    p.putFloat("clsRndMin", b.randomMin);
+  }
+  p.putBool("clsOn", b.valid); // zuletzt: markiert einen vollstaendigen Satz
+  p.end();
+  classicBak = b.valid ? b : cfg::ClassicBackup{};
 }

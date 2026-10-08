@@ -696,4 +696,45 @@ uint8_t rollGoalPct(const Config &c, uint32_t r) {
   return (uint8_t)(lo + (uint32_t)(((uint64_t)r * span) >> 32));
 }
 
+// ── Klassik ───────────────────────────────────────────────────────────────────
+
+Config classic(const Config &c) {
+  Config k = c;
+  k.scaleMode = ScaleMode::Game;
+  k.goal = GOAL_DEFAULT;
+  k.goalPercent = false;
+  k.randomModeEnabled = false;
+  sanitize(k);
+  return k;
+}
+
+bool isClassic(const Config &c) {
+  const Config k = classic(c);
+  return c.scaleMode == k.scaleMode && c.goal == k.goal &&
+         c.goalPercent == k.goalPercent &&
+         c.randomModeEnabled == k.randomModeEnabled;
+}
+
+ClassicBackup classicBackup(const Config &c) {
+  return {true,          c.scaleMode,         c.goal,
+          c.goalPercent, c.randomModeEnabled, c.randomMin};
+}
+
+Config restoreClassic(const Config &c, const ClassicBackup &b) {
+  Config r = c;
+  r.scaleMode = b.scaleMode;
+  r.goal = b.goal;
+  r.goalPercent = b.goalPercent;
+  r.randomModeEnabled = b.randomModeEnabled;
+  r.randomMin = b.randomMin;
+  sanitize(r);
+  return r;
+}
+
+ClassicAction classicAction(const Config &c, const ClassicBackup &b) {
+  if (!isClassic(c))
+    return ClassicAction::ToClassic;
+  return b.valid ? ClassicAction::Back : ClassicAction::Already;
+}
+
 } // namespace cfg
