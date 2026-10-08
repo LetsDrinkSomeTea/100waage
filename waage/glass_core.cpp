@@ -518,6 +518,22 @@ Detection Detector::place(const List &l, float absW, float tol) {
         content <= last->nominalG * (float)FILL_MAX_PCT / 100.0f)
       best = last;
   }
+  // Kein Kandidat: passt physikalisch nur ein Glas (alle anderen leer schon
+  // zu schwer oder ueberlaufend), dann dieses
+  if (!best) {
+    int possible = 0;
+    for (int i = 0; i < l.count(); i++) {
+      const Glass &g = l.at(i);
+      const float content = absW - g.emptyG;
+      if (content > tol &&
+          content <= g.nominalG * (float)FILL_MAX_PCT / 100.0f) {
+        best = &g;
+        possible++;
+      }
+    }
+    if (possible != 1)
+      best = nullptr;
+  }
   if (best) {
     mem_.lastId = best->id;
     mem_.refG = absW;

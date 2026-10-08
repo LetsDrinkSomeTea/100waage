@@ -24,7 +24,9 @@
 //     Nennfuellung; das letzte Glas bleibt, solange es hoechstens
 //     LAST_BONUS_PCT Prozentpunkte schlechter passt. Kein Kandidat: das
 //     letzte Glas, wenn es mehr als tol und hoechstens FILL_MAX_PCT % Inhalt
-//     haette (leer erkannt, dann nur halb eingeschenkt).
+//     haette (leer erkannt, dann nur halb eingeschenkt). Sonst das einzige
+//     Glas, das ueberhaupt passt (mehr als tol und hoechstens FILL_MAX_PCT %
+//     Inhalt; alle anderen leer schon zu schwer oder ueberlaufend).
 //  4. Kein Kandidat → unbekannt (Gedaechtnis bleibt).
 // Referenz = letztes Gewicht, mit dem das letzte Glas auf der Waage stand
 // (beim Aufstellen, nach einer Runde das Endgewicht, siehe settle()).

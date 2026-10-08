@@ -123,7 +123,8 @@ So wird das Glas bestimmt:
   115 % der Füllmenge. Das zuletzt benutzte Glas bleibt, solange es höchstens
   10 Prozentpunkte schlechter passt als das beste andere. Passt gar keins, gilt
   das letzte Glas auch mit weniger Inhalt (leer erkannt, dann halb
-  eingeschenkt).
+  eingeschenkt). Sonst das einzige Glas, das überhaupt passt, weil alle
+  anderen schon leer schwerer wären oder überlaufen würden.
 - Im Web **festgelegt**: gilt bis zum Neustart (Deep-Sleep zählt nicht).
 
 Was die Waage nicht erkennen kann: ein leichteres, anderes Glas direkt nach

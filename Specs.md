@@ -321,14 +321,15 @@ steht, und erneut, wenn sich das absolute Gewicht um mehr als `tolerance`
 Aufstellen; nach einer Runde mit bestimmtem Glas das absolute Endgewicht).
 Gewicht W absolut, Toleranz `tolerance`, Regeln in dieser Reihenfolge:
 
-| #   | Bedingung                                                            | Ergebnis                                                                                                           |
-| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 0   | Glas im Web festgelegt                                               | dieses Glas                                                                                                        |
-| 1   | W ≤ Referenz + Toleranz und W ≥ Leergewicht(letztes Glas) − Toleranz | dasselbe Glas                                                                                                      |
-| 2   | \|W − Leergewicht\| ≤ Toleranz für ein Glas                          | leeres Glas (nächstes), Hinweis mit Namen im Prozent-Modus                                                         |
-| 3   | Inhalt in 70–115 % der Nennfüllung (`FILL_MIN_PCT`, `FILL_MAX_PCT`)  | kleinste Abweichung von der Nennfüllung; das letzte Glas bleibt bis 10 Prozentpunkte (`LAST_BONUS_PCT`) schlechter |
-| 3b  | kein Kandidat, letztes Glas hätte > Toleranz und ≤ 115 % Inhalt      | letztes Glas (leer erkannt, dann wenig eingeschenkt)                                                               |
-| 4   | sonst                                                                | unbekannt, Gedächtnis bleibt                                                                                       |
+| #   | Bedingung                                                                                                   | Ergebnis                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 0   | Glas im Web festgelegt                                                                                      | dieses Glas                                                                                                        |
+| 1   | W ≤ Referenz + Toleranz und W ≥ Leergewicht(letztes Glas) − Toleranz                                        | dasselbe Glas                                                                                                      |
+| 2   | \|W − Leergewicht\| ≤ Toleranz für ein Glas                                                                 | leeres Glas (nächstes), Hinweis mit Namen im Prozent-Modus                                                         |
+| 3   | Inhalt in 70–115 % der Nennfüllung (`FILL_MIN_PCT`, `FILL_MAX_PCT`)                                         | kleinste Abweichung von der Nennfüllung; das letzte Glas bleibt bis 10 Prozentpunkte (`LAST_BONUS_PCT`) schlechter |
+| 3b  | kein Kandidat, letztes Glas hätte > Toleranz und ≤ 115 % Inhalt                                             | letztes Glas (leer erkannt, dann wenig eingeschenkt)                                                               |
+| 3c  | sonst genau ein Glas mit > Toleranz und ≤ 115 % Inhalt (alle anderen leer schon zu schwer oder überlaufend) | dieses Glas                                                                                                        |
+| 4   | sonst                                                                                                       | unbekannt, Gedächtnis bleibt                                                                                       |
 
 Ohne Leer-Referenz oder Liste: unbekannt. Liste oder Festlegung geändert: das
 stehende Glas wird neu bestimmt. Gedächtnis und Festlegung überleben den

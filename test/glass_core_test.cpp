@@ -349,18 +349,28 @@ static void testUnknown() {
   e.begin(nullptr, 0, 1);
   Detector x;
   CHECK(x.place(e, 500.0f, TOL).id == 0);
-  // Grenzen 70 % / 115 % (Euro 0,5: 350..575 g Inhalt)
+  // Grenzen 70 % / 115 % (Euro 0,5: 350..575 g Inhalt). Das zweite Glas
+  // ist bei allen Gewichten moeglich, aber nie Kandidat (sonst griffe
+  // "nur ein Glas passt")
   Detector b;
-  List only;
-  static const Glass ONE[] = {{3, "Euro 0,5", 370.0f, 500.0f}};
-  only.begin(ONE, 1, 4);
-  CHECK(b.place(only, 370.0f + 350.0f, TOL).id == 3);
+  List two;
+  static const Glass TWO[] = {{3, "Euro 0,5", 370.0f, 500.0f},
+                              {9, "Maß", 650.0f, 1000.0f}};
+  two.begin(TWO, 2, 10);
+  CHECK(b.place(two, 370.0f + 350.0f, TOL).id == 3);
   Detector c;
-  CHECK(c.place(only, 370.0f + 349.0f, TOL).id == 0);
+  CHECK(c.place(two, 370.0f + 349.0f, TOL).id == 0);
   Detector f;
-  CHECK(f.place(only, 370.0f + 575.0f, TOL).id == 3);
+  CHECK(f.place(two, 370.0f + 575.0f, TOL).id == 3);
   Detector g;
-  CHECK(g.place(only, 370.0f + 576.0f, TOL).id == 0);
+  CHECK(g.place(two, 370.0f + 576.0f, TOL).id == 9); // nur noch Maß moeglich
+  // Ein einziges Glas in der Liste gilt immer, solange es nicht ueberlaeuft
+  List only;
+  only.begin(TWO, 1, 4);
+  Detector k;
+  CHECK(k.place(only, 370.0f + 100.0f, TOL).id == 3);
+  Detector n;
+  CHECK(n.place(only, 370.0f + 576.0f, TOL).id == 0);
 }
 
 static void testLostGlass() {
@@ -372,6 +382,36 @@ static void testLostGlass() {
   d.settle(570.0f);
   l.remove(2);
   CHECK(d.place(l, 570.0f, TOL).id == 1);
+}
+
+// Nur ein Glas passt ueberhaupt: alle anderen zu schwer oder ueberlaufend
+static void testOnlyPossible() {
+  // Fall aus dem Web: Gläsle 249,1 g, Krügle 623,4 g, 378 g auf der Waage
+  static const Glass TWO[] = {{1, "Gläsle", 249.1f, 300.0f},
+                              {2, "Krügle", 623.4f, 400.0f}};
+  List l;
+  l.begin(TWO, 2, 3);
+  Detector d;
+  Detection r = d.place(l, 378.0f, TOL); // 43 %: kein Kandidat
+  CHECK(r.id == 1 && r.source == Source::Auto);
+  CHECK(d.memory().lastId == 1);
+
+  // Andere Gläser wuerden ueberlaufen (Schnapsglas)
+  static const Glass SMALL[] = {{1, "Schnaps", 50.0f, 20.0f},
+                                {2, "Tulpe 0,3", 270.0f, 300.0f}};
+  List s;
+  s.begin(SMALL, 2, 3);
+  Detector e;
+  CHECK(e.place(s, 400.0f, TOL).id == 2);
+
+  // Zwei moegliche Glaeser: unbekannt
+  List all;
+  fresh(all);
+  Detector f;
+  CHECK(f.place(all, 400.0f, TOL).id == 0); // Tulpe 43 %, Euro 33 42 %
+  // Ohne Inhalt ueber tol: unbekannt
+  Detector g;
+  CHECK(g.place(l, 255.0f, TOL).id == 1); // leer (Regel 2)
 }
 
 int main() {
@@ -387,5 +427,6 @@ int main() {
   testEmptyGlass();
   testUnknown();
   testLostGlass();
+  testOnlyPossible();
   return finish("glass_core_test");
 }
