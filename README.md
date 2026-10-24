@@ -117,9 +117,9 @@ Statt eines Ziels in Gramm lässt sich im Web „Ziel in Prozent“ einschalten:
 Getrunken werden soll ein Anteil vom Glasinhalt, z. B. 50 %. Das gilt nur im
 Game-Modus; im Duell bleibt das Ziel in Gramm.
 
-Dafür kennt die Waage die Leergewichte gängiger Gläser (Standard: Sahm Tulpe
-0,3, Sahm Krug 0,4, Euroflasche 0,5 und 0,33) und erkennt beim Aufstellen, welches
-Glas draufsteht. Bestimmt wird immer, angezeigt nur im Prozent-Modus:
+Dafür kennt die Waage die Leergewichte gängiger Gläser (Standard: Gläsle 0,3,
+Halbe 0,4, Krügle 0,5) und erkennt beim Aufstellen, welches Glas draufsteht.
+Bestimmt wird immer, angezeigt nur im Prozent-Modus:
 
 | Display                | Bedeutung                                                           |
 | ---------------------- | ------------------------------------------------------------------- |
@@ -155,7 +155,7 @@ So wird das Glas bestimmt:
 Was die Waage nicht erkennen kann:
 
 - ein Glas, das sie noch nie voll gesehen hat und das halb voll so viel wiegt
-  wie ein anderes volles (z. B. halbes Krügle wie volle Euroflasche);
+  wie ein anderes volles (z. B. halb volles großes wie volles kleines Glas);
 - ein Glas, das nicht in der Liste steht;
 - innerhalb der Tauschzeit außerhalb der Waage getrunken, wenn das Gewicht dann
   zu einem anderen vollen Glas passt.

@@ -297,7 +297,7 @@ Leergewicht (1–3000 g), Nennfüllung (10–3000 g), höchstens 24 Gläser.
 
 - **Standardgläser** stehen in `glasses_default.h` (IDs 1–999, nie
   wiederverwenden; `DEFAULT_NEXT_ID` = erste freie). Die Leergewichte sind
-  vorerst Platzhalter.
+  gewogen.
 - Im NVS (Namespace `glass`, Blob `d` mit Versionsbyte) liegen nur
   **Abweichungen**: eigene Gläser (IDs ab 1000), geänderte und gelöschte
   Standardgläser. Beim Laden fallen Abweichungen weg, die die Firmware schon
